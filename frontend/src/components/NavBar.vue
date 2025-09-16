@@ -7,7 +7,7 @@
         
         <div class="navbar-links">
           <router-link to="/" class="navbar-link">Home</router-link>
-          <router-link to="" class="navbar-link">Link1</router-link>
+          <router-link to="/tasks" class="navbar-link">All Tasks</router-link>
           <router-link to="" class="navbar-link">Link2</router-link>
           <router-link to="" class="navbar-link">Link3</router-link>
         </div>
@@ -54,10 +54,10 @@
     transition: color 0.2s, background-color 0.2s;
   }
   
-  .navbar-link:hover, .navbar-link.router-link-active {
+  /* .navbar-link:hover, .navbar-link.router-link-active {
     color: #111827;
     background: #f3f4f6;
-  }
+  } */
   
   @media (max-width: 768px) {
     .navbar-links {
