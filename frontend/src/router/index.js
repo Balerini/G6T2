@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import Login from '../views/Login.vue';
 import Home from '../views/Home.vue';
 import Tasks from '../views/Tasks.vue';
+import CreateTask from '../views/CreateTask.vue'
 
 const routes = [
   {
@@ -23,12 +24,18 @@ const routes = [
     meta: { showNav: true }
   },
   {
+    path: '/createtask',
+    name: 'createtask',
+    component: CreateTask,
+    meta: { showNav: true }
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }
 ]
 
-  const router = createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes
 });
