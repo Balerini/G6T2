@@ -27,7 +27,7 @@ export default {
   },
   methods: {
     goBack() {
-      this.$router.push("/projects");
+      this.$router.push("/Tasks");
     }
   }
 };

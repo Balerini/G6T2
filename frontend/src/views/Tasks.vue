@@ -5,7 +5,7 @@
       <div class="container">
         <div class="header-content">
           <h1 class="hero-title">Projects</h1>
-          <button class="tab-btn new-project-btn" @click="showNewProjectModal = true">
+          <button class="tab-btn new-project-btn" @click="navigateToCreateProject">
             + New Project
           </button>
         </div>
@@ -257,6 +257,9 @@ export default {
         month: 'short', 
         year: 'numeric' 
       });
+    },
+    navigateToCreateProject() {
+      this.$router.push('/createtask');
     }
   }
 }
