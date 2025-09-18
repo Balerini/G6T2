@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+venv/
+
+# Env files
+.env
+.env.*
+
+# Firebase service account key (if stored locally)
+serviceAccountKey.json
+
