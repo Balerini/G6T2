@@ -64,6 +64,7 @@ export default {
       // edit task logic here
     },
     handleViewSubtask(subtask) {
+      this.$router.push(`/tasks/${subtask.taskId}/subtask/${subtask.subTaskId}`);
       console.log('View subtask:', subtask);
       // view subtask logic here
     },
