@@ -6,13 +6,13 @@
         <div class="header-content">
           <h1 class="hero-title">Projects</h1>
           <button class="tab-btn new-project-btn" @click="navigateToCreateProject">
-            + New Task
+            + New Project
           </button>
         </div>
         
         <div class="action-tabs">
           <button class="tab-btn" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
-            All Tasks
+            All Projects
           </button>
         </div>
       </div>

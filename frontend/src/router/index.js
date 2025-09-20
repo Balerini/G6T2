@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 import Login from '../views/Login.vue';
 import Home from '../views/Home.vue';
-import Tasks from '../views/Tasks.vue';
+import Tasks from '../views/Projects.vue';
 import CreateTask from '../views/CreateTask.vue'
 import ViewIndivSubTask from '../views/ViewIndivSubTask.vue'
 
