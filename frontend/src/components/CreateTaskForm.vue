@@ -86,15 +86,32 @@
 
     <!-- Form Actions -->
     <div class="form-actions">
-      <button type="button" class="btn btn-cancel">Cancel</button>
-      <button type="submit" class="btn btn-primary">Create Task</button>
+      <button type="button" class="btn btn-cancel" @click="$emit('cancel')">Cancel</button>
+      <button type="submit" class="btn btn-primary" @click="handleSubmit">Create Task</button>
     </div>
   </form>
 </template>
 
 <script>
 export default {
-  name: "TaskForm"
+  name: "TaskForm",
+  emits: ['submit', 'cancel'],
+  methods: {
+    handleSubmit(event) {
+      event.preventDefault();
+      
+      // Get form data
+      const formData = {
+        taskName: document.getElementById('taskName').value,
+        deadline: document.getElementById('deadline').value,
+        status: document.getElementById('status').value,
+        // Add other form fields as needed
+      };
+      
+      // Emit the submit event with form data
+      this.$emit('submit', formData);
+    }
+  }
 };
 </script>
 

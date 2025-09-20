@@ -29,22 +29,39 @@
         />
       </div>
     </div>
+
+    <!-- Modal for Create Task Form -->
+    <div v-if="showCreateTaskForm" class="modal-overlay" @click="closeCreateTaskForm">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h2 class="modal-title">Create Subtask</h2>
+          <button class="close-button" @click="closeCreateTaskForm">×</button>
+        </div>
+        <div class="modal-body">
+          <CreateTaskForm @submit="handleTaskSubmit" @cancel="closeCreateTaskForm" />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import TaskList from '../components/Projects/TaskList.vue'
+import CreateTaskForm from '../components/CreateTaskForm.vue'
 import { mockTasks } from '../dummyData/taskData.js'
 
 export default {
   name: 'CRMTaskManager',
   components: {
-    TaskList
+    TaskList,
+    CreateTaskForm
   },
   data() {
     return {
       activeTab: 'all',
-      tasks: mockTasks
+      tasks: mockTasks,
+      showCreateTaskForm: false,
+      selectedTask: null
     }
   },
   computed: {
@@ -70,7 +87,17 @@ export default {
     },
     handleAddSubtask(task) {
       console.log('Add subtask to task:', task);
-      // subtask logic here
+      this.selectedTask = task;
+      this.showCreateTaskForm = true;
+    },
+    closeCreateTaskForm() {
+      this.showCreateTaskForm = false;
+      this.selectedTask = null;
+    },
+    handleTaskSubmit(taskData) {
+      console.log('Task submitted:', taskData);
+      // Handle task submission logic here
+      this.closeCreateTaskForm();
     }
   }
 }
@@ -157,6 +184,84 @@ export default {
   
   .action-tabs {
     flex-direction: column;
+  }
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  max-width: 800px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.close-button:hover {
+  color: #374151;
+}
+
+.modal-body {
+  padding: 2rem;
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    margin: 1rem;
+    max-height: 95vh;
+  }
+  
+  .modal-header {
+    padding: 1rem 1.5rem;
+  }
+  
+  .modal-body {
+    padding: 1.5rem;
+  }
+  
+  .modal-title {
+    font-size: 1.25rem;
   }
 }
 </style>
