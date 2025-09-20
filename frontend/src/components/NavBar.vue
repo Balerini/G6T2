@@ -7,7 +7,7 @@
         
         <div class="navbar-links">
           <router-link to="/" class="navbar-link">Home</router-link>
-          <router-link to="/tasks" class="navbar-link">All Tasks</router-link>
+          <router-link to="/projects" class="navbar-link">All Projects</router-link>
           <router-link to="" class="navbar-link">Link 2</router-link>
           <router-link to="" class="navbar-link">Link3</router-link>
         </div>

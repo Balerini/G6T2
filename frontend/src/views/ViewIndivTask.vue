@@ -1,5 +1,5 @@
 <template>
-  <div class="view-subtask-page">
+  <div class="view-task-page">
     <!-- Header -->
     <header class="page-header">
       <div class="header-container">
@@ -8,49 +8,49 @@
             ← Back to Projects
           </button>
           <span class="breadcrumb-separator">/</span>
-          <span class="breadcrumb-current">{{ parentTask?.taskName }}</span>
+          <span class="breadcrumb-current">{{ parentProject?.projectName }}</span>
           <span class="breadcrumb-separator">/</span>
-          <span class="breadcrumb-current">{{ subtask?.subTaskName }}</span>
+          <span class="breadcrumb-current">{{ task?.taskName }}</span>
         </div>
         
         <!-- <div class="header-actions">
-          <button class="btn btn-secondary" @click="editSubtask">
-            Edit Subtask
+          <button class="btn btn-secondary" @click="editTask">
+            Edit Task
           </button>
-          <button class="btn btn-danger" @click="deleteSubtask">
-            Delete Subtask
+          <button class="btn btn-danger" @click="deleteTask">
+            Delete Task
           </button>
         </div> -->
       </div>
     </header>
 
     <!-- Main Content -->
-    <main class="page-content" v-if="subtask && parentTask">
+    <main class="page-content" v-if="task && parentProject">
       <div class="content-container">
         
-        <!-- Parent Task Context -->
-        <div class="parent-task-banner">
-          <div class="task-status-indicator" :class="getParentStatusClass(parentTask.status)"></div>
+        <!-- Parent Project Context -->
+        <div class="parent-project-banner">
+          <div class="project-status-indicator" :class="getParentStatusClass(parentProject.status)"></div>
           <div class="banner-content">
-            <h1 class="parent-task-title">{{ parentTask.taskName }}</h1>
-            <p class="parent-task-description">{{ parentTask.instruction }}</p>
-            <div class="parent-task-meta">
+            <h1 class="parent-project-title">{{ parentProject.projectName }}</h1>
+            <p class="parent-project-description">{{ parentProject.instruction }}</p>
+            <div class="parent-project-meta">
               <span class="meta-item">
-                <strong>Status:</strong> {{ formatStatus(parentTask.status) }}
+                <strong>Status:</strong> {{ formatStatus(parentProject.status) }}
               </span>
               <span class="meta-item">
-                <strong>Due:</strong> {{ formatDate(parentTask.dueDate) }}
+                <strong>Due:</strong> {{ formatDate(parentProject.dueDate) }}
               </span>
             </div>
           </div>
         </div>
 
-        <!-- Subtask Details Card -->
-        <div class="subtask-details-card">
+        <!-- Task Details Card -->
+        <div class="task-details-card">
           <div class="card-header">
-            <h2 class="subtask-title">{{ subtask.subTaskName }}</h2>
-            <div class="status-badge-large" :class="getSubtaskStatusClass(subtask.currentStatus?.statusName)">
-              {{ subtask.currentStatus?.statusName || 'Not Started' }}
+            <h2 class="task-title">{{ task.taskName }}</h2>
+            <div class="status-badge-large" :class="getTaskStatusClass(task.currentStatus?.statusName)">
+              {{ task.currentStatus?.statusName || 'Not Started' }}
             </div>
           </div>
 
@@ -60,9 +60,9 @@
               <div class="info-icon">📅</div>
               <div class="info-content">
                 <h3 class="info-title">Due Date</h3>
-                <p class="info-value">{{ formatDate(subtask.dueDate) }}</p>
-                <p class="info-meta" :class="getDueDateClass(subtask.dueDate)">
-                  {{ getDueDateStatus(subtask.dueDate) }}
+                <p class="info-value">{{ formatDate(task.dueDate) }}</p>
+                <p class="info-meta" :class="getDueDateClass(task.dueDate)">
+                  {{ getDueDateStatus(task.dueDate) }}
                 </p>
               </div>
             </div>
@@ -71,12 +71,12 @@
               <div class="info-icon">👤</div>
               <div class="info-content">
                 <h3 class="info-title">Assignee</h3>
-                <div v-if="subtask.assignee" class="user-info">
+                <div v-if="task.assignee" class="user-info">
                   <div class="user-avatar" :class="'assignee'">
-                    {{ getInitials(subtask.assignee.name) }}
+                    {{ getInitials(task.assignee.name) }}
                   </div>
                   <div class="user-details">
-                    <p class="user-name">{{ subtask.assignee.name }}</p>
+                    <p class="user-name">{{ task.assignee.name }}</p>
                     <p class="user-role">Assignee</p>
                   </div>
                 </div>
@@ -88,12 +88,12 @@
               <div class="info-icon">✅</div>
               <div class="info-content">
                 <h3 class="info-title">Approver</h3>
-                <div v-if="subtask.approver" class="user-info">
+                <div v-if="task.approver" class="user-info">
                   <div class="user-avatar approver">
-                    {{ getInitials(subtask.approver.name) }}
+                    {{ getInitials(task.approver.name) }}
                   </div>
                   <div class="user-details">
-                    <p class="user-name">{{ subtask.approver.name }}</p>
+                    <p class="user-name">{{ task.approver.name }}</p>
                     <p class="user-role">Approver</p>
                   </div>
                 </div>
@@ -105,8 +105,8 @@
               <div class="info-icon">👥</div>
               <div class="info-content">
                 <h3 class="info-title">Collaborators</h3>
-                <div v-if="subtask.assignees && subtask.assignees.length > 0" class="collaborators-list">
-                  <div v-for="assignee in subtask.assignees" :key="assignee.id" class="user-info">
+                <div v-if="task.assignees && task.assignees.length > 0" class="collaborators-list">
+                  <div v-for="assignee in task.assignees" :key="assignee.id" class="user-info">
                     <div class="user-avatar">
                       {{ getInitials(assignee.name) }}
                     </div>
@@ -125,7 +125,7 @@
           <div class="description-section">
             <h3 class="section-title">Description</h3>
             <p class="description-text">
-              {{ subtask.instruction || 'No description provided for this subtask.' }}
+              {{ task.instruction || 'No description provided for this task.' }}
             </p>
           </div>
 
@@ -134,11 +134,11 @@
             <h3 class="section-title">Status History</h3>
             <div class="status-timeline">
               <div class="timeline-item">
-                <div class="timeline-dot" :class="getSubtaskStatusClass(subtask.currentStatus?.statusName)"></div>
+                <div class="timeline-dot" :class="getTaskStatusClass(task.currentStatus?.statusName)"></div>
                 <div class="timeline-content">
-                  <h4 class="timeline-status">{{ subtask.currentStatus?.statusName || 'Not Started' }}</h4>
-                  <p class="timeline-date">{{ formatDateTime(subtask.currentStatus?.statusTimestamp) }}</p>
-                  <p class="timeline-user">Updated by Staff: {{ subtask.currentStatus?.staffId }}</p>
+                  <h4 class="timeline-status">{{ task.currentStatus?.statusName || 'Not Started' }}</h4>
+                  <p class="timeline-date">{{ formatDateTime(task.currentStatus?.statusTimestamp) }}</p>
+                  <p class="timeline-user">Updated by Staff: {{ task.currentStatus?.staffId }}</p>
                 </div>
               </div>
             </div>
@@ -149,20 +149,20 @@
             <h3 class="section-title">Task Information</h3>
             <div class="metadata-grid">
               <div class="metadata-item">
-                <span class="metadata-label">Task ID</span>
-                <span class="metadata-value">{{ subtask.taskId }}</span>
+                <span class="metadata-label">Project ID</span>
+                <span class="metadata-value">{{ task.projectId }}</span>
               </div>
               <div class="metadata-item">
-                <span class="metadata-label">Subtask ID</span>
-                <span class="metadata-value">{{ subtask.subTaskId }}</span>
+                <span class="metadata-label">Task ID</span>
+                <span class="metadata-value">{{ task.taskId }}</span>
               </div>
               <div class="metadata-item">
                 <span class="metadata-label">Assigner</span>
-                <span class="metadata-value">{{ getAssignerName(subtask.assigner) }}</span>
+                <span class="metadata-value">{{ getAssignerName(task.assigner) }}</span>
               </div>
               <div class="metadata-item">
                 <span class="metadata-label">Created</span>
-                <span class="metadata-value">{{ formatDateTime(subtask.currentStatus?.statusTimestamp) }}</span>
+                <span class="metadata-value">{{ formatDateTime(task.currentStatus?.statusTimestamp) }}</span>
               </div>
             </div>
           </div>
@@ -174,90 +174,92 @@
     <main v-else class="page-content">
       <div class="content-container">
         <div class="loading-state">
-          <p>Loading subtask details...</p>
+          <p>Loading task details...</p>
         </div>
       </div>
     </main>
 
-    <!-- Edit Subtask Modal -->
+    <!-- Edit Task Modal -->
+    <!-- 
     <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3 class="modal-title">Edit Subtask</h3>
+          <h3 class="modal-title">Edit Task</h3>
           <button class="modal-close" @click="closeEditModal">&times;</button>
         </div>
-        <SubTaskForm 
+        <TaskForm 
           :is-edit-mode="true"
-          :initial-data="subtaskFormData"
+          :initial-data="taskFormData"
           @success="handleEditSuccess"
           @cancel="closeEditModal"
         />
       </div>
     </div>
+    -->
   </div>
 </template>
 
 <script>
-import SubTaskForm from '../components/SubTaskForm.vue'
-import { mockTasks, mockUsers } from '../dummyData/taskData.js'
+// import TaskForm from '../components/TaskForm.vue' // Component doesn't exist yet
+import { mockProjects, mockUsers } from '../dummyData/projectData.js'
 
 export default {
-  name: 'ViewIndivSubTask',
-  components: {
-    SubTaskForm
-  },
+  name: 'ViewIndivTask',
+  // components: {
+  //   TaskForm  // Component doesn't exist yet
+  // },
   data() {
     return {
-      tasks: mockTasks,
+      projects: mockProjects,
       users: mockUsers,
-      subtask: null,
-      parentTask: null,
+      task: null,
+      parentProject: null,
       showEditModal: false
     }
   },
   computed: {
-    subtaskFormData() {
-      if (!this.subtask) return {};
+    taskFormData() {
+      if (!this.task) return {};
       
       return {
-        name: this.subtask.subTaskName,
-        deadline: this.subtask.dueDate ? new Date(this.subtask.dueDate).toISOString().split('T')[0] : '',
-        status: this.subtask.currentStatus?.statusName || '',
-        assigneeId: this.subtask.assignee?.id || '',
-        approverId: this.subtask.approver?.id || '',
-        instruction: this.subtask.instruction || ''
+        name: this.task.taskName,
+        deadline: this.task.dueDate ? new Date(this.task.dueDate).toISOString().split('T')[0] : '',
+        status: this.task.currentStatus?.statusName || '',
+        assigneeId: this.task.assignee?.id || '',
+        approverId: this.task.approver?.id || '',
+        instruction: this.task.instruction || ''
       };
     }
   },
   created() {
-    this.loadSubtaskData()
+    this.loadTaskData()
   },
   watch: {
     '$route'() {
-      this.loadSubtaskData()
+      this.loadTaskData()
     }
   },
   methods: {
-    loadSubtaskData() {
+    loadTaskData() {
+      const projectId = this.$route.params.projectId
       const taskId = this.$route.params.taskId
-      const subtaskId = this.$route.params.subtaskId
       
-      // Find the parent task
-      this.parentTask = this.tasks.find(task => task.taskId === taskId)
+      // Find the parent project
+      this.parentProject = this.projects.find(project => project.projectId === projectId)
       
-      // Find the specific subtask
-      if (this.parentTask) {
-        this.subtask = this.parentTask.subtasks.find(subtask => subtask.subTaskId === subtaskId)
+      // Find the specific task
+      if (this.parentProject) {
+        this.task = this.parentProject.tasks.find(task => task.taskId === taskId)
       }
       
-      // If no subtask found, redirect back
-      if (!this.subtask) {
-        this.$router.push('/tasks')
+      // If no task found, redirect back
+      if (!this.task) {
+        this.$router.push('/projects')
       }
     },
 
     goBack() {
-      this.$router.push('/tasks')
+      this.$router.push('/projects')
     },
 
     getParentStatusClass(status) {
@@ -270,7 +272,7 @@ export default {
       return statusClasses[status] || 'status-default';
     },
 
-    getSubtaskStatusClass(status) {
+    getTaskStatusClass(status) {
       if (!status) return 'status-not-started';
       const statusClasses = {
         'In progress': 'status-progress',
@@ -350,7 +352,7 @@ export default {
       return user ? user.name : 'Unknown User';
     },
 
-    editSubtask() {
+    editTask() {
       this.showEditModal = true;
     },
 
@@ -360,14 +362,14 @@ export default {
 
     handleEditSuccess() {
       this.showEditModal = false;
-      this.loadSubtaskData();
+      this.loadTaskData();
     },
 
-    deleteSubtask() {
-      if (confirm('Are you sure you want to delete this subtask?')) {
-        console.log('Delete subtask:', this.subtask);
+    deleteTask() {
+      if (confirm('Are you sure you want to delete this task?')) {
+        console.log('Delete task:', this.task);
         // Handle deletion logic here
-        this.$router.push('/tasks');
+        this.$router.push('/projects');
       }
     }
   }
@@ -375,7 +377,7 @@ export default {
 </script>
 
 <style scoped>
-.view-subtask-page {
+.view-task-page {
   min-height: 100vh;
   background-color: #f8fafc;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -444,8 +446,8 @@ export default {
   gap: 24px;
 }
 
-/* Parent Task Banner */
-.parent-task-banner {
+/* Parent Project Banner */
+.parent-project-banner {
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid #e5e7eb;
@@ -455,7 +457,7 @@ export default {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.task-status-indicator {
+.project-status-indicator {
   width: 4px;
   height: 60px;
   border-radius: 2px;
@@ -471,20 +473,20 @@ export default {
   flex: 1;
 }
 
-.parent-task-title {
+.parent-project-title {
   font-size: 24px;
   font-weight: 700;
   color: #111827;
   margin: 0 0 8px 0;
 }
 
-.parent-task-description {
+.parent-project-description {
   color: #6b7280;
   margin: 0 0 16px 0;
   line-height: 1.6;
 }
 
-.parent-task-meta {
+.parent-project-meta {
   display: flex;
   gap: 24px;
   font-size: 14px;
@@ -494,8 +496,8 @@ export default {
   color: #374151;
 }
 
-/* Subtask Details Card */
-.subtask-details-card {
+/* Task Details Card */
+.task-details-card {
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid #e5e7eb;
@@ -511,7 +513,7 @@ export default {
   border-bottom: 1px solid #f3f4f6;
 }
 
-.subtask-title {
+.task-title {
   font-size: 28px;
   font-weight: 700;
   color: #111827;
@@ -884,7 +886,7 @@ export default {
     padding: 16px;
   }
   
-  .parent-task-banner,
+  .parent-project-banner,
   .description-section,
   .status-history-section,
   .metadata-section {

@@ -1,19 +1,19 @@
-// Mock data for tasks and subtasks
-export const mockTasks = [
+// Mock data for projects and tasks
+export const mockProjects = [
   {
-    taskId: 'task-001',
-    taskName: 'Board Meeting',
+    projectId: 'project-001',
+    projectName: 'Board Meeting',
     dueDate: new Date('2024-10-19'),
     assigner: 'user-001',
     collaborator: ['user-002', 'user-003'],
-    indivSubtaskBool: true,
+    indivTaskBool: true,
     status: 'in-progress',
     instruction: 'Prepare quarterly board meeting materials',
-    subtasks: [
+    tasks: [
       {
+        projectId: 'project-001',
         taskId: 'task-001',
-        subTaskId: 'subtask-001',
-        subTaskName: 'Board Meeting Proposal',
+        taskName: 'Board Meeting Proposal',
         dueDate: new Date('2024-10-19'),
         assigner: 'user-001',
         collaborator: ['user-002'],
@@ -21,7 +21,7 @@ export const mockTasks = [
           statusId: 'status-001',
           statusName: 'In progress',
           statusTimestamp: new Date(),
-          subTaskId: 'subtask-001',
+          taskId: 'task-001',
           staffId: 'staff-001'
         },
         assignees: [
@@ -35,19 +35,19 @@ export const mockTasks = [
     ]
   },
   {
-    taskId: 'task-002',
-    taskName: 'Sales Revenue 2022',
+    projectId: 'project-002',
+    projectName: 'Sales Revenue 2022',
     dueDate: new Date('2024-11-29'),
     assigner: 'user-001',
     collaborator: ['user-004', 'user-005'],
-    indivSubtaskBool: true,
+    indivTaskBool: true,
     status: 'to-do',
     instruction: 'Analyze sales performance and prepare revenue report',
-    subtasks: [
+    tasks: [
       {
+        projectId: 'project-002',
         taskId: 'task-002',
-        subTaskId: 'subtask-002',
-        subTaskName: 'Analyse Sales',
+        taskName: 'Analyse Sales',
         dueDate: new Date('2024-11-29'),
         assigner: 'user-001',
         collaborator: ['user-004'],
@@ -55,7 +55,7 @@ export const mockTasks = [
           statusId: 'status-002',
           statusName: 'To Do',
           statusTimestamp: new Date(),
-          subTaskId: 'subtask-002',
+          taskId: 'task-002',
           staffId: 'staff-002'
         },
         assignees: [
@@ -66,9 +66,9 @@ export const mockTasks = [
         instruction: 'Comprehensive analysis of 2022 sales data and trends'
       },
       {
-        taskId: 'task-002',
-        subTaskId: 'subtask-003',
-        subTaskName: 'Revenue Forecasting',
+        projectId: 'project-002',
+        taskId: 'task-003',
+        taskName: 'Revenue Forecasting',
         dueDate: new Date('2024-12-15'),
         assigner: 'user-001',
         collaborator: ['user-005', 'user-006'],
@@ -76,7 +76,7 @@ export const mockTasks = [
           statusId: 'status-003',
           statusName: 'Pending',
           statusTimestamp: new Date(),
-          subTaskId: 'subtask-003',
+          taskId: 'task-003',
           staffId: 'staff-003'
         },
         assignees: [
@@ -89,19 +89,19 @@ export const mockTasks = [
     ]
   },
   {
-    taskId: 'task-003',
-    taskName: 'Marketing Campaign Q4',
+    projectId: 'project-003',
+    projectName: 'Marketing Campaign Q4',
     dueDate: new Date('2024-12-01'),
     assigner: 'user-001',
     collaborator: ['user-006', 'user-007'],
-    indivSubtaskBool: true,
+    indivTaskBool: true,
     status: 'completed',
     instruction: 'Plan and execute Q4 marketing initiatives',
-    subtasks: [
+    tasks: [
       {
-        taskId: 'task-003',
-        subTaskId: 'subtask-004',
-        subTaskName: 'Social Media Strategy',
+        projectId: 'project-003',
+        taskId: 'task-004',
+        taskName: 'Social Media Strategy',
         dueDate: new Date('2024-11-15'),
         assigner: 'user-001',
         collaborator: ['user-006'],
@@ -109,7 +109,7 @@ export const mockTasks = [
           statusId: 'status-004',
           statusName: 'Completed',
           statusTimestamp: new Date(),
-          subTaskId: 'subtask-004',
+          taskId: 'task-004',
           staffId: 'staff-004'
         },
         assignees: [
@@ -122,19 +122,19 @@ export const mockTasks = [
     ]
   },
   {
-    taskId: 'task-004',
-    taskName: 'Website Redesign Project',
+    projectId: 'project-004',
+    projectName: 'Website Redesign Project',
     dueDate: new Date('2025-01-15'),
     assigner: 'user-001',
     collaborator: ['user-008', 'user-009'],
-    indivSubtaskBool: true,
+    indivTaskBool: true,
     status: 'in-progress',
     instruction: 'Complete redesign of company website',
-    subtasks: [
+    tasks: [
       {
-        taskId: 'task-004',
-        subTaskId: 'subtask-005',
-        subTaskName: 'UI/UX Design',
+        projectId: 'project-004',
+        taskId: 'task-005',
+        taskName: 'UI/UX Design',
         dueDate: new Date('2024-12-20'),
         assigner: 'user-001',
         collaborator: ['user-008'],
@@ -142,7 +142,7 @@ export const mockTasks = [
           statusId: 'status-005',
           statusName: 'In progress',
           statusTimestamp: new Date(),
-          subTaskId: 'subtask-005',
+          taskId: 'task-005',
           staffId: 'staff-005'
         },
         assignees: [
@@ -154,9 +154,9 @@ export const mockTasks = [
         instruction: 'Create modern and responsive design mockups'
       },
       {
-        taskId: 'task-004',
-        subTaskId: 'subtask-006',
-        subTaskName: 'Frontend Development',
+        projectId: 'project-004',
+        taskId: 'task-006',
+        taskName: 'Frontend Development',
         dueDate: new Date('2025-01-10'),
         assigner: 'user-001',
         collaborator: ['user-009'],
@@ -164,7 +164,7 @@ export const mockTasks = [
           statusId: 'status-006',
           statusName: 'To Do',
           statusTimestamp: new Date(),
-          subTaskId: 'subtask-006',
+          taskId: 'task-006',
           staffId: 'staff-006'
         },
         assignees: [
@@ -193,14 +193,14 @@ export const mockUsers = [
 ];
 
 // Status definitions
-export const taskStatuses = [
+export const projectStatuses = [
   { value: 'to-do', label: 'To Do', color: '#ef4444' },
   { value: 'in-progress', label: 'In Progress', color: '#fbbf24' },
   { value: 'pending', label: 'Pending', color: '#f59e0b' },
   { value: 'completed', label: 'Completed', color: '#10b981' }
 ];
 
-export const subtaskStatuses = [
+export const taskStatuses = [
   { value: 'To Do', label: 'To Do', color: '#ef4444' },
   { value: 'In progress', label: 'In Progress', color: '#fbbf24' },
   { value: 'Pending', label: 'Pending', color: '#f59e0b' },

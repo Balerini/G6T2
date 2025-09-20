@@ -18,14 +18,14 @@
       </div>
     </div>
 
-    <!-- Tasks Section -->
-    <div class="tasks-section">
+    <!-- Projects Section -->
+    <div class="projects-section">
       <div class="container">
-        <TaskList
-          :tasks="filteredTasks"
-          @edit-task="handleEditTask"
-          @view-subtask="handleViewSubtask"
-          @add-subtask="handleAddSubtask"
+        <ProjectList
+          :projects="filteredProjects"
+          @edit-project="handleEditProject"
+          @view-task="handleViewTask"
+          @add-task="handleAddTask"
         />
       </div>
     </div>
@@ -34,7 +34,7 @@
     <div v-if="showCreateTaskForm" class="modal-overlay" @click="closeCreateTaskForm">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2 class="modal-title">Create Subtask</h2>
+          <h2 class="modal-title">Create Task</h2>
           <button class="close-button" @click="closeCreateTaskForm">×</button>
         </div>
         <div class="modal-body">
@@ -46,53 +46,53 @@
 </template>
 
 <script>
-import TaskList from '../components/Projects/TaskList.vue'
+import ProjectList from '../components/Projects/ProjectList.vue'
 import CreateTaskForm from '../components/CreateTaskForm.vue'
-import { mockTasks } from '../dummyData/taskData.js'
+import { mockProjects } from '../dummyData/projectData.js'
 
 export default {
-  name: 'CRMTaskManager',
+  name: 'CRMProjectManager',
   components: {
-    TaskList,
+    ProjectList,
     CreateTaskForm
   },
   data() {
     return {
       activeTab: 'all',
-      tasks: mockTasks,
+      projects: mockProjects,
       showCreateTaskForm: false,
-      selectedTask: null
+      selectedProject: null
     }
   },
   computed: {
-    filteredTasks() {
+    filteredProjects() {
       if (this.activeTab === 'all') {
-        return this.tasks;
+        return this.projects;
       }
-      return this.tasks.filter(task => task.collaborator && task.collaborator.length > 0);
+      return this.projects.filter(project => project.collaborator && project.collaborator.length > 0);
     }
   },
   methods: {
     navigateToCreateProject() {
       this.$router.push('/createtask');
     },
-    handleEditTask(task) {
-      console.log('Edit task:', task);
-      // edit task logic here
+    handleEditProject(project) {
+      console.log('Edit project:', project);
+      // edit project logic here
     },
-    handleViewSubtask(subtask) {
-      this.$router.push(`/tasks/${subtask.taskId}/subtask/${subtask.subTaskId}`);
-      console.log('View subtask:', subtask);
-      // view subtask logic here
+    handleViewTask(task) {
+      this.$router.push(`/projects/${task.projectId}/task/${task.taskId}`);
+      console.log('View task:', task);
+      // view task logic here
     },
-    handleAddSubtask(task) {
-      console.log('Add subtask to task:', task);
-      this.selectedTask = task;
+    handleAddTask(project) {
+      console.log('Add task to project:', project);
+      this.selectedProject = project;
       this.showCreateTaskForm = true;
     },
     closeCreateTaskForm() {
       this.showCreateTaskForm = false;
-      this.selectedTask = null;
+      this.selectedProject = null;
     },
     handleTaskSubmit(taskData) {
       console.log('Task submitted:', taskData);
@@ -171,7 +171,7 @@ export default {
   border-color: #374151;
 }
 
-.tasks-section {
+.projects-section {
   padding: 2rem 0;
 }
 

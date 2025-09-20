@@ -2,9 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 import Login from '../views/Login.vue';
 import Home from '../views/Home.vue';
-import Tasks from '../views/Projects.vue';
-import CreateTask from '../views/CreateTask.vue'
-import ViewIndivSubTask from '../views/ViewIndivSubTask.vue'
+import Projects from '../views/Projects.vue';
+import Createtask from '../views/CreateTask.vue'
+import ViewIndivTask from '../views/ViewIndivTask.vue'
 
 const routes = [
   {
@@ -19,21 +19,21 @@ const routes = [
     component: Login
   },
   {
-    path: '/tasks',
-    name: 'tasks',
-    component: Tasks,
+    path: '/projects',
+    name: 'projects',
+    component: Projects,
     meta: { showNav: true }
   },
   {
     path: '/createtask',
     name: 'createtask',
-    component: CreateTask,
+    component: Createtask,
     meta: { showNav: true }
   },
   {
-    path: '/tasks/:taskId/subtask/:subtaskId',
-    name: 'viewsubtask',
-    component: ViewIndivSubTask,
+    path: '/projects/:projectId/task/:taskId',
+    name: 'viewtask',
+    component: ViewIndivTask,
     meta: { showNav: true }
   },
   {
