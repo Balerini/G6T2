@@ -1,20 +1,38 @@
 // src/firebase.js
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAChHBcDvscQRhyM3x6P5a72OOnrAX5zds",
-  authDomain: "spm-project-a8896.firebaseapp.com",
-  projectId: "spm-project-a8896",
-  storageBucket: "spm-project-a8896.firebasestorage.app",
-  messagingSenderId: "835438545729",
-  appId: "1:835438545729:web:44c3eaa7130c16b6516fc0"
-};
+import { getAuth } from "firebase/auth";
+import firebaseConfig from "./config/firebase.js";
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+let app;
+let db;
+let auth;
+
+try {
+  app = initializeApp(firebaseConfig);
+  console.log('Firebase initialized successfully');
+} catch (error) {
+  console.error('Error initializing Firebase:', error);
+  throw error;
+}
 
 // Initialize Firestore
-const db = getFirestore(app);
+try {
+  db = getFirestore(app);
+  console.log('Firestore initialized successfully');
+} catch (error) {
+  console.error('Error initializing Firestore:', error);
+  throw error;
+}
 
-export { db };
+// Initialize Auth
+try {
+  auth = getAuth(app);
+  console.log('Firebase Auth initialized successfully');
+} catch (error) {
+  console.error('Error initializing Firebase Auth:', error);
+  throw error;
+}
+
+export { db, auth, app };

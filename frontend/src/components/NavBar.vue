@@ -5,17 +5,34 @@
          Task Quest
         </router-link>
         
-        <div class="navbar-links">
+        <div class="navbar-right">
           <router-link to="/" class="navbar-link">Home</router-link>
           <router-link to="/projects" class="navbar-link">All Projects</router-link>
           <router-link to="" class="navbar-link">Link 2</router-link>
-          <router-link to="" class="navbar-link">Link3</router-link>
+          <router-link to="" class="navbar-link">My Schedule</router-link>
+          <button @click="logout" class="logout-btn">Logout</button>
         </div>
         
       </div>
     </nav>
     
+    
   </template>
+
+  <script>
+  import authService from '@/services/auth'
+
+  export default {
+    name: 'NavBar',
+    methods: {
+      logout() {
+        authService.logout();
+        this.$router.push('/login');
+      }
+    }
+  }
+  </script>
+
   <style scoped>
   .navbar {
     position: sticky;
@@ -33,6 +50,18 @@
     align-items: center;
     height: 64px;
   }
+
+  .navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .navbar-actions {
+    display: flex;
+    align-items: center;
+  }
+
   
   .navbar-logo {
     font-size: 1.1rem;
@@ -52,7 +81,21 @@
     padding: 0.4rem 0.6rem;
     border-radius: 8px;
     transition: color 0.2s, background-color 0.2s;
+    text-decoration: none;
   }
+
+  .logout-btn {
+    background: #dc2626;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.875rem;
+  }
+
   
   /* .navbar-link:hover, .navbar-link.router-link-active {
     color: #111827;
