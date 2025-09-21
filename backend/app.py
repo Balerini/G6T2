@@ -11,7 +11,7 @@ def create_app() -> Flask:
     
     app = Flask(__name__)
 
-    CORS(app, resources={r"/*": {"origins": ["http://localhost:8080"]}}, supports_credentials=True)
+    CORS(app, resources={r"/*": {"origins": ["http://localhost:8080", "http://localhost:8081", "http://127.0.0.1:8080", "http://127.0.0.1:8081"]}}, supports_credentials=True)
     get_firebase_app()
 
     # Health routes
@@ -19,7 +19,49 @@ def create_app() -> Flask:
     def health():
         return jsonify({"status": "ok"}), 200
 
-   
+    #User Routes 
+    @app.route("/login", methods=["POST"])
+    def login():
+        payload = request.get_json(silent=True) or {}
+        email = payload.get("email")
+        password = payload.get("password")
+        
+        if not email or not password:
+            return jsonify({"ok": False, "error": "email and password are required"}), 400
+
+        try:
+            # Get Firestore client
+            db = get_firestore_client()
+            
+            users_ref = db.collection('Users')
+            all_docs = users_ref.stream()
+            docs = []
+            
+            for doc in all_docs:
+                user_data = doc.to_dict()
+                if user_data.get('email', '').lower() == email.lower():
+                    docs.append(doc)
+                    break
+            
+            for doc in docs:
+                user_data = doc.to_dict()
+                if user_data.get('password') == password:
+                    return jsonify({
+                        "ok": True,
+                        "message": "Login successful",
+                        "user": {
+                            "email": email,
+                            "id": doc.id,
+                            "name": user_data.get('name', ''),
+                            "role": user_data.get('role', 'user')
+                        }
+                    }), 200
+            
+            return jsonify({"ok": False, "error": "Invalid email or password"}), 401
+            
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"Database error: {str(e)}"}), 500
+
     return app
 
 if __name__ == "__main__":
