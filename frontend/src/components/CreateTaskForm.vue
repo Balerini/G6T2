@@ -74,7 +74,6 @@
         type="date"
         class="form-input"
         required
-        :min="getCurrentDate()"
         @change="validateDates"
       />
     </div>
@@ -432,7 +431,7 @@ export default {
         console.log('Submitting task data:', taskData);
 
         // Add document to Firestore
-        const docRef = await addDoc(collection(db, 'tasks'), taskData);
+        const docRef = await addDoc(collection(db, 'Tasks'), taskData);
         
         console.log('Task created successfully with ID:', docRef.id);
         
