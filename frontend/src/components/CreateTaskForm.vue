@@ -213,10 +213,7 @@
 
 <script>
 import { ref, reactive, onMounted } from 'vue';
-import { db } from '@/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
-// Import your authentication service/composable here
-// import { useAuth } from '@/composables/useAuth';
+import { taskService } from '@/services/taskService'; // New service for API calls
 
 export default {
   name: "TaskForm",
@@ -226,9 +223,6 @@ export default {
     const assignedToInput = ref('');
     const fileInput = ref(null);
     const dateValidationError = ref('');
-    
-    // Uncomment and use your auth service
-    // const { currentUser } = useAuth();
 
     const formData = reactive({
       proj_ID: '',
@@ -237,36 +231,29 @@ export default {
       task_desc: '',
       start_date: '',
       end_date: '',
-      created_by: '', // Will be auto-populated
+      created_by: '',
       assigned_to: [],
       attachments: [],
       task_status: '',
-      hasSubtasks: false // Added for subtasks checkbox
+      hasSubtasks: false
     });
 
     // Auto-populate created_by on component mount
     onMounted(() => {
-      // Replace this with your actual current user logic
-      // formData.created_by = currentUser.value?.name || currentUser.value?.email || 'Current User';
-      
-      // For demo purposes, using a placeholder
+      // You can get current user from your auth service
       formData.created_by = 'Current User'; // Replace with actual user data
     });
 
-    // Get current date in YYYY-MM-DD format to prevent past date selection
+    // Keep all your existing functions (getCurrentDate, onSubtasksChange, etc.)
     const getCurrentDate = () => {
       const today = new Date();
       return today.toISOString().split('T')[0];
     };
 
-    // Handle subtasks checkbox change
     const onSubtasksChange = () => {
-      // If switching to subtasks mode and too many collaborators, trim them to 5
       if (formData.hasSubtasks && formData.assigned_to.length > 5) {
         formData.assigned_to = formData.assigned_to.slice(0, 5);
       }
-      
-      // Clear validation errors when switching modes
       dateValidationError.value = '';
     };
 
@@ -293,20 +280,17 @@ export default {
     const handleFileUpload = (event) => {
       const files = Array.from(event.target.files);
       
-      // Limit to maximum 3 files
       if (formData.attachments.length + files.length > 3) {
         alert('Maximum 3 files allowed');
         return;
       }
       
-      // Add new files to existing ones
       formData.attachments = [...formData.attachments, ...files];
     };
 
     const removeFile = (index) => {
       formData.attachments.splice(index, 1);
       
-      // Reset file input if no files remain
       if (formData.attachments.length === 0 && fileInput.value) {
         fileInput.value.value = '';
       }
@@ -343,7 +327,7 @@ export default {
         task_desc: '',
         start_date: '',
         end_date: '',
-        created_by: '', // Will be auto-populated again
+        created_by: '',
         assigned_to: [],
         attachments: [],
         task_status: '',
@@ -356,18 +340,15 @@ export default {
       
       assignedToInput.value = '';
       dateValidationError.value = '';
-      
-      // Re-populate created_by
-      // formData.created_by = currentUser.value?.name || currentUser.value?.email || 'Current User';
-      formData.created_by = 'Current User'; // Replace with actual user data
+      formData.created_by = 'Current User';
     };
 
+    // UPDATED: This now calls your backend API instead of Firebase directly
     const handleSubmit = async () => {
       if (isSubmitting.value) {
         return;
       }
       
-      // Validate dates before submission
       if (formData.end_date && !validateDates()) {
         return;
       }
@@ -399,22 +380,14 @@ export default {
           }
         }
 
-        // Convert date strings to Firestore Timestamps
-        const startTimestamp = Timestamp.fromDate(new Date(formData.start_date + 'T00:00:00'));
-        let endTimestamp = null;
-        
-        if (formData.end_date) {
-          endTimestamp = Timestamp.fromDate(new Date(formData.end_date + 'T23:59:59'));
-        }
-
-        // Prepare task data for Firestore
+        // Prepare task data for API call
         const taskData = {
           proj_ID: formData.proj_ID.trim(),
           task_ID: formData.task_ID.trim(),
           task_name: formData.task_name.trim(),
           task_desc: formData.task_desc.trim(),
-          start_date: startTimestamp,
-          end_date: endTimestamp,
+          start_date: formData.start_date,
+          end_date: formData.end_date || null,
           created_by: formData.created_by,
           assigned_to: [...formData.assigned_to],
           attachments: formData.attachments.map(file => ({
@@ -423,29 +396,21 @@ export default {
             type: file.type
           })),
           task_status: formData.task_status || null,
-          hasSubtasks: formData.hasSubtasks,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now()
+          hasSubtasks: formData.hasSubtasks
         };
 
-        console.log('Submitting task data:', taskData);
+        console.log('Submitting task data to API:', taskData);
 
-        // Add document to Firestore
-        const docRef = await addDoc(collection(db, 'Tasks'), taskData);
+        // Call backend API instead of Firebase directly
+        const response = await taskService.createTask(taskData);
         
-        console.log('Task created successfully with ID:', docRef.id);
-        
-        // Create response object with the ID
-        const responseData = {
-          id: docRef.id,
-          ...taskData
-        };
+        console.log('Task created successfully:', response);
         
         // Reset form first
         resetForm();
         
         // Emit success event
-        emit('success', responseData);
+        emit('success', response);
         
       } catch (error) {
         console.error('Error creating task:', error);
@@ -455,7 +420,7 @@ export default {
         
       } finally {
         isSubmitting.value = false;
-        console.log('Form submission completed, loading state reset');
+        console.log('Form submission completed');
       }
     };
 

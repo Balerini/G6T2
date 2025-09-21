@@ -1,0 +1,225 @@
+from flask import Blueprint, jsonify, request
+from firebase_utils import get_firestore_client
+from firebase_admin import firestore
+from datetime import datetime
+import traceback
+
+tasks_bp = Blueprint('tasks', __name__)
+
+# =============== CREATE TASK ===============
+@tasks_bp.route('/api/tasks', methods=['POST'])
+def create_task():
+    try:
+        task_data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['proj_ID', 'task_ID', 'task_name', 'start_date']
+        for field in required_fields:
+            if not task_data.get(field):
+                return jsonify({'error': f'Required field missing: {field}'}), 400
+
+        # Get Firestore client
+        db = get_firestore_client()
+
+        # Convert date strings to datetime objects
+        start_date = datetime.strptime(task_data['start_date'], '%Y-%m-%d')
+        end_date = None
+        
+        if task_data.get('end_date'):
+            end_date = datetime.strptime(task_data['end_date'], '%Y-%m-%d')
+            # Set end time to end of day
+            end_date = end_date.replace(hour=23, minute=59, second=59)
+
+        # Prepare task data for Firestore
+        firestore_task_data = {
+            'proj_ID': task_data['proj_ID'],
+            'task_ID': task_data['task_ID'],
+            'task_name': task_data['task_name'],
+            'task_desc': task_data.get('task_desc', ''),
+            'start_date': start_date,
+            'end_date': end_date,
+            'created_by': task_data.get('created_by', ''),
+            'assigned_to': task_data.get('assigned_to', []),
+            'attachments': task_data.get('attachments', []),
+            'task_status': task_data.get('task_status'),
+            'hasSubtasks': task_data.get('hasSubtasks', False),
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+
+        # Add document to Firestore
+        doc_ref = db.collection('Tasks').add(firestore_task_data)
+        task_id = doc_ref[1].id
+
+        # Prepare response data
+        response_data = firestore_task_data.copy()
+        response_data['id'] = task_id
+        response_data['start_date'] = start_date.isoformat()
+        if end_date:
+            response_data['end_date'] = end_date.isoformat()
+        response_data['createdAt'] = datetime.now().isoformat()
+        response_data['updatedAt'] = datetime.now().isoformat()
+
+        return jsonify(response_data), 201
+
+    except ValueError as e:
+        return jsonify({'error': f'Invalid date format. Use YYYY-MM-DD: {str(e)}'}), 400
+    except Exception as e:
+        print(f"Error creating task: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# =============== GET ALL TASKS ===============
+@tasks_bp.route('/api/tasks', methods=['GET'])
+def get_all_tasks():
+    try:
+        db = get_firestore_client()
+        tasks_ref = db.collection('Tasks')
+        tasks = tasks_ref.stream()
+        
+        task_list = []
+        for task in tasks:
+            task_data = task.to_dict()
+            task_data['id'] = task.id
+            
+            # Convert timestamps to ISO format for JSON serialization
+            if 'start_date' in task_data and task_data['start_date']:
+                task_data['start_date'] = task_data['start_date'].isoformat()
+            if 'end_date' in task_data and task_data['end_date']:
+                task_data['end_date'] = task_data['end_date'].isoformat()
+            if 'createdAt' in task_data and task_data['createdAt']:
+                task_data['createdAt'] = task_data['createdAt'].isoformat()
+            if 'updatedAt' in task_data and task_data['updatedAt']:
+                task_data['updatedAt'] = task_data['updatedAt'].isoformat()
+            
+            task_list.append(task_data)
+            
+        return jsonify(task_list), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# =============== GET SINGLE TASK ===============
+@tasks_bp.route('/api/tasks/<task_id>', methods=['GET'])
+def get_task(task_id):
+    try:
+        db = get_firestore_client()
+        doc_ref = db.collection('Tasks').document(task_id)
+        doc = doc_ref.get()
+
+        if doc.exists:
+            task_data = doc.to_dict()
+            task_data['id'] = doc.id
+            
+            # Convert timestamps to ISO format
+            if 'start_date' in task_data and task_data['start_date']:
+                task_data['start_date'] = task_data['start_date'].isoformat()
+            if 'end_date' in task_data and task_data['end_date']:
+                task_data['end_date'] = task_data['end_date'].isoformat()
+            if 'createdAt' in task_data and task_data['createdAt']:
+                task_data['createdAt'] = task_data['createdAt'].isoformat()
+            if 'updatedAt' in task_data and task_data['updatedAt']:
+                task_data['updatedAt'] = task_data['updatedAt'].isoformat()
+
+            return jsonify(task_data), 200
+        else:
+            return jsonify({'error': 'Task not found'}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# =============== UPDATE TASK ===============
+@tasks_bp.route('/api/tasks/<task_id>', methods=['PUT'])
+def update_task(task_id):
+    try:
+        update_data = request.get_json()
+        db = get_firestore_client()
+        
+        # Handle date conversion if dates are being updated
+        if 'start_date' in update_data and update_data['start_date']:
+            update_data['start_date'] = datetime.strptime(update_data['start_date'], '%Y-%m-%d')
+        
+        if 'end_date' in update_data and update_data['end_date']:
+            end_date = datetime.strptime(update_data['end_date'], '%Y-%m-%d')
+            update_data['end_date'] = end_date.replace(hour=23, minute=59, second=59)
+
+        # Add updated timestamp
+        update_data['updatedAt'] = firestore.SERVER_TIMESTAMP
+
+        # Update document in Firestore
+        doc_ref = db.collection('Tasks').document(task_id)
+        doc_ref.update(update_data)
+
+        # Get updated document for response
+        updated_doc = doc_ref.get()
+        if updated_doc.exists:
+            response_data = updated_doc.to_dict()
+            response_data['id'] = updated_doc.id
+            
+            # Convert timestamps for response
+            if 'start_date' in response_data and response_data['start_date']:
+                response_data['start_date'] = response_data['start_date'].isoformat()
+            if 'end_date' in response_data and response_data['end_date']:
+                response_data['end_date'] = response_data['end_date'].isoformat()
+            if 'updatedAt' in response_data and response_data['updatedAt']:
+                response_data['updatedAt'] = response_data['updatedAt'].isoformat()
+            if 'createdAt' in response_data and response_data['createdAt']:
+                response_data['createdAt'] = response_data['createdAt'].isoformat()
+
+            return jsonify(response_data), 200
+        else:
+            return jsonify({'error': 'Task not found after update'}), 404
+
+    except ValueError as e:
+        return jsonify({'error': f'Invalid date format. Use YYYY-MM-DD: {str(e)}'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# =============== DELETE TASK ===============
+@tasks_bp.route('/api/tasks/<task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    try:
+        db = get_firestore_client()
+        doc_ref = db.collection('Tasks').document(task_id)
+        
+        # Check if document exists before deleting
+        doc = doc_ref.get()
+        if not doc.exists:
+            return jsonify({'error': 'Task not found'}), 404
+        
+        # Delete document
+        doc_ref.delete()
+
+        return jsonify({'message': 'Task deleted successfully', 'id': task_id}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# =============== GET TASKS BY PROJECT ID ===============
+@tasks_bp.route('/api/projects/<proj_id>/tasks', methods=['GET'])
+def get_tasks_by_project(proj_id):
+    try:
+        db = get_firestore_client()
+        tasks_ref = db.collection('Tasks')
+        # Query tasks by project ID
+        query = tasks_ref.where('proj_ID', '==', proj_id)
+        tasks = query.stream()
+        
+        task_list = []
+        for task in tasks:
+            task_data = task.to_dict()
+            task_data['id'] = task.id
+            
+            # Convert timestamps to ISO format
+            if 'start_date' in task_data and task_data['start_date']:
+                task_data['start_date'] = task_data['start_date'].isoformat()
+            if 'end_date' in task_data and task_data['end_date']:
+                task_data['end_date'] = task_data['end_date'].isoformat()
+            if 'createdAt' in task_data and task_data['createdAt']:
+                task_data['createdAt'] = task_data['createdAt'].isoformat()
+            if 'updatedAt' in task_data and task_data['updatedAt']:
+                task_data['updatedAt'] = task_data['updatedAt'].isoformat()
+            
+            task_list.append(task_data)
+            
+        return jsonify(task_list), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

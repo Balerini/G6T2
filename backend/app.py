@@ -5,6 +5,7 @@ from flask_cors import CORS
 
 from firebase_utils import get_firebase_app, get_firestore_client
 from routes.project import projects_bp 
+from routes.task import tasks_bp 
 
 def create_app() -> Flask:
     
@@ -18,13 +19,16 @@ def create_app() -> Flask:
     # Register blueprints here
     # =============== Project routes ===============
     app.register_blueprint(projects_bp)
+    
+    # =============== Task routes ===============
+    app.register_blueprint(tasks_bp)
 
     # Health routes
     @app.route("/health", methods=["GET"])
     def health():
         return jsonify({"status": "ok"}), 200
 
-    #User Routes 
+    # User Routes 
     @app.route("/login", methods=["POST"])
     def login():
         payload = request.get_json(silent=True) or {}
@@ -71,4 +75,4 @@ def create_app() -> Flask:
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), debug=True)  # Added debug=True
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), debug=True)
