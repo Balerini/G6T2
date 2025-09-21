@@ -81,12 +81,12 @@ export default {
     }
   },
   methods: {
-    navigateToCreateProject() {
+    // navigateToCreateProject() {
+    //   this.$router.push('/createtask');
+    // },
+    navigateToCreateTask() {
       this.$router.push('/createtask');
     },
-    // navigateToCreateTask() {
-    //   this.$router.push('');
-    // },
     handleEditProject(project) {
       console.log('Edit project:', project);
       // edit project logic here
