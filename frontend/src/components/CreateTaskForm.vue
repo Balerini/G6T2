@@ -1,10 +1,11 @@
 <template>
-  <form class="task-form">
+  <form class="task-form" @submit.prevent="handleSubmit">
     <!-- Task Name -->
     <div class="form-group">
       <label class="form-label" for="taskName">Task Name *</label>
       <input
         id="taskName"
+        v-model="formData.taskName"
         type="text"
         class="form-input"
         placeholder="Enter task name"
@@ -15,7 +16,11 @@
     <!-- Subtasks Checkbox -->
     <div class="form-group checkbox-group">
       <label class="checkbox-container">
-        <input type="checkbox" class="checkbox-input" />
+        <input 
+          type="checkbox" 
+          class="checkbox-input"
+          v-model="formData.hasSubtasks"
+        />
         <span class="checkbox-checkmark"></span>
         <span class="checkbox-label">Subtasks will have respective inputs</span>
       </label>
@@ -26,6 +31,7 @@
       <label class="form-label" for="deadline">Deadline *</label>
       <input
         id="deadline"
+        v-model="formData.deadline"
         type="date"
         class="form-input"
         required
@@ -37,19 +43,20 @@
       <label class="form-label" for="collaborators">Collaborators (10 max)</label>
       <input
         id="collaborators"
+        v-model="collaboratorInput"
         type="text"
         class="form-input"
         placeholder="Enter staff member name"
+        @keyup.enter="addCollaborator"
       />
       <div class="collaborator-tags">
-        <!-- Example tags - these would be dynamic -->
-        <span class="collaborator-tag">
-          John Doe
-          <button type="button" class="remove-tag">×</button>
-        </span>
-        <span class="collaborator-tag">
-          Jane Smith
-          <button type="button" class="remove-tag">×</button>
+        <span 
+          v-for="(collaborator, index) in formData.collaborators" 
+          :key="index"
+          class="collaborator-tag"
+        >
+          {{ collaborator }}
+          <button type="button" class="remove-tag" @click="removeCollaborator(index)">×</button>
         </span>
       </div>
     </div>
@@ -64,19 +71,23 @@
           class="file-input"
           multiple
           accept=".pdf,.doc,.docx,.jpg,.png"
+          @change="handleFileUpload"
+          ref="fileInput"
         />
         <label for="attachments" class="file-upload-label">
           Choose Files
         </label>
-        <span class="file-status">No file chosen</span>
+        <span class="file-status">
+          {{ formData.attachments.length > 0 ? `${formData.attachments.length} file(s) selected` : 'No file chosen' }}
+        </span>
       </div>
     </div>
 
     <!-- Status -->
     <div class="form-group">
       <label class="form-label" for="status">Status *</label>
-      <select id="status" class="form-select" required>
-        <option value="" disabled selected>Select status</option>
+      <select id="status" v-model="formData.status" class="form-select" required>
+        <option value="" disabled>Select status</option>
         <option value="unassigned">Unassigned</option>
         <option value="ongoing">Ongoing</option>
         <option value="under-review">Under Review</option>
@@ -86,36 +97,159 @@
 
     <!-- Form Actions -->
     <div class="form-actions">
-      <button type="button" class="btn btn-cancel" @click="$emit('cancel')">Cancel</button>
-      <button type="submit" class="btn btn-primary" @click="handleSubmit">Create Task</button>
+      <button type="button" class="btn btn-cancel" @click="$emit('cancel')" :disabled="isSubmitting">Cancel</button>
+      <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
+        {{ isSubmitting ? 'Creating...' : 'Create Task' }}
+      </button>
     </div>
   </form>
 </template>
 
 <script>
+import { ref, reactive } from 'vue';
+import { db } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
 export default {
   name: "TaskForm",
-  emits: ['submit', 'cancel'],
-  methods: {
-    handleSubmit(event) {
-      event.preventDefault();
+  emits: ['submit', 'cancel', 'success', 'error'],
+  setup(props, { emit }) {
+    const isSubmitting = ref(false);
+    const collaboratorInput = ref('');
+    const fileInput = ref(null);
+
+    const formData = reactive({
+      taskName: '',
+      hasSubtasks: false,
+      deadline: '',
+      collaborators: [],
+      attachments: [],
+      status: ''
+    });
+
+    const addCollaborator = () => {
+      const name = collaboratorInput.value.trim();
+      if (name && formData.collaborators.length < 10 && !formData.collaborators.includes(name)) {
+        formData.collaborators.push(name);
+        collaboratorInput.value = '';
+      }
+    };
+
+    const removeCollaborator = (index) => {
+      formData.collaborators.splice(index, 1);
+    };
+
+    const handleFileUpload = (event) => {
+      const files = Array.from(event.target.files);
+      if (files.length <= 3) {
+        formData.attachments = files;
+      } else {
+        alert('Maximum 3 files allowed');
+        if (fileInput.value) {
+          fileInput.value.value = '';
+        }
+      }
+    };
+
+    const resetForm = () => {
+      Object.assign(formData, {
+        taskName: '',
+        hasSubtasks: false,
+        deadline: '',
+        collaborators: [],
+        attachments: [],
+        status: ''
+      });
       
-      // Get form data
-      const formData = {
-        taskName: document.getElementById('taskName').value,
-        deadline: document.getElementById('deadline').value,
-        status: document.getElementById('status').value,
-        // Add other form fields as needed
-      };
+      if (fileInput.value) {
+        fileInput.value.value = '';
+      }
       
-      // Emit the submit event with form data
-      this.$emit('submit', formData);
-    }
+      collaboratorInput.value = '';
+    };
+
+    const handleSubmit = async () => {
+      // Prevent multiple submissions
+      if (isSubmitting.value) {
+        return;
+      }
+      
+      // Set loading state
+      isSubmitting.value = true;
+      
+      try {
+        // Validate required fields
+        if (!formData.taskName.trim()) {
+          throw new Error('Task name is required');
+        }
+        if (!formData.deadline) {
+          throw new Error('Deadline is required');
+        }
+        if (!formData.status) {
+          throw new Error('Status is required');
+        }
+
+        // Prepare task data for Firestore
+        const taskData = {
+          taskName: formData.taskName.trim(),
+          hasSubtasks: formData.hasSubtasks,
+          deadline: formData.deadline,
+          collaborators: [...formData.collaborators], // Create a copy
+          status: formData.status,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          attachmentNames: formData.attachments.map(file => file.name)
+        };
+
+        console.log('Submitting task data:', taskData);
+
+        // Add document to Firestore
+        const docRef = await addDoc(collection(db, 'tasks'), taskData);
+        
+        console.log('Task created successfully with ID:', docRef.id);
+        
+        // Create response object with the ID
+        const responseData = {
+          id: docRef.id,
+          ...taskData
+        };
+        
+        // Reset form first
+        resetForm();
+        
+        // Emit success event
+        emit('success', responseData);
+        
+      } catch (error) {
+        console.error('Error creating task:', error);
+        
+        // Emit error event with proper error message
+        const errorMessage = error.message || 'An unexpected error occurred';
+        emit('error', errorMessage);
+        
+      } finally {
+        // Always reset loading state
+        isSubmitting.value = false;
+        console.log('Form submission completed, loading state reset');
+      }
+    };
+
+    return {
+      formData,
+      collaboratorInput,
+      fileInput,
+      isSubmitting,
+      addCollaborator,
+      removeCollaborator,
+      handleFileUpload,
+      handleSubmit
+    };
   }
 };
 </script>
 
 <style scoped>
+/* Keep existing styles */
 .task-form {
   display: flex;
   flex-direction: column;
@@ -269,6 +403,11 @@ export default {
   transition: all 0.2s ease;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-cancel {
   background-color: #ffffff;
   color: #666666;
@@ -285,7 +424,7 @@ export default {
   color: #ffffff;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background-color: #333333;
 }
 
