@@ -4,7 +4,7 @@ import Login from '../views/Login.vue';
 import Home from '../views/Home.vue';
 import Projects from '../views/Projects.vue';
 import Createtask from '../views/CreateTask.vue'
-import ViewIndivTask from '../views/ViewIndivTask.vue'
+import ViewTaskDetails  from '../views/ViewTaskDetails.vue'
 
 const routes = [
   {
@@ -32,8 +32,8 @@ const routes = [
   },
   {
     path: '/projects/:projectId/task/:taskId',
-    name: 'viewtask',
-    component: ViewIndivTask,
+    name: 'viewtaskdetails',
+    component: ViewTaskDetails,
     meta: { showNav: true }
   },
   {

@@ -1,61 +1,52 @@
 <template>
   <div class="task-item">
-    <h3 class="task-title">{{ task.taskName }}</h3>
+    <h3 class="task-title">{{ task.task_name }}</h3>
     
     <div class="task-meta">
       <div class="meta-group">
         <span class="meta-label">Status:</span>
-        <span class="status-badge" :class="getTaskStatusClass(task.currentStatus?.statusName)">
-          {{ task.currentStatus?.statusName || 'Not Started' }}
+        <span class="status-badge" :class="getTaskStatusClass(task.task_status)">
+          {{ formatStatus(task.task_status) || 'Not Started' }}
         </span>
       </div>
       
       <div class="meta-group">
         <span class="meta-label">Due Date:</span>
-        <span class="meta-value">📅 {{ formatDate(task.dueDate) }}</span>
+        <span class="meta-value">📅 {{ formatDate(task.end_date) }}</span>
+      </div>
+      
+      <div class="meta-group">
+        <span class="meta-label">Created By:</span>
+        <span class="meta-value">{{ getCreatorName(task.created_by) }}</span>
       </div>
       
       <div class="meta-group"> 
         <span class="meta-label">Assigned To:</span>
-        <div class="assignee-avatars">
+        <div class="assignee-list">
           <UserAvatar
-            v-for="assignee in task.assignees"
-            :key="assignee.id"
-            :user="assignee"
+            v-for="userId in task.assigned_to"
+            :key="userId"
+            :user="getUser(userId)"
             type="assignee"
           />
         </div>
       </div>
       
-      <div class="meta-group">
-        <span class="meta-label">Approver:</span>
-        <div class="assignee-avatars">
-          <UserAvatar
-            v-if="task.approver"
-            :user="task.approver"
-            type="approver"
-          />
+      <div class="meta-group" v-if="task.attachments && task.attachments.length > 0">
+        <span class="meta-label">Attachments:</span>
+        <div class="attachments-list">
+          <span class="attachment-count">{{ task.attachments.length }} file(s)</span>
         </div>
       </div>
       
-      <div class="meta-group">
-        <span class="meta-label">Assignee:</span>
-        <div class="assignee-avatars">
-          <UserAvatar
-            v-if="task.assignee"
-            :user="task.assignee"
-            type="assignee"
-          />
-        </div>
-      </div>
-      
-      <button class="view-btn" @click="$emit('view-task', task)">View</button>
+      <button class="view-btn" @click="$emit('view-task', task)">View Details</button>
     </div>
   </div>
 </template>
 
 <script>
 import UserAvatar from './UserAvatar.vue'
+import { mockUsers } from '../../dummyData/projectData.js'
 
 export default {
   name: 'TaskItem',
@@ -69,16 +60,24 @@ export default {
     }
   },
   emits: ['view-task'],
+  data() {
+    return {
+      users: mockUsers
+    }
+  },
   methods: {
     getTaskStatusClass(status) {
       if (!status) return 'status-not-started';
       const statusClasses = {
-        'In progress': 'status-progress',
-        'To Do': 'status-todo',
-        'Completed': 'status-completed',
-        'Pending': 'status-pending'
+        'in-progress': 'status-progress',
+        'to-do': 'status-todo',
+        'completed': 'status-completed',
+        'pending': 'status-pending'
       };
       return statusClasses[status] || 'status-default';
+    },
+    formatStatus(status) {
+      return status?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Not Started';
     },
     formatDate(date) {
       if (!date) return 'No due date';
@@ -87,6 +86,13 @@ export default {
         month: 'short', 
         year: 'numeric' 
       });
+    },
+    getUser(userId) {
+      return this.users.find(user => user.id === userId) || { id: userId, name: 'Unknown User', initials: 'UU' };
+    },
+    getCreatorName(userId) {
+      const user = this.users.find(u => u.id === userId);
+      return user ? user.name : 'Unknown User';
     }
   }
 }
@@ -167,9 +173,19 @@ export default {
   color: #6b7280;
 }
 
-.assignee-avatars {
+.assignee-list {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.attachments-list {
+  font-size: 0.875rem;
+}
+
+.attachment-count {
+  color: #6b7280;
+  font-style: italic;
 }
 
 .view-btn {

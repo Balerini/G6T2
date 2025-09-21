@@ -5,14 +5,22 @@
       <div class="container">
         <div class="header-content">
           <h1 class="hero-title">Projects</h1>
-          <button class="tab-btn new-project-btn" @click="navigateToCreateProject">
-            + New Project
-          </button>
+          <div class="header-buttons">
+            <button class="tab-btn new-project-btn" @click="navigateToCreateProject">
+              + New Project
+            </button>
+            <button class="tab-btn new-task-btn" @click="navigateToCreateTask">
+              + New Task
+            </button>
+          </div>
         </div>
         
         <div class="action-tabs">
           <button class="tab-btn" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
             All Projects
+          </button>
+          <button class="tab-btn">
+            Standalone Tasks
           </button>
         </div>
       </div>
@@ -48,7 +56,7 @@
 <script>
 import ProjectList from '../components/Projects/ProjectList.vue'
 import CreateTaskForm from '../components/CreateTaskForm.vue'
-import { mockProjects } from '../dummyData/projectData.js'
+import { getAllProjectsWithTasks } from '../dummyData/projectData.js'
 
 export default {
   name: 'CRMProjectManager',
@@ -59,7 +67,7 @@ export default {
   data() {
     return {
       activeTab: 'all',
-      projects: mockProjects,
+      projects: getAllProjectsWithTasks(),
       showCreateTaskForm: false,
       selectedProject: null
     }
@@ -69,21 +77,23 @@ export default {
       if (this.activeTab === 'all') {
         return this.projects;
       }
-      return this.projects.filter(project => project.collaborator && project.collaborator.length > 0);
+      return this.projects.filter(project => project.collaborators && project.collaborators.length > 0);
     }
   },
   methods: {
     navigateToCreateProject() {
       this.$router.push('/createtask');
     },
+    // navigateToCreateTask() {
+    //   this.$router.push('');
+    // },
     handleEditProject(project) {
       console.log('Edit project:', project);
       // edit project logic here
     },
     handleViewTask(task) {
-      this.$router.push(`/projects/${task.projectId}/task/${task.taskId}`);
+      this.$router.push(`/projects/${task.proj_ID}/task/${task.task_ID}`);
       console.log('View task:', task);
-      // view task logic here
     },
     handleAddTask(project) {
       console.log('Add task to project:', project);
@@ -160,15 +170,34 @@ export default {
   border-color: #111827;
 }
 
-.new-project-btn {
+.header-buttons {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.new-project-btn,
+.new-task-btn {
   background: #111827;
   color: #fff;
   border-color: #111827;
 }
 
-.new-project-btn:hover {
+.new-project-btn:hover,
+.new-task-btn:hover {
   background: #374151;
   border-color: #374151;
+}
+
+.new-task-btn {
+  background: #fff;
+  color: #111827;
+  border: 1px solid #d1d5db;
+}
+
+.new-task-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
 }
 
 .projects-section {
@@ -180,6 +209,11 @@ export default {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
+  }
+  
+  .header-buttons {
+    width: 100%;
+    justify-content: flex-start;
   }
   
   .action-tabs {

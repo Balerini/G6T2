@@ -8,19 +8,10 @@
             ← Back to Projects
           </button>
           <span class="breadcrumb-separator">/</span>
-          <span class="breadcrumb-current">{{ parentProject?.projectName }}</span>
+          <span class="breadcrumb-current">{{ parentProject?.proj_name }}</span>
           <span class="breadcrumb-separator">/</span>
-          <span class="breadcrumb-current">{{ task?.taskName }}</span>
+          <span class="breadcrumb-current">{{ task?.task_name }}</span>
         </div>
-        
-        <!-- <div class="header-actions">
-          <button class="btn btn-secondary" @click="editTask">
-            Edit Task
-          </button>
-          <button class="btn btn-danger" @click="deleteTask">
-            Delete Task
-          </button>
-        </div> -->
       </div>
     </header>
 
@@ -30,16 +21,16 @@
         
         <!-- Parent Project Context -->
         <div class="parent-project-banner">
-          <div class="project-status-indicator" :class="getParentStatusClass(parentProject.status)"></div>
+          <div class="project-status-indicator" :class="getParentStatusClass(parentProject.proj_status)"></div>
           <div class="banner-content">
-            <h1 class="parent-project-title">{{ parentProject.projectName }}</h1>
-            <p class="parent-project-description">{{ parentProject.instruction }}</p>
+            <h1 class="parent-project-title">{{ parentProject.proj_name }}</h1>
+            <p class="parent-project-description">{{ parentProject.proj_desc }}</p>
             <div class="parent-project-meta">
               <span class="meta-item">
-                <strong>Status:</strong> {{ formatStatus(parentProject.status) }}
+                <strong>Status:</strong> {{ formatStatus(parentProject.proj_status) }}
               </span>
               <span class="meta-item">
-                <strong>Due:</strong> {{ formatDate(parentProject.dueDate) }}
+                <strong>Duration:</strong> {{ formatDateRange(parentProject.start_date, parentProject.end_date) }}
               </span>
             </div>
           </div>
@@ -48,9 +39,9 @@
         <!-- Task Details Card -->
         <div class="task-details-card">
           <div class="card-header">
-            <h2 class="task-title">{{ task.taskName }}</h2>
-            <div class="status-badge-large" :class="getTaskStatusClass(task.currentStatus?.statusName)">
-              {{ task.currentStatus?.statusName || 'Not Started' }}
+            <h2 class="task-title">{{ task.task_name }}</h2>
+            <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
+              {{ formatStatus(task.task_status) || 'Not Started' }}
             </div>
           </div>
 
@@ -59,10 +50,18 @@
             <div class="info-card">
               <div class="info-icon">📅</div>
               <div class="info-content">
+                <h3 class="info-title">Start Date</h3>
+                <p class="info-value">{{ formatDate(task.start_date) }}</p>
+              </div>
+            </div>
+
+            <div class="info-card">
+              <div class="info-icon">⏰</div>
+              <div class="info-content">
                 <h3 class="info-title">Due Date</h3>
-                <p class="info-value">{{ formatDate(task.dueDate) }}</p>
-                <p class="info-meta" :class="getDueDateClass(task.dueDate)">
-                  {{ getDueDateStatus(task.dueDate) }}
+                <p class="info-value">{{ formatDate(task.end_date) }}</p>
+                <p class="info-meta" :class="getDueDateClass(task.end_date)">
+                  {{ getDueDateStatus(task.end_date) }}
                 </p>
               </div>
             </div>
@@ -70,31 +69,14 @@
             <div class="info-card">
               <div class="info-icon">👤</div>
               <div class="info-content">
-                <h3 class="info-title">Assignee</h3>
-                <div v-if="task.assignee" class="user-info">
-                  <div class="user-avatar" :class="'assignee'">
-                    {{ getInitials(task.assignee.name) }}
+                <h3 class="info-title">Created By</h3>
+                <div v-if="task.created_by" class="user-info">
+                  <div class="user-avatar creator">
+                    {{ getInitials(getCreatorName(task.created_by)) }}
                   </div>
                   <div class="user-details">
-                    <p class="user-name">{{ task.assignee.name }}</p>
-                    <p class="user-role">Assignee</p>
-                  </div>
-                </div>
-                <p v-else class="info-value empty">Not assigned</p>
-              </div>
-            </div>
-
-            <div class="info-card">
-              <div class="info-icon">✅</div>
-              <div class="info-content">
-                <h3 class="info-title">Approver</h3>
-                <div v-if="task.approver" class="user-info">
-                  <div class="user-avatar approver">
-                    {{ getInitials(task.approver.name) }}
-                  </div>
-                  <div class="user-details">
-                    <p class="user-name">{{ task.approver.name }}</p>
-                    <p class="user-role">Approver</p>
+                    <p class="user-name">{{ getCreatorName(task.created_by) }}</p>
+                    <p class="user-role">Creator</p>
                   </div>
                 </div>
                 <p v-else class="info-value empty">Not assigned</p>
@@ -104,19 +86,19 @@
             <div class="info-card">
               <div class="info-icon">👥</div>
               <div class="info-content">
-                <h3 class="info-title">Collaborators</h3>
-                <div v-if="task.assignees && task.assignees.length > 0" class="collaborators-list">
-                  <div v-for="assignee in task.assignees" :key="assignee.id" class="user-info">
-                    <div class="user-avatar">
-                      {{ getInitials(assignee.name) }}
+                <h3 class="info-title">Assigned To</h3>
+                <div v-if="task.assigned_to && task.assigned_to.length > 0" class="assignees-list">
+                  <div v-for="userId in task.assigned_to" :key="userId" class="user-info">
+                    <div class="user-avatar assignee">
+                      {{ getInitials(getUserName(userId)) }}
                     </div>
                     <div class="user-details">
-                      <p class="user-name">{{ assignee.name }}</p>
-                      <p class="user-role">Collaborator</p>
+                      <p class="user-name">{{ getUserName(userId) }}</p>
+                      <p class="user-role">Assignee</p>
                     </div>
                   </div>
                 </div>
-                <p v-else class="info-value empty">No collaborators</p>
+                <p v-else class="info-value empty">No assignees</p>
               </div>
             </div>
           </div>
@@ -125,20 +107,19 @@
           <div class="description-section">
             <h3 class="section-title">Description</h3>
             <p class="description-text">
-              {{ task.instruction || 'No description provided for this task.' }}
+              {{ task.task_desc || 'No description provided for this task.' }}
             </p>
           </div>
 
-          <!-- Status History -->
-          <div class="status-history-section">
-            <h3 class="section-title">Status History</h3>
-            <div class="status-timeline">
-              <div class="timeline-item">
-                <div class="timeline-dot" :class="getTaskStatusClass(task.currentStatus?.statusName)"></div>
-                <div class="timeline-content">
-                  <h4 class="timeline-status">{{ task.currentStatus?.statusName || 'Not Started' }}</h4>
-                  <p class="timeline-date">{{ formatDateTime(task.currentStatus?.statusTimestamp) }}</p>
-                  <p class="timeline-user">Updated by Staff: {{ task.currentStatus?.staffId }}</p>
+          <!-- Attachments Section -->
+          <div class="attachments-section" v-if="task.attachments && task.attachments.length > 0">
+            <h3 class="section-title">Attachments</h3>
+            <div class="attachments-grid">
+              <div v-for="attachment in task.attachments" :key="attachment" class="attachment-item">
+                <div class="attachment-icon">📎</div>
+                <div class="attachment-info">
+                  <p class="attachment-name">{{ attachment }}</p>
+                  <p class="attachment-size">Click to download</p>
                 </div>
               </div>
             </div>
@@ -150,19 +131,19 @@
             <div class="metadata-grid">
               <div class="metadata-item">
                 <span class="metadata-label">Project ID</span>
-                <span class="metadata-value">{{ task.projectId }}</span>
+                <span class="metadata-value">{{ task.proj_ID }}</span>
               </div>
               <div class="metadata-item">
                 <span class="metadata-label">Task ID</span>
-                <span class="metadata-value">{{ task.taskId }}</span>
+                <span class="metadata-value">{{ task.task_ID }}</span>
               </div>
               <div class="metadata-item">
-                <span class="metadata-label">Assigner</span>
-                <span class="metadata-value">{{ getAssignerName(task.assigner) }}</span>
+                <span class="metadata-label">Created By</span>
+                <span class="metadata-value">{{ getCreatorName(task.created_by) }}</span>
               </div>
               <div class="metadata-item">
-                <span class="metadata-label">Created</span>
-                <span class="metadata-value">{{ formatDateTime(task.currentStatus?.statusTimestamp) }}</span>
+                <span class="metadata-label">Duration</span>
+                <span class="metadata-value">{{ formatDateRange(task.start_date, task.end_date) }}</span>
               </div>
             </div>
           </div>
@@ -178,57 +159,21 @@
         </div>
       </div>
     </main>
-
-    <!-- Edit Task Modal -->
-    <!-- 
-    <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3 class="modal-title">Edit Task</h3>
-          <button class="modal-close" @click="closeEditModal">&times;</button>
-        </div>
-        <TaskForm 
-          :is-edit-mode="true"
-          :initial-data="taskFormData"
-          @success="handleEditSuccess"
-          @cancel="closeEditModal"
-        />
-      </div>
-    </div>
-    -->
   </div>
 </template>
 
 <script>
-// import TaskForm from '../components/TaskForm.vue' // Component doesn't exist yet
-import { mockProjects, mockUsers } from '../dummyData/projectData.js'
+import { mockProjects, mockTasks, mockUsers } from '../dummyData/projectData.js'
 
 export default {
   name: 'ViewIndivTask',
-  // components: {
-  //   TaskForm  // Component doesn't exist yet
-  // },
   data() {
     return {
       projects: mockProjects,
+      tasks: mockTasks,
       users: mockUsers,
       task: null,
-      parentProject: null,
-      showEditModal: false
-    }
-  },
-  computed: {
-    taskFormData() {
-      if (!this.task) return {};
-      
-      return {
-        name: this.task.taskName,
-        deadline: this.task.dueDate ? new Date(this.task.dueDate).toISOString().split('T')[0] : '',
-        status: this.task.currentStatus?.statusName || '',
-        assigneeId: this.task.assignee?.id || '',
-        approverId: this.task.approver?.id || '',
-        instruction: this.task.instruction || ''
-      };
+      parentProject: null
     }
   },
   created() {
@@ -245,15 +190,13 @@ export default {
       const taskId = this.$route.params.taskId
       
       // Find the parent project
-      this.parentProject = this.projects.find(project => project.projectId === projectId)
+      this.parentProject = this.projects.find(project => project.proj_ID === projectId)
       
       // Find the specific task
-      if (this.parentProject) {
-        this.task = this.parentProject.tasks.find(task => task.taskId === taskId)
-      }
+      this.task = this.tasks.find(task => task.task_ID === taskId && task.proj_ID === projectId)
       
       // If no task found, redirect back
-      if (!this.task) {
+      if (!this.task || !this.parentProject) {
         this.$router.push('/projects')
       }
     },
@@ -275,16 +218,16 @@ export default {
     getTaskStatusClass(status) {
       if (!status) return 'status-not-started';
       const statusClasses = {
-        'In progress': 'status-progress',
-        'To Do': 'status-todo',
-        'Completed': 'status-completed',
-        'Pending': 'status-pending'
+        'in-progress': 'status-progress',
+        'to-do': 'status-todo',
+        'completed': 'status-completed',
+        'pending': 'status-pending'
       };
       return statusClasses[status] || 'status-default';
     },
 
     formatDate(date) {
-      if (!date) return 'No due date';
+      if (!date) return 'No date set';
       return new Date(date).toLocaleDateString('en-US', { 
         weekday: 'long',
         day: '2-digit', 
@@ -293,15 +236,18 @@ export default {
       });
     },
 
-    formatDateTime(date) {
-      if (!date) return 'Unknown';
-      return new Date(date).toLocaleDateString('en-US', { 
+    formatDateRange(startDate, endDate) {
+      if (!startDate || !endDate) return 'No dates set';
+      const start = new Date(startDate).toLocaleDateString('en-US', { 
+        day: '2-digit', 
+        month: 'short' 
+      });
+      const end = new Date(endDate).toLocaleDateString('en-US', { 
         day: '2-digit', 
         month: 'short', 
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        year: 'numeric' 
       });
+      return `${start} - ${end}`;
     },
 
     formatStatus(status) {
@@ -347,30 +293,14 @@ export default {
         .toUpperCase();
     },
 
-    getAssignerName(assignerId) {
-      const user = this.users.find(u => u.id === assignerId);
+    getUserName(userId) {
+      const user = this.users.find(u => u.id === userId);
       return user ? user.name : 'Unknown User';
     },
 
-    editTask() {
-      this.showEditModal = true;
-    },
-
-    closeEditModal() {
-      this.showEditModal = false;
-    },
-
-    handleEditSuccess() {
-      this.showEditModal = false;
-      this.loadTaskData();
-    },
-
-    deleteTask() {
-      if (confirm('Are you sure you want to delete this task?')) {
-        console.log('Delete task:', this.task);
-        // Handle deletion logic here
-        this.$router.push('/projects');
-      }
+    getCreatorName(userId) {
+      const user = this.users.find(u => u.id === userId);
+      return user ? user.name : 'Unknown User';
     }
   }
 }
@@ -426,11 +356,6 @@ export default {
 .breadcrumb-current {
   color: #111827;
   font-weight: 500;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
 }
 
 /* Content Styles */
@@ -614,9 +539,9 @@ export default {
   color: #374151;
 }
 
-.user-avatar.approver {
-  background: #ddd6fe;
-  color: #5b21b6;
+.user-avatar.creator {
+  background: #e0e7ff;
+  color: #3730a3;
 }
 
 .user-avatar.assignee {
@@ -641,7 +566,7 @@ export default {
   margin: 0;
 }
 
-.collaborators-list {
+.assignees-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -649,7 +574,7 @@ export default {
 
 /* Sections */
 .description-section,
-.status-history-section,
+.attachments-section,
 .metadata-section {
   padding: 32px;
   border-bottom: 1px solid #f3f4f6;
@@ -672,45 +597,48 @@ export default {
   margin: 0;
 }
 
-/* Timeline */
-.status-timeline {
-  position: relative;
-}
-
-.timeline-item {
-  display: flex;
-  align-items: flex-start;
+/* Attachments */
+.attachments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 16px;
 }
 
-.timeline-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-top: 4px;
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.timeline-content {
+.attachment-item:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.attachment-icon {
+  font-size: 20px;
+}
+
+.attachment-info {
   flex: 1;
 }
 
-.timeline-status {
-  font-weight: 600;
+.attachment-name {
+  font-size: 14px;
+  font-weight: 500;
   color: #111827;
   margin: 0 0 4px 0;
-  font-size: 16px;
 }
 
-.timeline-date {
-  font-size: 14px;
-  color: #6b7280;
-  margin: 0 0 4px 0;
-}
-
-.timeline-user {
+.attachment-size {
   font-size: 12px;
-  color: #9ca3af;
+  color: #6b7280;
   margin: 0;
 }
 
@@ -741,36 +669,6 @@ export default {
   font-weight: 500;
 }
 
-/* Buttons */
-.btn {
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-  font-size: 14px;
-}
-
-.btn-secondary {
-  background-color: #f3f4f6;
-  color: #374151;
-  border-color: #d1d5db;
-}
-
-.btn-secondary:hover {
-  background-color: #e5e7eb;
-}
-
-.btn-danger {
-  background-color: #dc2626;
-  color: #ffffff;
-}
-
-.btn-danger:hover {
-  background-color: #b91c1c;
-}
-
 /* Status Badge Colors */
 .status-badge-large.status-progress {
   background: #fef3c7;
@@ -797,66 +695,6 @@ export default {
   color: #6b7280;
 }
 
-/* Modal Styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: #fff;
-  border-radius: 12px;
-  max-width: 500px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  position: relative;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 24px 0;
-  margin-bottom: 16px;
-}
-
-.modal-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #111827;
-  margin: 0;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  color: #6b7280;
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-}
-
-.modal-close:hover {
-  background: #f3f4f6;
-  color: #111827;
-}
-
 /* Loading State */
 .loading-state {
   text-align: center;
@@ -872,11 +710,6 @@ export default {
     align-items: flex-start;
   }
   
-  .header-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-  
   .page-content {
     padding: 16px;
   }
@@ -888,7 +721,7 @@ export default {
   
   .parent-project-banner,
   .description-section,
-  .status-history-section,
+  .attachments-section,
   .metadata-section {
     padding: 16px;
   }
@@ -900,7 +733,8 @@ export default {
     padding: 16px;
   }
   
-  .metadata-grid {
+  .metadata-grid,
+  .attachments-grid {
     grid-template-columns: 1fr;
   }
 }
