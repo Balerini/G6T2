@@ -51,6 +51,20 @@
       ></textarea>
     </div>
 
+    <!-- Subtasks Checkbox -->
+    <div class="form-group checkbox-group">
+      <label class="checkbox-container">
+        <input 
+          type="checkbox" 
+          class="checkbox-input"
+          v-model="formData.hasSubtasks"
+          @change="onSubtasksChange"
+        />
+        <span class="checkbox-checkmark"></span>
+        <span class="checkbox-label">  Subtasks will have respective inputs</span>
+      </label>
+    </div>
+
     <!-- Start Date -->
     <div class="form-group">
       <label class="form-label" for="startDate">Start Date *</label>
@@ -60,20 +74,23 @@
         type="date"
         class="form-input"
         required
+        :min="getCurrentDate()"
         @change="validateDates"
       />
     </div>
 
     <!-- End Date -->
     <div class="form-group">
-      <label class="form-label" for="endDate">End Date *</label>
+      <label class="form-label" for="endDate">
+        End Date {{ formData.hasSubtasks ? '' : '*' }}
+      </label>
       <input
         id="endDate"
         v-model="formData.end_date"
         type="date"
         class="form-input"
-        required
-        :min="formData.start_date"
+        :required="!formData.hasSubtasks"
+        :min="formData.start_date || getCurrentDate()"
         @change="validateDates"
       />
       <span v-if="dateValidationError" class="error-message">
@@ -96,13 +113,15 @@
 
     <!-- Assigned To -->
     <div class="form-group">
-      <label class="form-label" for="assignedTo">Assigned To</label>
+      <label class="form-label" for="assignedTo">
+        Collaborators ({{ formData.hasSubtasks ? '0-5' : '0-10' }} max)
+      </label>
       <input
         id="assignedTo"
         v-model="assignedToInput"
         type="text"
         class="form-input"
-        placeholder="Enter assignee name"
+        placeholder="Enter collaborator name"
         @keyup.enter="addAssignee"
       />
       <div class="assignee-tags" v-if="formData.assigned_to.length > 0">
@@ -119,7 +138,7 @@
 
     <!-- Attachments -->
     <div class="form-group">
-      <label class="form-label" for="attachments">Attachments</label>
+      <label class="form-label" for="attachments">Attachments (0-3 max)</label>
       <div class="file-upload-container">
         <input
           id="attachments"
@@ -163,8 +182,15 @@
 
     <!-- Task Status -->
     <div class="form-group">
-      <label class="form-label" for="taskStatus">Task Status *</label>
-      <select id="taskStatus" v-model="formData.task_status" class="form-select" required>
+      <label class="form-label" for="taskStatus">
+        Task Status {{ formData.hasSubtasks ? '' : '*' }}
+      </label>
+      <select 
+        id="taskStatus" 
+        v-model="formData.task_status" 
+        class="form-select" 
+        :required="!formData.hasSubtasks"
+      >
         <option value="" disabled>Select status</option>
         <option value="not_started">Not Started</option>
         <option value="in_progress">In Progress</option>
@@ -215,7 +241,8 @@ export default {
       created_by: '', // Will be auto-populated
       assigned_to: [],
       attachments: [],
-      task_status: ''
+      task_status: '',
+      hasSubtasks: false // Added for subtasks checkbox
     });
 
     // Auto-populate created_by on component mount
@@ -227,11 +254,36 @@ export default {
       formData.created_by = 'Current User'; // Replace with actual user data
     });
 
+    // Get current date in YYYY-MM-DD format to prevent past date selection
+    const getCurrentDate = () => {
+      const today = new Date();
+      return today.toISOString().split('T')[0];
+    };
+
+    // Handle subtasks checkbox change
+    const onSubtasksChange = () => {
+      // If switching to subtasks mode and too many collaborators, trim them to 5
+      if (formData.hasSubtasks && formData.assigned_to.length > 5) {
+        formData.assigned_to = formData.assigned_to.slice(0, 5);
+      }
+      
+      // Clear validation errors when switching modes
+      dateValidationError.value = '';
+    };
+
     const addAssignee = () => {
       const name = assignedToInput.value.trim();
-      if (name && !formData.assigned_to.includes(name)) {
+      const maxCollaborators = formData.hasSubtasks ? 5 : 10;
+      
+      if (name && 
+          formData.assigned_to.length < maxCollaborators && 
+          !formData.assigned_to.includes(name)) {
         formData.assigned_to.push(name);
         assignedToInput.value = '';
+      } else if (formData.assigned_to.length >= maxCollaborators) {
+        alert(`Maximum ${maxCollaborators} collaborators allowed`);
+      } else if (formData.assigned_to.includes(name)) {
+        alert('This collaborator has already been added');
       }
     };
 
@@ -241,6 +293,13 @@ export default {
 
     const handleFileUpload = (event) => {
       const files = Array.from(event.target.files);
+      
+      // Limit to maximum 3 files
+      if (formData.attachments.length + files.length > 3) {
+        alert('Maximum 3 files allowed');
+        return;
+      }
+      
       // Add new files to existing ones
       formData.attachments = [...formData.attachments, ...files];
     };
@@ -288,7 +347,8 @@ export default {
         created_by: '', // Will be auto-populated again
         assigned_to: [],
         attachments: [],
-        task_status: ''
+        task_status: '',
+        hasSubtasks: false
       });
       
       if (fileInput.value) {
@@ -309,7 +369,7 @@ export default {
       }
       
       // Validate dates before submission
-      if (!validateDates()) {
+      if (formData.end_date && !validateDates()) {
         return;
       }
       
@@ -329,16 +389,24 @@ export default {
         if (!formData.start_date) {
           throw new Error('Start date is required');
         }
-        if (!formData.end_date) {
-          throw new Error('End date is required');
-        }
-        if (!formData.task_status) {
-          throw new Error('Task status is required');
+        
+        // Conditional validation based on hasSubtasks
+        if (!formData.hasSubtasks) {
+          if (!formData.end_date) {
+            throw new Error('End date is required when subtasks are not enabled');
+          }
+          if (!formData.task_status) {
+            throw new Error('Task status is required when subtasks are not enabled');
+          }
         }
 
-        // Convert datetime strings to Firestore Timestamps
+        // Convert date strings to Firestore Timestamps
         const startTimestamp = Timestamp.fromDate(new Date(formData.start_date + 'T00:00:00'));
-        const endTimestamp = Timestamp.fromDate(new Date(formData.end_date + 'T23:59:59'));
+        let endTimestamp = null;
+        
+        if (formData.end_date) {
+          endTimestamp = Timestamp.fromDate(new Date(formData.end_date + 'T23:59:59'));
+        }
 
         // Prepare task data for Firestore
         const taskData = {
@@ -355,7 +423,8 @@ export default {
             size: file.size,
             type: file.type
           })),
-          task_status: formData.task_status,
+          task_status: formData.task_status || null,
+          hasSubtasks: formData.hasSubtasks,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now()
         };
@@ -403,7 +472,9 @@ export default {
       removeFile,
       formatFileSize,
       validateDates,
-      handleSubmit
+      handleSubmit,
+      getCurrentDate,
+      onSubtasksChange
     };
   }
 };
