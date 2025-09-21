@@ -32,7 +32,14 @@
           />
         </div>
 
-        <button @click="login" class="btn-primary">Sign In</button>
+        <div v-if="error" class="error-message">
+          {{ error }}
+        </div>
+
+        <button @click="login" class="btn-primary" :disabled="loading">
+          <span v-if="loading">Signing in...</span>
+          <span v-else>Sign In</span>
+        </button>
 
         <div class="divider">
           <span>or</span>
@@ -48,23 +55,70 @@
 </template>
 
 <script>
+import { authAPI } from '@/services/api'
+import authService from '@/services/auth'
+
 export default {
   name: 'Login',
   data() {
     return {
       email: '',
-      password: ''
+      password: '',
+      loading: false,
+      error: ''
     }
   },
   methods: {
-    login() {
-      // Placeholder action for now
+    async testConnection() {
+      try {
+        console.log('Testing backend connection...');
+        const response = await fetch('/api/health');
+        const data = await response.json();
+        console.log('Backend health check:', data);
+        return data;
+      } catch (error) {
+        console.error('Backend connection failed:', error);
+        return null;
+      }
+    },
+    
+    async login() {
       if (!this.email || !this.password) {
-        alert('Please enter email and password');
+        this.error = 'Please enter email and password';
         return;
       }
-      // Replace with real auth flow later
-      this.$router.push('/');
+
+      this.loading = true;
+      this.error = '';
+
+      const healthCheck = await this.testConnection();
+      if (!healthCheck) {
+        console.error('Backend server is not running or not accessible');
+        this.error = 'Login failed. Please try again.';
+        this.loading = false;
+        return;
+      }
+
+      try {
+        console.log('Attempting login with:', { email: this.email, password: '***' });
+        const response = await authAPI.login(this.email, this.password);
+        console.log('Login response:', response);
+        
+        if (response.ok) {
+          console.log('Login successful, redirecting to home...');
+          // Store user data in auth service
+          authService.login(response.user);
+          this.$router.push('/');
+        } else {
+          this.error = response.error || 'Login failed';
+          console.log('Login failed:', response);
+        }
+      } catch (error) {
+        this.error = error.error || 'An error occurred during login';
+        console.error('Login error:', error);
+      } finally {
+        this.loading = false;
+      }
     }
   }
 }
@@ -175,6 +229,26 @@ label {
 
 .btn-primary:active {
   transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary:disabled:hover {
+  background: #9ca3af;
+}
+
+.error-message {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
 }
 
 .divider {
