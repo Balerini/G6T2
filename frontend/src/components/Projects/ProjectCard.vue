@@ -72,19 +72,23 @@ export default {
       const collaboratorIds = new Set();
 
       // Add project collaborators
-      if (this.project.collaborators) {
-        this.project.collaborators.forEach(id => collaboratorIds.add(id));
+      if (this.project.collaborators && Array.isArray(this.project.collaborators)) {
+        this.project.collaborators.forEach(id => {
+          if (id) collaboratorIds.add(String(id)); // Convert to string
+        });
       }
 
       // Add task assignees
-      if (this.project.tasks) {
+      if (this.project.tasks && Array.isArray(this.project.tasks)) {
         this.project.tasks.forEach(task => {
-          if (task.assigned_to) {
-            task.assigned_to.forEach(id => collaboratorIds.add(id));
+          if (task.assigned_to && Array.isArray(task.assigned_to)) {
+            task.assigned_to.forEach(id => {
+              if (id) collaboratorIds.add(String(id)); // Convert to string
+            });
           }
           // Also add task creator
           if (task.created_by) {
-            collaboratorIds.add(task.created_by);
+            collaboratorIds.add(String(task.created_by)); // Convert to string
           }
         });
       }
@@ -129,11 +133,14 @@ export default {
       });
       return `${start} - ${end}`;
     },
+
     getUser(userId) {
-      const user = this.users.find(user => user.id === userId);
+      // Convert both to strings for comparison, using user_ID from Firebase
+      const user = this.users.find(user => String(user.user_ID) === String(userId));
       if (user) {
         return {
           ...user,
+          id: user.user_ID, // Add id field for consistency
           initials: this.getInitials(user.name)
         };
       }

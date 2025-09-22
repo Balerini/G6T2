@@ -116,6 +116,12 @@ export default {
       try {
         this.users = await projectService.getAllUsers();
         // console.log('Fetched users:', this.users);
+
+        // // Verify user ID types
+        // if (this.users.length > 0) {
+        //   console.log('First user ID type:', typeof this.users[0].id);
+        //   console.log('First user ID value:', this.users[0].id);
+        // }
       } catch (error) {
         console.error('Error fetching users:', error);
       }

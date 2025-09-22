@@ -27,12 +27,12 @@
         </div>
       </div>
 
-      <div class="meta-group" v-if="task.attachments && task.attachments.length > 0">
+      <!-- <div class="meta-group" v-if="task.attachments && task.attachments.length > 0">
         <span class="meta-label">Attachments:</span>
         <div class="attachments-list">
           <span class="attachment-count">{{ task.attachments.length }} file(s)</span>
         </div>
-      </div>
+      </div> -->
 
       <button class="view-btn" @click="$emit('view-task', task)">View Details</button>
     </div>
@@ -83,22 +83,30 @@ export default {
       });
     },
     getUser(userId) {
-      const user = this.users.find(user => user.id === userId);
+      // Convert both to strings for comparison, using user_ID from Firebase
+      const user = this.users.find(user => String(user.user_ID) === String(userId));
       if (user) {
         return {
           ...user,
+          id: user.user_ID,
           initials: this.getInitials(user.name)
         };
       }
+      // console.log(`User not found for task assignee ID: ${userId}`);
+      // console.log('Available users:', this.users.map(u => ({ user_ID: u.user_ID, name: u.name }))); 
       return {
         id: userId,
         name: 'Unknown User',
         initials: 'UU'
       };
     },
+
     getCreatorName(userId) {
-      const user = this.users.find(u => u.id === userId);
-      return user ? user.name : 'Unknown User';
+      // Convert both to strings for comparison, using user_ID from Firebase
+      const user = this.users.find(u => String(u.user_ID) === String(userId));
+      const name = user ? user.name : 'Unknown User';
+      // console.log(`Creator lookup - ID: ${userId}, Found: ${name}`);
+      return name;
     },
     getInitials(name) {
       if (!name) return 'U';
