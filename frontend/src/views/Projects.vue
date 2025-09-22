@@ -115,7 +115,7 @@ export default {
     async fetchUsers() {
       try {
         this.users = await projectService.getAllUsers();
-        console.log('Fetched users:', this.users);
+        // console.log('Fetched users:', this.users);
       } catch (error) {
         console.error('Error fetching users:', error);
       }
@@ -135,12 +135,6 @@ export default {
     },
 
     handleViewTask(task) {
-      // this.$router.push(`/projects/${task.proj_ID}/tasks/${task.task_ID}`);
-      // console.log('View task:', task);
-      console.log('Navigating to task:', task); // Debug log
-      console.log('Project ID:', task.proj_ID); // Debug log
-      console.log('Task ID:', task.task_ID); // Debug log
-
       // Make sure you're using the correct field names from your database
       const projectId = task.proj_ID || task.projectId; // Adjust based on your DB structure
       const taskId = task.task_ID || task.taskId; // Adjust based on your DB structure
@@ -149,7 +143,7 @@ export default {
     },
 
     handleAddTask(project) {
-      console.log('Add task to project:', project);
+      // console.log('Add task to project:', project);
       this.selectedProject = project;
       this.showCreateTaskForm = true;
     },

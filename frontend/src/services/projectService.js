@@ -15,9 +15,9 @@ const api = axios.create({
 export const projectService = {
   async getAllProjects() {
     try {
-      console.log('Fetching all projects...');
+      // console.log('Fetching all projects...');
       const response = await api.get('/api/projects');
-      console.log('Projects response:', response.data);
+      // console.log('Projects response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error in getAllProjects:', error);
@@ -29,7 +29,7 @@ export const projectService = {
     try {
       console.log('Fetching project with ID:', id);
       const response = await api.get(`/api/projects/${id}`);
-      console.log('Project response:', response.data);
+      // console.log('Project response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error in getProject:', error);
@@ -41,7 +41,7 @@ export const projectService = {
     try {
       console.log('Fetching tasks for project ID:', proj_ID);
       const response = await api.get(`/api/projects/${proj_ID}/tasks`);
-      console.log('Project tasks response:', response.data);
+      // console.log('Project tasks response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error in getProjectTasks:', error);
@@ -51,9 +51,9 @@ export const projectService = {
 
   async getAllUsers() {
     try {
-      console.log('Fetching all users...');
+      // console.log('Fetching all users...');
       const response = await api.get('/api/users');
-      console.log('Users response:', response.data);
+      // console.log('Users response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error in getAllUsers:', error);

@@ -1,7 +1,7 @@
 <template>
   <div class="task-item">
     <h3 class="task-title">{{ task.task_name }}</h3>
-    
+
     <div class="task-meta">
       <div class="meta-group">
         <span class="meta-label">Status:</span>
@@ -9,36 +9,31 @@
           {{ formatStatus(task.task_status) || 'Not Started' }}
         </span>
       </div>
-      
+
       <div class="meta-group">
         <span class="meta-label">Due Date:</span>
         <span class="meta-value">📅 {{ formatDate(task.end_date) }}</span>
       </div>
-      
+
       <div class="meta-group">
         <span class="meta-label">Created By:</span>
         <span class="meta-value">{{ getCreatorName(task.created_by) }}</span>
       </div>
-      
-      <div class="meta-group"> 
+
+      <div class="meta-group">
         <span class="meta-label">Assigned To:</span>
         <div class="assignee-list">
-          <UserAvatar
-            v-for="userId in task.assigned_to"
-            :key="userId"
-            :user="getUser(userId)"
-            type="assignee"
-          />
+          <UserAvatar v-for="userId in task.assigned_to" :key="userId" :user="getUser(userId)" type="assignee" />
         </div>
       </div>
-      
+
       <div class="meta-group" v-if="task.attachments && task.attachments.length > 0">
         <span class="meta-label">Attachments:</span>
         <div class="attachments-list">
           <span class="attachment-count">{{ task.attachments.length }} file(s)</span>
         </div>
       </div>
-      
+
       <button class="view-btn" @click="$emit('view-task', task)">View Details</button>
     </div>
   </div>
@@ -65,26 +60,26 @@ export default {
   emits: ['view-task'],
   methods: {
     getTaskStatusClass(status) {
-      if (!status) return 'status-not-started';
       const statusClasses = {
-        'not-started': 'status-todo',
-        'to-do': 'status-todo',
-        'in-progress': 'status-progress',
-        'on-hold': 'status-pending',
-        'completed': 'status-completed',
-        'cancelled': 'status-pending'
+        'Not Started': 'status-todo',
+        'In Progress': 'status-progress',
+        'On Hold': 'status-pending',
+        'Completed': 'status-completed',
+        'Cancelled': 'status-pending'
       };
-      return statusClasses[status] || 'status-default';
+      const resultClass = statusClasses[status] || 'status-default';
+      return resultClass;
     },
+
     formatStatus(status) {
       return status?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Not Started';
     },
     formatDate(date) {
       if (!date) return 'No due date';
-      return new Date(date).toLocaleDateString('en-US', { 
-        day: '2-digit', 
-        month: 'short', 
-        year: 'numeric' 
+      return new Date(date).toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
       });
     },
     getUser(userId) {
@@ -95,10 +90,10 @@ export default {
           initials: this.getInitials(user.name)
         };
       }
-      return { 
-        id: userId, 
-        name: 'Unknown User', 
-        initials: 'UU' 
+      return {
+        id: userId,
+        name: 'Unknown User',
+        initials: 'UU'
       };
     },
     getCreatorName(userId) {
@@ -168,6 +163,21 @@ export default {
   display: inline-block;
 }
 
+.assignee-list {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.attachments-list {
+  font-size: 0.875rem;
+}
+
+.attachment-count {
+  color: #6b7280;
+  font-style: italic;
+}
+
 .status-badge.status-progress {
   background: #fef3c7;
   color: #92400e;
@@ -188,24 +198,9 @@ export default {
   color: #9a3412;
 }
 
-.status-badge.status-not-started {
+.status-badge.status-default {
   background: #f3f4f6;
-  color: #6b7280;
-}
-
-.assignee-list {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.attachments-list {
-  font-size: 0.875rem;
-}
-
-.attachment-count {
-  color: #6b7280;
-  font-style: italic;
+  color: #374151;
 }
 
 .view-btn {

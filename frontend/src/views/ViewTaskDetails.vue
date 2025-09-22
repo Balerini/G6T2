@@ -206,9 +206,9 @@ export default {
         const projectId = this.$route.params.projectId;
         const taskId = this.$route.params.taskId;
 
-        console.log('Route params:', { projectId, taskId });
-        console.log('ProjectService object:', projectService);
-        console.log('Available methods:', Object.keys(projectService));
+        // console.log('Route params:', { projectId, taskId });
+        // console.log('ProjectService object:', projectService);
+        // console.log('Available methods:', Object.keys(projectService));
 
         // Check if the method exists
         if (typeof projectService.getProject !== 'function') {
@@ -225,23 +225,21 @@ export default {
 
         // Alternative approach: Get all projects first, then find the one we need
         try {
-          console.log('Trying to get all projects first...');
           const allProjects = await projectService.getAllProjects();
-          console.log('All projects:', allProjects);
 
           // Find the project by its proj_ID or document ID
           this.parentProject = allProjects.find(p =>
             p.id === projectId || p.proj_ID === projectId || p.proj_id === projectId
           );
 
-          console.log('Found parent project:', this.parentProject);
+          // console.log('Found parent project:', this.parentProject);
 
           if (this.parentProject && this.parentProject.tasks) {
             // Find the specific task within the project's tasks
             this.task = this.parentProject.tasks.find(task =>
               task.task_ID === taskId || task.task_id === taskId || task.id === taskId
             );
-            console.log('Found task:', this.task);
+            // console.log('Found task:', this.task);
           }
 
         } catch (projectError) {

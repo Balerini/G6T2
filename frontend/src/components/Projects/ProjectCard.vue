@@ -105,7 +105,6 @@ export default {
 
       const statusClasses = {
         'not-started': 'status-todo',
-        'to-do': 'status-todo',
         'in-progress': 'status-progress',
         'on-hold': 'status-pending',
         'completed': 'status-completed',
