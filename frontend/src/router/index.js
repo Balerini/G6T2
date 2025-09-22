@@ -41,6 +41,12 @@ const routes = [
     meta: { showNav: true }
   },
   {
+    path: '/owntasks',
+    name: 'owntasks',
+    component: ViewOwnTasks,
+    meta: { showNav: true }
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }
