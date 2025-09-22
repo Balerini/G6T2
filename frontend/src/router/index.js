@@ -6,6 +6,7 @@ import Home from '../views/Home.vue';
 import Projects from '../views/Projects.vue';
 import Createtask from '../views/CreateTask.vue'
 import ViewTaskDetails  from '../views/ViewTaskDetails.vue'
+import ViewOwnTasks from '../views/ViewOwnTasks.vue'
 
 const routes = [
   {
@@ -39,7 +40,6 @@ const routes = [
     component: ViewTaskDetails,
     meta: { showNav: true }
   },
-  
   {
     path: '/:pathMatch(.*)*',
     redirect: '/'
