@@ -46,7 +46,6 @@
 
 <script>
 import UserAvatar from './UserAvatar.vue'
-import { mockUsers } from '../../dummyData/projectData.js'
 
 export default {
   name: 'TaskItem',
@@ -57,22 +56,23 @@ export default {
     task: {
       type: Object,
       required: true
+    },
+    users: {
+      type: Array,
+      default: () => []
     }
   },
   emits: ['view-task'],
-  data() {
-    return {
-      users: mockUsers
-    }
-  },
   methods: {
     getTaskStatusClass(status) {
       if (!status) return 'status-not-started';
       const statusClasses = {
-        'in-progress': 'status-progress',
+        'not-started': 'status-todo',
         'to-do': 'status-todo',
+        'in-progress': 'status-progress',
+        'on-hold': 'status-pending',
         'completed': 'status-completed',
-        'pending': 'status-pending'
+        'cancelled': 'status-pending'
       };
       return statusClasses[status] || 'status-default';
     },
@@ -88,11 +88,31 @@ export default {
       });
     },
     getUser(userId) {
-      return this.users.find(user => user.id === userId) || { id: userId, name: 'Unknown User', initials: 'UU' };
+      const user = this.users.find(user => user.id === userId);
+      if (user) {
+        return {
+          ...user,
+          initials: this.getInitials(user.name)
+        };
+      }
+      return { 
+        id: userId, 
+        name: 'Unknown User', 
+        initials: 'UU' 
+      };
     },
     getCreatorName(userId) {
       const user = this.users.find(u => u.id === userId);
       return user ? user.name : 'Unknown User';
+    },
+    getInitials(name) {
+      if (!name) return 'U';
+      return name
+        .split(' ')
+        .map(word => word.charAt(0))
+        .join('')
+        .substring(0, 2)
+        .toUpperCase();
     }
   }
 }

@@ -2,14 +2,14 @@
   <div class="project-list">
     <ProjectCard
       v-for="project in projects"
-      :key="project.projectId"
+      :key="project.id"
       :project="project"
+      :users="users"
       @edit-project="$emit('edit-project', $event)"
       @view-task="$emit('view-task', $event)"
       @add-task="$emit('add-task', $event)"
     />
   </div>
-
 </template>
 
 <script>
@@ -24,6 +24,10 @@ export default {
     projects: {
       type: Array,
       required: true
+    },
+    users: {
+      type: Array,
+      default: () => []
     }
   },
   emits: ['edit-project', 'view-task', 'add-task']

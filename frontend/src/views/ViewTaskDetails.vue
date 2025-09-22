@@ -15,10 +15,29 @@
       </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="page-content" v-if="task && parentProject">
+    <!-- Loading State -->
+    <main v-if="loading" class="page-content">
       <div class="content-container">
-        
+        <div class="loading-state">
+          <p>Loading task details...</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Error State -->
+    <main v-else-if="error" class="page-content">
+      <div class="content-container">
+        <div class="error-state">
+          <p class="error-message">{{ error }}</p>
+          <button class="retry-btn" @click="loadTaskData">Retry</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Main Content -->
+    <main v-else-if="task && parentProject" class="page-content">
+      <div class="content-container">
+
         <!-- Parent Project Context -->
         <div class="parent-project-banner">
           <div class="project-status-indicator" :class="getParentStatusClass(parentProject.proj_status)"></div>
@@ -150,30 +169,24 @@
         </div>
       </div>
     </main>
-
-    <!-- Loading State -->
-    <main v-else class="page-content">
-      <div class="content-container">
-        <div class="loading-state">
-          <p>Loading task details...</p>
-        </div>
-      </div>
-    </main>
   </div>
 </template>
 
 <script>
-import { mockProjects, mockTasks, mockUsers } from '../dummyData/projectData.js'
+import { projectService } from '../services/projectService.js'
+// import { taskService } from '../services/taskService.js'
 
 export default {
   name: 'ViewIndivTask',
   data() {
     return {
-      projects: mockProjects,
-      tasks: mockTasks,
-      users: mockUsers,
+      projects: [],
+      tasks: [],
+      users: [],
       task: null,
-      parentProject: null
+      parentProject: null,
+      loading: true,
+      error: null
     }
   },
   created() {
@@ -185,19 +198,85 @@ export default {
     }
   },
   methods: {
-    loadTaskData() {
-      const projectId = this.$route.params.projectId
-      const taskId = this.$route.params.taskId
-      
-      // Find the parent project
-      this.parentProject = this.projects.find(project => project.proj_ID === projectId)
-      
-      // Find the specific task
-      this.task = this.tasks.find(task => task.task_ID === taskId && task.proj_ID === projectId)
-      
-      // If no task found, redirect back
-      if (!this.task || !this.parentProject) {
-        this.$router.push('/projects')
+    async loadTaskData() {
+      try {
+        this.loading = true;
+        this.error = null;
+
+        const projectId = this.$route.params.projectId;
+        const taskId = this.$route.params.taskId;
+
+        console.log('Route params:', { projectId, taskId });
+        console.log('ProjectService object:', projectService);
+        console.log('Available methods:', Object.keys(projectService));
+
+        // Check if the method exists
+        if (typeof projectService.getProject !== 'function') {
+          throw new Error('getProject method is not available in projectService');
+        }
+
+        // Load users first for name resolution
+        try {
+          this.users = await projectService.getAllUsers();
+          console.log('Loaded users:', this.users);
+        } catch (userError) {
+          console.warn('Could not load users:', userError);
+        }
+
+        // Alternative approach: Get all projects first, then find the one we need
+        try {
+          console.log('Trying to get all projects first...');
+          const allProjects = await projectService.getAllProjects();
+          console.log('All projects:', allProjects);
+
+          // Find the project by its proj_ID or document ID
+          this.parentProject = allProjects.find(p =>
+            p.id === projectId || p.proj_ID === projectId || p.proj_id === projectId
+          );
+
+          console.log('Found parent project:', this.parentProject);
+
+          if (this.parentProject && this.parentProject.tasks) {
+            // Find the specific task within the project's tasks
+            this.task = this.parentProject.tasks.find(task =>
+              task.task_ID === taskId || task.task_id === taskId || task.id === taskId
+            );
+            console.log('Found task:', this.task);
+          }
+
+        } catch (projectError) {
+          console.error('Error loading projects:', projectError);
+          // Fallback: try the single project endpoint
+          try {
+            console.log('Falling back to single project endpoint...');
+            const project = await projectService.getProject(projectId);
+            this.parentProject = project;
+
+            if (project && project.tasks) {
+              this.task = project.tasks.find(task =>
+                task.task_ID === taskId || task.task_id === taskId || task.id === taskId
+              );
+            }
+          } catch (singleProjectError) {
+            console.error('Single project endpoint also failed:', singleProjectError);
+            throw projectError; // Throw the original error
+          }
+        }
+
+        // If no task found, show error
+        if (!this.task || !this.parentProject) {
+          this.error = `Task (${taskId}) or project (${projectId}) not found. Available tasks: ${this.parentProject?.tasks?.map(t => t.task_ID || t.task_id || t.id).join(', ') || 'none'}`;
+          console.error(this.error);
+          setTimeout(() => {
+            this.$router.push('/projects');
+          }, 5000);
+        }
+
+      } catch (error) {
+        console.error('Error loading task data:', error);
+        this.error = error.message;
+      } finally {
+        this.loading = false;
       }
     },
 
@@ -228,24 +307,24 @@ export default {
 
     formatDate(date) {
       if (!date) return 'No date set';
-      return new Date(date).toLocaleDateString('en-US', { 
+      return new Date(date).toLocaleDateString('en-US', {
         weekday: 'long',
-        day: '2-digit', 
-        month: 'long', 
-        year: 'numeric' 
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
       });
     },
 
     formatDateRange(startDate, endDate) {
       if (!startDate || !endDate) return 'No dates set';
-      const start = new Date(startDate).toLocaleDateString('en-US', { 
-        day: '2-digit', 
-        month: 'short' 
+      const start = new Date(startDate).toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: 'short'
       });
-      const end = new Date(endDate).toLocaleDateString('en-US', { 
-        day: '2-digit', 
-        month: 'short', 
-        year: 'numeric' 
+      const end = new Date(endDate).toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
       });
       return `${start} - ${end}`;
     },
@@ -256,12 +335,12 @@ export default {
 
     getDueDateStatus(dueDate) {
       if (!dueDate) return 'No deadline';
-      
+
       const now = new Date();
       const due = new Date(dueDate);
       const diffTime = due - now;
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays < 0) return `Overdue by ${Math.abs(diffDays)} days`;
       if (diffDays === 0) return 'Due today';
       if (diffDays === 1) return 'Due tomorrow';
@@ -271,12 +350,12 @@ export default {
 
     getDueDateClass(dueDate) {
       if (!dueDate) return '';
-      
+
       const now = new Date();
       const due = new Date(dueDate);
       const diffTime = due - now;
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays < 0) return 'overdue';
       if (diffDays <= 1) return 'urgent';
       if (diffDays <= 7) return 'warning';

@@ -34,7 +34,7 @@ const routes = [
     meta: { showNav: true,requiresAuth: true }
   },
   {
-    path: '/projects/:projectId/task/:taskId',
+    path: '/projects/:projectId/tasks/:taskId',
     name: 'viewtaskdetails',
     component: ViewTaskDetails,
     meta: { showNav: true }

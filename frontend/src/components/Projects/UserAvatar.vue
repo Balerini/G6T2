@@ -7,8 +7,7 @@
     }"
     :title="user.name"
   >
-    {{ user.name }}
-    <!-- {{ user.initials || getInitials(user.name) }} -->
+    {{ user.initials || getInitials(user.name) }}
   </div>
 </template>
 
@@ -26,22 +25,22 @@ export default {
       validator: (value) => ['default', 'approver', 'assignee'].includes(value)
     }
   },
-  // methods: {
-  //   getInitials(name) {
-  //     if (!name) return 'U';
-  //     return name
-  //       .split(' ')
-  //       .map(word => word.charAt(0))
-  //       .join('')
-  //       .substring(0, 2)
-  //       .toUpperCase();
-  //   }
-  // }
+  methods: {
+    getInitials(name) {
+      if (!name) return 'U';
+      return name
+        .split(' ')
+        .map(word => word.charAt(0))
+        .join('')
+        .substring(0, 2)
+        .toUpperCase();
+    }
+  }
 }
 </script>
 
 <style scoped>
-/* .assignee-avatar {
+.assignee-avatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -54,9 +53,9 @@ export default {
   color: #374151;
   cursor: pointer;
   transition: all 0.2s ease;
-} */
+}
 
-/* .assignee-avatar:hover {
+.assignee-avatar:hover {
   transform: scale(1.1);
 }
 
@@ -68,5 +67,5 @@ export default {
 .assignee-avatar.assignee {
   background: #fef3c7;
   color: #92400e;
-} */
+}
 </style>

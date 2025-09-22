@@ -14,7 +14,7 @@
             </button>
           </div>
         </div>
-        
+
         <div class="action-tabs">
           <button class="tab-btn" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
             All Projects
@@ -26,15 +26,26 @@
       </div>
     </div>
 
-    <!-- Projects Section -->
-    <div class="projects-section">
+    <!-- Loading State -->
+    <div v-if="loading" class="loading-section">
       <div class="container">
-        <ProjectList
-          :projects="filteredProjects"
-          @edit-project="handleEditProject"
-          @view-task="handleViewTask"
-          @add-task="handleAddTask"
-        />
+        <div class="loading-spinner">Loading projects...</div>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="error-section">
+      <div class="container">
+        <div class="error-message">{{ error }}</div>
+        <button class="retry-btn" @click="fetchProjects">Retry</button>
+      </div>
+    </div>
+
+    <!-- Projects Section -->
+    <div v-else class="projects-section">
+      <div class="container">
+        <ProjectList :projects="filteredProjects" :users="users" @edit-project="handleEditProject"
+          @view-task="handleViewTask" @add-task="handleAddTask" />
       </div>
     </div>
 
@@ -56,7 +67,7 @@
 <script>
 import ProjectList from '../components/Projects/ProjectList.vue'
 import CreateTaskForm from '../components/CreateTaskForm.vue'
-import { getAllProjectsWithTasks } from '../dummyData/projectData.js'
+import { projectService } from '../services/projectService.js'
 
 export default {
   name: 'CRMProjectManager',
@@ -67,9 +78,12 @@ export default {
   data() {
     return {
       activeTab: 'all',
-      projects: getAllProjectsWithTasks(),
+      projects: [],
+      users: [],
       showCreateTaskForm: false,
-      selectedProject: null
+      selectedProject: null,
+      loading: true,
+      error: null
     }
   },
   computed: {
@@ -80,34 +94,77 @@ export default {
       return this.projects.filter(project => project.collaborators && project.collaborators.length > 0);
     }
   },
+  async created() {
+    await this.fetchProjects();
+    await this.fetchUsers();
+  },
   methods: {
-    // navigateToCreateProject() {
-    //   this.$router.push('/createtask');
-    // },
+    async fetchProjects() {
+      try {
+        this.loading = true;
+        this.error = null;
+        this.projects = await projectService.getAllProjects();
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+        this.error = error.message;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchUsers() {
+      try {
+        this.users = await projectService.getAllUsers();
+        console.log('Fetched users:', this.users);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    },
+
+    navigateToCreateProject() {
+      this.$router.push('/createproject');
+    },
+
     navigateToCreateTask() {
       this.$router.push('/createtask');
     },
+
     handleEditProject(project) {
       console.log('Edit project:', project);
       // edit project logic here
     },
+
     handleViewTask(task) {
-      this.$router.push(`/projects/${task.proj_ID}/task/${task.task_ID}`);
-      console.log('View task:', task);
+      // this.$router.push(`/projects/${task.proj_ID}/tasks/${task.task_ID}`);
+      // console.log('View task:', task);
+      console.log('Navigating to task:', task); // Debug log
+      console.log('Project ID:', task.proj_ID); // Debug log
+      console.log('Task ID:', task.task_ID); // Debug log
+
+      // Make sure you're using the correct field names from your database
+      const projectId = task.proj_ID || task.projectId; // Adjust based on your DB structure
+      const taskId = task.task_ID || task.taskId; // Adjust based on your DB structure
+
+      this.$router.push(`/projects/${projectId}/tasks/${taskId}`);
     },
+
     handleAddTask(project) {
       console.log('Add task to project:', project);
       this.selectedProject = project;
       this.showCreateTaskForm = true;
     },
+
     closeCreateTaskForm() {
       this.showCreateTaskForm = false;
       this.selectedProject = null;
     },
-    handleTaskSubmit(taskData) {
+
+    async handleTaskSubmit(taskData) {
       console.log('Task submitted:', taskData);
       // Handle task submission logic here
       this.closeCreateTaskForm();
+      // Refresh projects to show new task
+      await this.fetchProjects();
     }
   }
 }
@@ -204,18 +261,51 @@ export default {
   padding: 2rem 0;
 }
 
+/* Loading and Error States */
+.loading-section,
+.error-section {
+  padding: 4rem 0;
+  text-align: center;
+}
+
+.loading-spinner {
+  font-size: 1.25rem;
+  color: #6b7280;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 1.125rem;
+  margin-bottom: 1rem;
+}
+
+.retry-btn {
+  background: #111827;
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retry-btn:hover {
+  background: #374151;
+}
+
 @media (max-width: 768px) {
   .header-content {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
   }
-  
+
   .header-buttons {
     width: 100%;
     justify-content: flex-start;
   }
-  
+
   .action-tabs {
     flex-direction: column;
   }
@@ -285,15 +375,15 @@ export default {
     margin: 1rem;
     max-height: 95vh;
   }
-  
+
   .modal-header {
     padding: 1rem 1.5rem;
   }
-  
+
   .modal-body {
     padding: 1.5rem;
   }
-  
+
   .modal-title {
     font-size: 1.25rem;
   }

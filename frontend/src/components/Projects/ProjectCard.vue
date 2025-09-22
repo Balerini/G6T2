@@ -24,12 +24,8 @@
         <div class="meta-item collaborators-section">
           <span class="meta-label">Collaborators:</span>
           <div class="collaborators-avatars">
-            <div 
-              v-for="collaborator in uniqueCollaborators" 
-              :key="collaborator.id"
-              class="collaborator-avatar"
-              :title="collaborator.name"
-            >
+            <div v-for="collaborator in uniqueCollaborators" :key="collaborator.id" class="collaborator-avatar"
+              :title="collaborator.name">
               {{ collaborator.initials }}
             </div>
             <div v-if="uniqueCollaborators.length > 4" class="collaborator-more">
@@ -42,13 +38,9 @@
 
     <!-- Tasks -->
     <div class="tasks-container">
-      <TaskItem
-        v-for="task in project.tasks"
-        :key="task.task_ID"
-        :task="task"
-        @view-task="$emit('view-task', $event)"
-      />
-      
+      <TaskItem v-for="task in project.tasks" :key="task.task_ID" :task="task" :users="users"
+        @view-task="$emit('view-task', $event)" />
+
       <button class="add-task-btn" @click="$emit('add-task', project)">
         + Add Task
       </button>
@@ -58,7 +50,6 @@
 
 <script>
 import TaskItem from './TaskCard.vue'
-import { mockUsers } from '../../dummyData/projectData.js'
 
 export default {
   name: 'ProjectCard',
@@ -69,23 +60,22 @@ export default {
     project: {
       type: Object,
       required: true
+    },
+    users: {
+      type: Array,
+      default: () => []
     }
   },
   emits: ['edit-project', 'view-task', 'add-task'],
-  data() {
-    return {
-      users: mockUsers
-    }
-  },
   computed: {
     uniqueCollaborators() {
       const collaboratorIds = new Set();
-      
+
       // Add project collaborators
       if (this.project.collaborators) {
         this.project.collaborators.forEach(id => collaboratorIds.add(id));
       }
-      
+
       // Add task assignees
       if (this.project.tasks) {
         this.project.tasks.forEach(task => {
@@ -98,7 +88,7 @@ export default {
           }
         });
       }
-      
+
       // Convert IDs to user objects and limit to 4 for display
       return Array.from(collaboratorIds)
         .map(id => this.getUser(id))
@@ -108,33 +98,57 @@ export default {
   },
   methods: {
     getStatusClass(status) {
+      if (!status) return 'status-default';
+
+      // Convert status to lowercase and handle various formats
+      const normalizedStatus = status.toLowerCase().replace(/[\s_]/g, '-');
+
       const statusClasses = {
-        'in-progress': 'status-progress',
+        'not-started': 'status-todo',
         'to-do': 'status-todo',
+        'in-progress': 'status-progress',
+        'on-hold': 'status-pending',
         'completed': 'status-completed',
-        'pending': 'status-pending'
+        'cancelled': 'status-pending'
       };
-      return statusClasses[status] || 'status-default';
+
+      return statusClasses[normalizedStatus] || 'status-default';
     },
     formatStatus(status) {
       return status?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown';
     },
     formatDateRange(startDate, endDate) {
       if (!startDate || !endDate) return 'No dates set';
-      const start = new Date(startDate).toLocaleDateString('en-US', { 
-        day: '2-digit', 
-        month: 'short' 
+      const start = new Date(startDate).toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: 'short'
       });
-      const end = new Date(endDate).toLocaleDateString('en-US', { 
-        day: '2-digit', 
-        month: 'short', 
-        year: 'numeric' 
+      const end = new Date(endDate).toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
       });
       return `${start} - ${end}`;
     },
     getUser(userId) {
-      return this.users.find(user => user.id === userId) || null;
-    }
+      const user = this.users.find(user => user.id === userId);
+      if (user) {
+        return {
+          ...user,
+          initials: this.getInitials(user.name)
+        };
+      }
+      return null;
+    },
+    getInitials(name) {
+      if (!name) return 'U';
+      return name
+        .split(' ')
+        .map(word => word.charAt(0))
+        .join('')
+        .substring(0, 2)
+        .toUpperCase();
+    },
   }
 }
 </script>
@@ -414,17 +428,17 @@ export default {
     align-items: flex-start;
     gap: 0.75rem;
   }
-  
+
   .project-title {
     font-size: 1.25rem;
   }
-  
+
   .project-meta {
     flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
   }
-  
+
   .collaborators-section {
     justify-content: flex-start;
   }
