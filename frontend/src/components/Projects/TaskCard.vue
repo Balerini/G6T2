@@ -1,6 +1,11 @@
 <template>
   <div class="task-item">
-    <h3 class="task-title">{{ task.task_name }}</h3>
+    <div class="task-title-row">
+      <h3 class="task-title">{{ task.task_name }}</h3>
+      <button class="edit-btn" @click.stop="$emit('edit-task', task)" title="Edit Task" aria-label="Edit Task">
+        ✏️
+      </button>
+    </div>
 
     <div class="task-meta">
       <div class="meta-group">
@@ -57,7 +62,7 @@ export default {
       default: () => []
     }
   },
-  emits: ['view-task'],
+  emits: ['view-task', 'edit-task'],
   methods: {
     getTaskStatusClass(status) {
       const statusClasses = {
@@ -130,6 +135,13 @@ export default {
   margin-bottom: 1rem;
 }
 
+.task-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .task-title {
   font-size: 1.125rem;
   font-weight: 600;
@@ -137,11 +149,27 @@ export default {
   margin: 0 0 1rem 0;
 }
 
+.edit-btn {
+  background: #111827;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.edit-btn:hover { background: #374151; }
+
 .task-meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 1rem;
   align-items: center;
+  margin-top: 0.5rem;
 }
 
 .meta-group {

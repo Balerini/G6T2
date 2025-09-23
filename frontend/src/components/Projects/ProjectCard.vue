@@ -38,23 +38,38 @@
 
     <!-- Tasks -->
     <div class="tasks-container">
-      <TaskItem v-for="task in project.tasks" :key="task.task_ID" :task="task" :users="users"
-        @view-task="$emit('view-task', $event)" />
+      <TaskItem
+        v-for="task in project.tasks"
+        :key="task.task_ID"
+        :task="task"
+        :users="users"
+        @view-task="$emit('view-task', $event)"
+        @edit-task="openEdit(task)"
+      />
 
       <button class="add-task-btn" @click="$emit('add-task', project)">
         + Add Task
       </button>
     </div>
+    <EditTask
+      v-if="selectedTask"
+      :visible="showEdit"
+      :task="selectedTask"
+      @close="showEdit = false"
+      @saved="onTaskSaved"
+    />
   </div>
 </template>
 
 <script>
 import TaskItem from './TaskCard.vue'
+import EditTask from '../EditTask.vue'
 
 export default {
   name: 'ProjectCard',
   components: {
-    TaskItem
+    TaskItem,
+    EditTask
   },
   props: {
     project: {
@@ -67,6 +82,12 @@ export default {
     }
   },
   emits: ['edit-project', 'view-task', 'add-task'],
+  data() {
+    return {
+      showEdit: false,
+      selectedTask: null
+    }
+  },
   computed: {
     uniqueCollaborators() {
       const collaboratorIds = new Set();
@@ -101,6 +122,19 @@ export default {
     }
   },
   methods: {
+    openEdit(task) {
+      this.selectedTask = task
+      this.showEdit = true
+    },
+    onTaskSaved(updated) {
+      this.showEdit = false
+      // Update task in local project view (minimal local sync)
+      const id = updated.task_ID || updated.id
+      const idx = (this.project.tasks || []).findIndex(t => (t.task_ID || t.id) === id)
+      if (idx !== -1) {
+        this.$set(this.project.tasks, idx, { ...this.project.tasks[idx], ...updated })
+      }
+    },
     getStatusClass(status) {
       if (!status) return 'status-default';
 
