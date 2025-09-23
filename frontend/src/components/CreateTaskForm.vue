@@ -2,15 +2,94 @@
   <form class="task-form" @submit.prevent="handleSubmit">
     <!-- Project ID -->
     <div class="form-group">
-      <label class="form-label" for="projId">Project ID *</label>
-      <input
-        id="projId"
-        v-model="formData.proj_ID"
-        type="text"
-        class="form-input"
-        placeholder="Enter project ID"
-        required
-      />
+      <label class="form-label" for="projId">
+        Project *
+      </label>
+      
+      <!-- Combined search input with dropdown for projects -->
+      <div class="project-dropdown-container" :class="{ 'dropdown-open': showProjectDropdown }">
+        <input
+          id="projId"
+          v-model="projectSearch"
+          type="text"
+          class="form-input"
+          :placeholder="isLoadingProjects ? 'Loading projects...' : 'Search and select project...'"
+          @focus="handleProjectInputFocus"
+          @blur="handleProjectInputBlur"
+          @input="handleProjectSearchInput"
+          @keydown.enter.prevent="selectFirstProjectMatch"
+          @keydown.escape="closeProjectDropdown"
+          @keydown.arrow-down.prevent="navigateProjectDown"
+          @keydown.arrow-up.prevent="navigateProjectUp"
+          :disabled="isLoadingProjects"
+          required
+        />
+        
+        <!-- Clear button when project is selected -->
+        <div 
+          v-if="isProjectSelected" 
+          class="clear-selection-btn" 
+          @click="clearProjectSelection"
+          title="Clear selection"
+        >
+          ×
+        </div>
+        
+        <!-- Dropdown icon when no project is selected -->
+        <div 
+          v-else
+          class="dropdown-toggle-icon" 
+          @click="toggleProjectDropdown"
+          :class="{ 'rotated': showProjectDropdown }"
+        >
+          ▼
+        </div>
+        
+        <!-- Dropdown options list -->
+        <div 
+          v-if="showProjectDropdown" 
+          class="dropdown-list"
+          @mousedown.prevent
+        >
+          <!-- Loading state -->
+          <div v-if="isLoadingProjects" class="dropdown-item loading">
+            Loading projects...
+          </div>
+          
+          <!-- No results found -->
+          <div 
+            v-else-if="filteredProjects.length === 0 && projectSearch" 
+            class="dropdown-item no-results"
+          >
+            No projects found matching "{{ projectSearch }}"
+          </div>
+          
+          <!-- Show all projects when no search -->
+          <div 
+            v-else-if="filteredProjects.length === 0 && !projectSearch" 
+            class="dropdown-item no-results"
+          >
+            No projects available
+          </div>
+          
+          <!-- Project options -->
+          <div 
+            v-for="(project, index) in filteredProjects" 
+            :key="project.id"
+            class="dropdown-item"
+            :class="{ 
+              'highlighted': index === projectHighlightedIndex
+            }"
+            @mousedown="selectProject(project)"
+            @mouseenter="projectHighlightedIndex = index"
+          >
+            <div class="user-info">
+              <span class="user-name">{{ `${project.proj_name} (${project.proj_ID})` }}</span>
+              <span v-if="project.name" class="user-email">{{ project.name }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Task ID -->
@@ -112,28 +191,115 @@
 
     <!-- Assigned To -->
     <div class="form-group">
-      <label class="form-label" for="assignedTo">
-        Collaborators ({{ formData.hasSubtasks ? '0-5' : '0-10' }} max)
-      </label>
+    <label class="form-label" for="assignedTo">
+      Collaborators ({{ formData.hasSubtasks ? '0-5' : '0-10' }} max)
+    </label>
+    
+    <!-- Combined search input with dropdown -->
+    <div class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown }">
       <input
         id="assignedTo"
-        v-model="assignedToInput"
+        v-model="userSearch"
         type="text"
         class="form-input"
-        placeholder="Enter collaborator name"
-        @keyup.enter="addAssignee"
+        :placeholder="isLoadingUsers ? 'Loading users...' : 'Search and select collaborators...'"
+        @focus="handleInputFocus"
+        @blur="handleInputBlur"
+        @input="handleSearchInput"
+        @keydown.enter.prevent="selectFirstMatch"
+        @keydown.escape="closeDropdown"
+        @keydown.arrow-down.prevent="navigateDown"
+        @keydown.arrow-up.prevent="navigateUp"
+        :disabled="isAtLimit || isLoadingUsers"
       />
-      <div class="assignee-tags" v-if="formData.assigned_to.length > 0">
-        <span 
-          v-for="(assignee, index) in formData.assigned_to" 
-          :key="index"
-          class="assignee-tag"
+      
+      <!-- Dropdown icon -->
+      <div 
+        class="dropdown-toggle-icon" 
+        @click="toggleDropdown"
+        :class="{ 'rotated': showDropdown }"
+      >
+        ▼
+      </div>
+      
+      <!-- Dropdown options list -->
+      <div 
+        v-if="showDropdown" 
+        class="dropdown-list"
+        @mousedown.prevent
+      >
+        <!-- Loading state -->
+        <div v-if="isLoadingUsers" class="dropdown-item loading">
+          Loading users...
+        </div>
+        
+        <!-- No results found -->
+        <div 
+          v-else-if="filteredUsers.length === 0 && userSearch" 
+          class="dropdown-item no-results"
         >
-          {{ assignee }}
-          <button type="button" class="remove-tag" @click="removeAssignee(index)">×</button>
-        </span>
+          No users found matching "{{ userSearch }}"
+        </div>
+        
+        <!-- Show all users when no search -->
+        <div 
+          v-else-if="filteredUsers.length === 0 && !userSearch" 
+          class="dropdown-item no-results"
+        >
+          No more users available
+        </div>
+        
+        <!-- User options -->
+        <div 
+          v-for="(user, index) in filteredUsers" 
+          :key="user.id"
+          class="dropdown-item"
+          :class="{ 
+            'highlighted': index === highlightedIndex,
+            'selected': isUserSelected(user)
+          }"
+          @mousedown.prevent="selectUser(user)"
+          @mouseenter="highlightedIndex = index"
+        >
+          <div class="user-info">
+            <span class="user-name">{{ user.name }}</span>
+            <span v-if="user.email" class="user-email">{{ user.email }}</span>
+          </div>
+          <span v-if="isUserSelected(user)" class="selected-indicator">✓</span>
+        </div>
       </div>
     </div>
+    
+    <!-- Selected collaborators tags -->
+    <div class="assignee-tags" v-if="formData.assigned_to.length > 0">
+      <span 
+        v-for="(assignee, index) in formData.assigned_to" 
+        :key="assignee.id"
+        class="assignee-tag"
+      >
+        {{ assignee.name }}
+        <button 
+          type="button" 
+          class="remove-tag" 
+          @click="removeAssignee(index)"
+          :title="`Remove ${assignee.name}`"
+        >
+          ×
+        </button>
+      </span>
+    </div>
+    
+    <!-- Status messages -->
+    <div v-if="isAtLimit" class="status-message warning">
+      Maximum number of collaborators reached ({{ formData.hasSubtasks ? '5' : '10' }})
+    </div>
+    
+    <div v-if="formData.assigned_to.length > 0" class="status-message info">
+      {{ formData.assigned_to.length }} collaborator{{ formData.assigned_to.length !== 1 ? 's' : '' }} selected
+    </div>
+  </div>
+
+
 
     <!-- Attachments -->
     <div class="form-group">
@@ -212,8 +378,8 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue';
-import { taskService } from '@/services/taskService'; // New service for API calls
+import { ref, reactive, onMounted, computed, onBeforeUnmount, nextTick } from 'vue';
+import { taskService } from '@/services/taskService';
 
 export default {
   name: "TaskForm",
@@ -224,6 +390,22 @@ export default {
     const fileInput = ref(null);
     const dateValidationError = ref('');
 
+    // NEW: Dropdown-related reactive data
+    const users = ref([]);
+    const userSearch = ref('');
+    const showDropdown = ref(false);
+    const isLoadingUsers = ref(false);
+    const highlightedIndex = ref(-1);
+    const dropdownCloseTimeout = ref(null);
+
+    const projects = ref([]);
+    const projectSearch = ref('');
+    const showProjectDropdown = ref(false);
+    const isLoadingProjects = ref(false); 
+    const projectHighlightedIndex = ref(-1);
+    const isProjectSelected = ref(false);
+    const currentUserId = ref(null);
+
     const formData = reactive({
       proj_ID: '',
       task_ID: '',
@@ -232,19 +414,297 @@ export default {
       start_date: '',
       end_date: '',
       created_by: '',
-      assigned_to: [],
+      assigned_to: [], // This will now store user objects with id and name
       attachments: [],
       task_status: '',
       hasSubtasks: false
     });
 
-    // Auto-populate created_by on component mount
-    onMounted(() => {
-      // You can get current user from your auth service
-      formData.created_by = 'Current User'; // Replace with actual user data
+    const filteredProjects = computed(() => {
+      if (!projects.value || projects.value.length === 0) {
+        return [];
+      }
+      
+      // Don't show dropdown if project is selected
+      if (isProjectSelected.value) {
+        return [];
+      }
+      
+      // If dropdown is closed, don't show results
+      if (!showProjectDropdown.value) {
+        return [];
+      }
+      
+      let filtered = projects.value;
+      
+      if (projectSearch.value && projectSearch.value.trim()) {
+        const searchTerm = projectSearch.value.toLowerCase().trim();
+        
+        filtered = filtered.filter(project => {
+          if (!project) return false;
+          
+          const name = (project.name || '').toString().toLowerCase();
+          const projID = (project.proj_ID || project.proj_id || '').toString().toLowerCase();
+          const description = (project.description || '').toString().toLowerCase();
+          
+          return name.includes(searchTerm) ||
+                projID.includes(searchTerm) ||
+                description.includes(searchTerm);
+        });
+      }
+      
+      return filtered.slice(0, 20);
     });
 
-    // Keep all your existing functions (getCurrentDate, onSubtasksChange, etc.)
+    const loadProjects = async () => {
+      isLoadingProjects.value = true;
+      try {
+        projects.value = await taskService.getProjects();
+      } catch (error) {
+        console.error('Error loading projects:', error);
+      } finally {
+        isLoadingProjects.value = false;
+      }
+    };
+
+    const selectProject = (project) => {
+      // console.log('Selecting project:', project.proj_ID);
+      
+      // Set the form data
+      formData.proj_ID = project.proj_ID;
+      
+      // Use proj_name instead of name
+      if (project.proj_name && project.proj_name.trim() !== '') {
+        projectSearch.value = `${project.proj_name} (${project.proj_ID})`;
+      } else {
+        projectSearch.value = project.proj_ID;
+      }
+      
+      isProjectSelected.value = true;
+      showProjectDropdown.value = false;
+      
+      // console.log('Final projectSearch.value:', projectSearch.value);
+      // console.log('Final formData.proj_ID:', formData.proj_ID);
+    };
+
+    const clearProjectSelection = () => {
+      isProjectSelected.value = false;
+      formData.proj_ID = '';
+      projectSearch.value = '';
+      showProjectDropdown.value = false;
+    };
+
+    const handleProjectInputFocus = () => {
+      // Only show dropdown if no project is selected
+      if (!isProjectSelected.value && !isLoadingProjects.value) {
+        showProjectDropdown.value = true;
+        projectHighlightedIndex.value = -1;
+      }
+      // Don't clear the text or show dropdown if project is already selected
+    };
+
+    const handleProjectSearchInput = () => {
+      // Only reset selection if user actually changes the input content
+      if (isProjectSelected.value && projectSearch.value !== getCurrentProjectDisplay()) {
+        isProjectSelected.value = false;
+        formData.proj_ID = '';
+        
+        // Show dropdown for new search
+        if (!showProjectDropdown.value) {
+          showProjectDropdown.value = true;
+        }
+        projectHighlightedIndex.value = -1;
+      } else if (!isProjectSelected.value) {
+        // Show dropdown for new search when nothing is selected
+        if (!showProjectDropdown.value) {
+          showProjectDropdown.value = true;
+        }
+        projectHighlightedIndex.value = -1;
+      }
+    };
+
+    // Helper function to get current project display
+    const getCurrentProjectDisplay = () => {
+      if (!formData.proj_ID) return '';
+      const selectedProject = projects.value.find(p => p.proj_ID === formData.proj_ID);
+      if (!selectedProject) return formData.proj_ID;
+      
+      return selectedProject.name 
+        ? `${selectedProject.proj_ID} - ${selectedProject.name}` 
+        : selectedProject.proj_ID;
+    };
+
+    const toggleProjectDropdown = () => {
+      showProjectDropdown.value = !showProjectDropdown.value;
+    };
+
+    // NEW: Computed properties for dropdown
+    const filteredUsers = computed(() => {
+      let filtered = users.value.filter(user => {
+        // Filter out already selected users
+        const isAlreadySelected = formData.assigned_to.some(assignee => assignee.id === user.id);
+        
+        // Filter out current user
+        const isCurrentUser = user.id === currentUserId.value;
+        
+        return !isAlreadySelected && !isCurrentUser;
+      });
+      
+      if (userSearch.value.trim()) {
+        const searchTerm = userSearch.value.toLowerCase().trim();
+        filtered = filtered.filter(user => 
+          user.name.toLowerCase().includes(searchTerm) ||
+          (user.email && user.email.toLowerCase().includes(searchTerm))
+        );
+      }
+      
+      return filtered.slice(0, 20);
+    });
+
+    const isAtLimit = computed(() => {
+      const maxCollaborators = formData.hasSubtasks ? 5 : 10;
+      return formData.assigned_to.length >= maxCollaborators;
+    });
+
+    // NEW: Cleanup on unmount
+    onBeforeUnmount(() => {
+      document.removeEventListener('click', handleOutsideClick);
+      if (dropdownCloseTimeout.value) {
+        clearTimeout(dropdownCloseTimeout.value);
+      }
+    });
+
+    // NEW: Load users from backend API
+    const loadUsers = async () => {
+      isLoadingUsers.value = true;
+      try {
+        users.value = await taskService.getUsers();
+      } catch (error) {
+        console.error('Error loading users:', error);
+        // You can add toast notification here if available
+      } finally {
+        isLoadingUsers.value = false;
+      }
+    };
+
+    // NEW: Dropdown interaction methods
+    const handleInputFocus = () => {
+      if (!isAtLimit.value && !isLoadingUsers.value) {
+        showDropdown.value = true;
+        highlightedIndex.value = -1;
+      }
+    };
+
+    const handleInputBlur = (event) => {
+      // Check if the blur is because user clicked on a dropdown item
+      const relatedTarget = event.relatedTarget;
+      const dropdownContainer = document.querySelector('.search-dropdown-container');
+      
+      if (relatedTarget && dropdownContainer && dropdownContainer.contains(relatedTarget)) {
+        // Don't close if clicking within dropdown
+        return;
+      }
+      
+      dropdownCloseTimeout.value = setTimeout(() => {
+        closeDropdown();
+      }, 200);
+    };
+
+    const handleSearchInput = () => {
+      if (!showDropdown.value && !isAtLimit.value) {
+        showDropdown.value = true;
+      }
+      highlightedIndex.value = -1;
+    };
+
+    const toggleDropdown = () => {
+      if (isAtLimit.value || isLoadingUsers.value) return;
+      
+      showDropdown.value = !showDropdown.value;
+      if (showDropdown.value) {
+        nextTick(() => {
+          document.getElementById('assignedTo')?.focus();
+        });
+      }
+    };
+
+    const closeDropdown = () => {
+      showDropdown.value = false;
+      highlightedIndex.value = -1;
+      userSearch.value = '';
+    };
+
+    const handleOutsideClick = (event) => {
+      // You'll need to add a ref to the dropdown container in template
+      const dropdownContainer = document.querySelector('.search-dropdown-container');
+      if (dropdownContainer && !dropdownContainer.contains(event.target)) {
+        closeDropdown();
+      }
+    };
+
+    const selectUser = (user) => {
+      if (isAtLimit.value || isUserSelected(user)) return;
+      
+      // Clear any pending close timeout
+      if (dropdownCloseTimeout.value) {
+        clearTimeout(dropdownCloseTimeout.value);
+        dropdownCloseTimeout.value = null;
+      }
+      
+      // Add user to selected collaborators
+      formData.assigned_to.push({
+        id: user.id,
+        name: user.name,
+        email: user.email
+      });
+      
+      // Reset search but DON'T close dropdown
+      userSearch.value = '';
+      
+      // Keep dropdown open if not at limit and re-focus input
+      if (!isAtLimit.value) {
+        nextTick(() => {
+          const input = document.getElementById('assignedTo');
+          if (input) {
+            input.focus(); // Re-focus the input
+          }
+          // Keep dropdown open for next selection
+          showDropdown.value = true;
+        });
+      } else {
+        // Only close if at limit
+        closeDropdown();
+      }
+    };
+
+    const isUserSelected = (user) => {
+      return formData.assigned_to.some(assignee => assignee.id === user.id);
+    };
+
+    const selectFirstMatch = () => {
+      if (filteredUsers.value.length > 0) {
+        selectUser(filteredUsers.value[0]);
+      }
+    };
+
+    const navigateDown = () => {
+      if (!showDropdown.value) {
+        showDropdown.value = true;
+        return;
+      }
+      
+      if (highlightedIndex.value < filteredUsers.value.length - 1) {
+        highlightedIndex.value++;
+      }
+    };
+
+    const navigateUp = () => {
+      if (highlightedIndex.value > 0) {
+        highlightedIndex.value--;
+      }
+    };
+
+    // Keep all your existing functions
     const getCurrentDate = () => {
       const today = new Date();
       return today.toISOString().split('T')[0];
@@ -257,22 +717,7 @@ export default {
       dateValidationError.value = '';
     };
 
-    const addAssignee = () => {
-      const name = assignedToInput.value.trim();
-      const maxCollaborators = formData.hasSubtasks ? 5 : 10;
-      
-      if (name && 
-          formData.assigned_to.length < maxCollaborators && 
-          !formData.assigned_to.includes(name)) {
-        formData.assigned_to.push(name);
-        assignedToInput.value = '';
-      } else if (formData.assigned_to.length >= maxCollaborators) {
-        alert(`Maximum ${maxCollaborators} collaborators allowed`);
-      } else if (formData.assigned_to.includes(name)) {
-        alert('This collaborator has already been added');
-      }
-    };
-
+    // UPDATED: Remove assignee method for dropdown (works with objects now)
     const removeAssignee = (index) => {
       formData.assigned_to.splice(index, 1);
     };
@@ -319,6 +764,37 @@ export default {
       return true;
     };
 
+    onMounted(() => {
+      // Get current user from sessionStorage
+      const getCurrentUser = () => {
+        try {
+          const userData = sessionStorage.getItem('user');
+          if (userData) {
+            const user = JSON.parse(userData);
+            console.log('Current user data:', user); // Debug log
+            return user; // Return the full user object
+          }
+          return null;
+        } catch (error) {
+          console.error('Error getting current user:', error);
+          return null;
+        }
+      };
+
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        formData.created_by = currentUser.name;
+        // Store current user for filtering
+        currentUserId.value = currentUser.id; // Add this line
+      } else {
+        formData.created_by = 'Not Logged In';
+      }
+      
+      loadUsers();
+      loadProjects();
+      document.addEventListener('click', handleOutsideClick);
+    });
+
     const resetForm = () => {
       Object.assign(formData, {
         proj_ID: '',
@@ -340,10 +816,20 @@ export default {
       
       assignedToInput.value = '';
       dateValidationError.value = '';
+      userSearch.value = ''; // NEW: Reset search
+      closeDropdown(); // NEW: Close dropdown
       formData.created_by = 'Current User';
     };
 
-    // UPDATED: This now calls your backend API instead of Firebase directly
+    // UPDATED: Prepare form data for submission (send only user IDs)
+    const prepareFormDataForSubmission = () => {
+      return {
+        ...formData,
+        assigned_to: formData.assigned_to.map(user => typeof user === 'object' ? user.id : user)
+      };
+    };
+
+    // UPDATED: Form submission method
     const handleSubmit = async () => {
       if (isSubmitting.value) {
         return;
@@ -381,28 +867,31 @@ export default {
         }
 
         // Prepare task data for API call
-        const taskData = {
-          proj_ID: formData.proj_ID.trim(),
-          task_ID: formData.task_ID.trim(),
-          task_name: formData.task_name.trim(),
-          task_desc: formData.task_desc.trim(),
-          start_date: formData.start_date,
-          end_date: formData.end_date || null,
-          created_by: formData.created_by,
-          assigned_to: [...formData.assigned_to],
+        const taskData = prepareFormDataForSubmission();
+        
+        // Add other properties
+        const finalTaskData = {
+          ...taskData,
+          proj_ID: taskData.proj_ID.trim(),
+          task_ID: taskData.task_ID.trim(),
+          task_name: taskData.task_name.trim(),
+          task_desc: taskData.task_desc.trim(),
+          start_date: taskData.start_date,
+          end_date: taskData.end_date || null,
+          created_by: taskData.created_by,
           attachments: formData.attachments.map(file => ({
             name: file.name,
             size: file.size,
             type: file.type
           })),
-          task_status: formData.task_status || null,
-          hasSubtasks: formData.hasSubtasks
+          task_status: taskData.task_status || null,
+          hasSubtasks: taskData.hasSubtasks
         };
 
-        console.log('Submitting task data to API:', taskData);
+        console.log('Submitting task data to API:', finalTaskData);
 
-        // Call backend API instead of Firebase directly
-        const response = await taskService.createTask(taskData);
+        // Call backend API
+        const response = await taskService.createTask(finalTaskData);
         
         console.log('Task created successfully:', response);
         
@@ -425,12 +914,12 @@ export default {
     };
 
     return {
+      // Existing returns
       formData,
       assignedToInput,
       fileInput,
       isSubmitting,
       dateValidationError,
-      addAssignee,
       removeAssignee,
       handleFileUpload,
       removeFile,
@@ -438,14 +927,45 @@ export default {
       validateDates,
       handleSubmit,
       getCurrentDate,
-      onSubtasksChange
+      onSubtasksChange,
+      
+      // NEW: Dropdown-related returns
+      users,
+      userSearch,
+      showDropdown,
+      isLoadingUsers,
+      highlightedIndex,
+      filteredUsers,
+      isAtLimit,
+      handleInputFocus,
+      handleInputBlur,
+      handleSearchInput,
+      toggleDropdown,
+      closeDropdown,
+      selectUser,
+      isUserSelected,
+      selectFirstMatch,
+      navigateDown,
+      navigateUp,
+
+      projects,
+      projectSearch,
+      showProjectDropdown,
+      isLoadingProjects,
+      filteredProjects,
+      projectHighlightedIndex,
+      isProjectSelected,
+      handleProjectSearchInput, 
+      clearProjectSelection,
+      handleProjectInputFocus,
+      toggleProjectDropdown,
+      selectProject      
     };
   }
 };
 </script>
 
 <style scoped>
-/* Keep existing styles and add new ones */
 .task-form {
   display: flex;
   flex-direction: column;
@@ -702,5 +1222,205 @@ export default {
   .remove-file-btn {
     align-self: flex-end;
   }
+}
+
+.search-dropdown-container {
+  position: relative;
+}
+
+.search-dropdown-container .form-input {
+  padding-right: 40px; /* Space for dropdown icon */
+}
+
+.dropdown-toggle-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  color: #666;
+  font-size: 12px;
+}
+
+.dropdown-toggle-icon.rotated {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.dropdown-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  margin-top: 2px;
+}
+
+.dropdown-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.15s ease;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover,
+.dropdown-item.highlighted {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item.selected {
+  background-color: #e3f2fd;
+}
+
+.dropdown-item.loading,
+.dropdown-item.no-results {
+  color: #666;
+  font-style: italic;
+  cursor: default;
+}
+
+.dropdown-item.loading:hover,
+.dropdown-item.no-results:hover {
+  background-color: transparent;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.user-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.user-email {
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 2px;
+}
+
+.selected-indicator {
+  color: #4caf50;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.status-message {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  padding: 4px 0;
+}
+
+.status-message.warning {
+  color: #f57c00;
+}
+
+.status-message.info {
+  color: #1976d2;
+}
+
+/* Update existing assignee-tag styles to work with objects */
+.assignee-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.assignee-tag {
+  display: inline-flex;
+  align-items: center;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  border: 1px solid #bbdefb;
+}
+
+.remove-tag {
+  background: none;
+  border: none;
+  color: #1976d2;
+  margin-left: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.15s ease;
+}
+
+.remove-tag:hover {
+  background-color: rgba(25, 118, 210, 0.1);
+}
+
+/* Dropdown scroll styling */
+.dropdown-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropdown-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.dropdown-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.dropdown-list::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+.project-dropdown-container {
+  position: relative;
+}
+
+.project-dropdown-container .form-input {
+  padding-right: 40px; /* Space for dropdown icon */
+}
+
+.clear-selection-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #666;
+  font-size: 18px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.clear-selection-btn:hover {
+  background-color: #f0f0f0;
+  color: #333;
 }
 </style>

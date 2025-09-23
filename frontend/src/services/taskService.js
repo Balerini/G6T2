@@ -67,5 +67,23 @@ export const taskService = {
     } catch (error) {
       throw new Error(error.response?.data?.error || 'Failed to fetch project tasks');
     }
-  }
+  },
+  
+  async getUsers() {
+    try {
+      const response = await api.get('/api/users');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to fetch users');
+    }
+  },
+
+  async getProjects() {
+    try {
+      const response = await api.get('/api/projects');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to fetch projects');
+    }
+  },
 };

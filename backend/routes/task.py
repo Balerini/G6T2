@@ -277,3 +277,85 @@ def get_tasks_by_project(proj_id):
         return jsonify(task_list), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# =============== GET ALL USERS FOR DROPDOWN ===============
+@tasks_bp.route('/api/users', methods=['GET'])
+def get_users():
+    try:
+        db = get_firestore_client()
+        users_ref = db.collection('Users')  # Adjust collection name as needed
+        users = users_ref.stream()
+        
+        user_list = []
+        for user in users:
+            user_data = user.to_dict()
+            # Only return necessary fields for dropdown
+            user_info = {
+                'id': user.id,
+                'name': user_data.get('name', ''),
+                'email': user_data.get('email', '')  # Optional: include email for better identification
+            }
+            user_list.append(user_info)
+        
+        # Sort users by name for better UX
+        user_list.sort(key=lambda x: x['name'].lower())
+        
+        return jsonify(user_list), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+# =============== GET ALL PROJECTS FOR DROPDOWN ===============
+# @tasks_bp.route('/api/projects', methods=['GET'])
+# def get_all_projects():
+#     try:
+#         db = get_firestore_client()
+#         projects_ref = db.collection('Projects')  # Adjust collection name as needed
+#         projects = projects_ref.stream()
+        
+#         project_list = []
+#         for project in projects:
+#             project_data = project.to_dict()
+#             # Only return necessary fields for dropdown
+#             project_info = {
+#                 'id': project.id,
+#                 'proj_id': project_data.get('proj_ID', project.id),  # Use proj_id field
+#                 'name': project_data.get('name', '') or project_data.get('project_name', ''),  # Adjust field name
+#                 'description': project_data.get('description', '')  # Optional
+#             }
+#             project_list.append(project_info)
+        
+#         # Sort projects by name for better UX
+#         project_list.sort(key=lambda x: x['name'].lower() if x['name'] else '')
+        
+#         return jsonify(project_list), 200
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
+@tasks_bp.route('/api/projects', methods=['GET'])
+def get_all_projects():
+    try:
+        db = get_firestore_client()
+        projects_ref = db.collection('Projects')  # Make sure this collection name is correct
+        projects = projects_ref.stream()
+        
+        project_list = []
+        for project in projects:
+            project_data = project.to_dict()
+            print(f"Project document ID: {project.id}")
+            print(f"Project data: {project_data}")
+            
+            # Be very defensive about field access
+            project_info = {
+                'id': project.id,
+                'proj_ID': project_data.get('proj_ID') or project_data.get('proj_id') or project.id,
+                'name': project_data.get('name') or project_data.get('project_name') or f'Project {project.id}',
+                'description': project_data.get('description') or ''
+            }
+            
+            print(f"Processed project_info: {project_info}")
+            project_list.append(project_info)
+        
+        print(f"Final project_list: {project_list}")
+        return jsonify(project_list), 200
+    except Exception as e:
+        print(f"Error in get_all_projects: {str(e)}")
+        return jsonify({'error': str(e)}), 500
