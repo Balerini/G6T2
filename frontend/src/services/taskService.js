@@ -43,6 +43,7 @@ export const taskService = {
 
   async updateTask(id, taskData) {
     try {
+      // id can be Firestore doc id or business task_ID; backend resolves both
       const response = await api.put(`/api/tasks/${id}`, taskData);
       return response.data;
     } catch (error) {

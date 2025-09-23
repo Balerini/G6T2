@@ -62,6 +62,9 @@
 </template>
 
 <script>
+// ProjectCard hosts the EditTask modal to enable inline editing of a task
+// without leaving the project context. It wires the `edit-task` event from
+// TaskItem to local state and applies a minimal optimistic update upon save.
 import TaskItem from './TaskCard.vue'
 import EditTask from '../EditTask.vue'
 
