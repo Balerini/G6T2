@@ -1,3 +1,25 @@
+<!--
+  Component: EditTask
+  Purpose: Modal form to update an existing task.
+
+  Props
+  - visible:Boolean  Controls modal visibility
+  - task:Object      The task to edit (can contain id or business task_ID)
+
+  Emits
+  - close            When modal should close without saving
+  - saved(payload)   After successful save, returns updated task from API
+  - error(message)   When save fails; message contains error text
+
+  Behavior
+  - Prefills local reactive form from the provided task
+  - Validates required fields (task_name, start_date) inline
+  - Validates date ordering (end > start if end provided)
+  - On save, calls taskService.updateTask with either doc id or task_ID
+  - Includes status change log entry (changed_by/timestamp/new_status) when status changes
+  - Times out the update if API takes more than 3 seconds
+  - Uses simple alerts for notifications to keep footprint small (swap with toast later)
+-->
 <template>
   <div v-if="visible" class="modal-overlay" @click.self="handleClose">
     <div class="modal-card">

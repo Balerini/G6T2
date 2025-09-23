@@ -129,6 +129,26 @@ def get_task(task_id):
 # =============== UPDATE TASK ===============
 @tasks_bp.route('/api/tasks/<task_id>', methods=['PUT'])
 def update_task(task_id):
+    """
+    Update a task.
+
+    URL Param:
+      task_id: Either Firestore document id or business task_ID.
+
+    Body (JSON): Partial update. Recognized fields include
+      - proj_ID, task_ID, task_name, task_desc
+      - start_date (YYYY-MM-DD)
+      - end_date   (YYYY-MM-DD)
+      - task_status
+      - assigned_to (array)
+      - status_log: optional array with a single entry
+          { changed_by, timestamp (ISO), new_status }
+
+    Notes:
+      - Dates are converted to Firestore timestamps (end date set to end-of-day)
+      - If task_id is not a valid document id, resolves by task_ID (and proj_ID if provided)
+      - status_log is appended (ArrayUnion) instead of overwriting
+    """
     try:
         update_data = request.get_json()
         db = get_firestore_client()
@@ -144,9 +164,43 @@ def update_task(task_id):
         # Add updated timestamp
         update_data['updatedAt'] = firestore.SERVER_TIMESTAMP
 
-        # Update document in Firestore
-        doc_ref = db.collection('Tasks').document(task_id)
-        doc_ref.update(update_data)
+        tasks_col = db.collection('Tasks')
+
+        # Try to resolve by Firestore document id first
+        doc_ref = tasks_col.document(task_id)
+        doc = doc_ref.get()
+
+        # If not found, try to resolve by business task_ID (and proj_ID if provided)
+        if not doc.exists:
+            query = tasks_col.where('task_ID', '==', task_id)
+            # Narrow by proj_ID if available in payload
+            proj_id = update_data.get('proj_ID')
+            if proj_id:
+                query = query.where('proj_ID', '==', proj_id)
+            results = list(query.stream())
+            if not results and proj_id:
+                # fallback: try without proj filter in case payload proj_ID mismatches
+                results = list(tasks_col.where('task_ID', '==', task_id).stream())
+            if not results:
+                return jsonify({'error': 'Task not found'}), 404
+            doc_ref = results[0].reference
+
+        # If status_log present, append rather than overwrite
+        status_log_update = None
+        if 'status_log' in update_data and isinstance(update_data['status_log'], list) and update_data['status_log']:
+            try:
+                entry = update_data['status_log'][0]
+                status_log_update = firestore.ArrayUnion([entry])
+            except Exception:
+                status_log_update = None
+            # remove from direct update to avoid overwrite
+            update_data.pop('status_log', None)
+
+        # Apply the update
+        if update_data:
+            doc_ref.update(update_data)
+        if status_log_update is not None:
+            doc_ref.update({'status_log': status_log_update})
 
         # Get updated document for response
         updated_doc = doc_ref.get()
