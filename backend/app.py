@@ -70,6 +70,7 @@ def create_app() -> Flask:
             
         except Exception as e:
             return jsonify({"ok": False, "error": f"Database error: {str(e)}"}), 500
+        
 
     return app
 

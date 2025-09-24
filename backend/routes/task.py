@@ -69,33 +69,60 @@ def create_task():
         return jsonify({'error': str(e)}), 500
 
 # =============== GET ALL TASKS ===============
-@tasks_bp.route('/api/tasks', methods=['GET'])
-def get_all_tasks():
+# @tasks_bp.route('/api/tasks', methods=['GET'])
+# def get_all_tasks():
+#     try:
+#         db = get_firestore_client()
+#         tasks_ref = db.collection('Tasks')
+#         tasks = tasks_ref.stream()
+        
+#         task_list = []
+#         for task in tasks:
+#             task_data = task.to_dict()
+#             task_data['id'] = task.id
+            
+#             # Convert timestamps to ISO format for JSON serialization
+#             if 'start_date' in task_data and task_data['start_date']:
+#                 task_data['start_date'] = task_data['start_date'].isoformat()
+#             if 'end_date' in task_data and task_data['end_date']:
+#                 task_data['end_date'] = task_data['end_date'].isoformat()
+#             if 'createdAt' in task_data and task_data['createdAt']:
+#                 task_data['createdAt'] = task_data['createdAt'].isoformat()
+#             if 'updatedAt' in task_data and task_data['updatedAt']:
+#                 task_data['updatedAt'] = task_data['updatedAt'].isoformat()
+            
+#             task_list.append(task_data)
+            
+#         return jsonify(task_list), 200
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
+
+@tasks_bp.route("/api/tasks", methods=["GET"])
+def get_tasks():
     try:
         db = get_firestore_client()
-        tasks_ref = db.collection('Tasks')
-        tasks = tasks_ref.stream()
-        
-        task_list = []
-        for task in tasks:
-            task_data = task.to_dict()
-            task_data['id'] = task.id
-            
-            # Convert timestamps to ISO format for JSON serialization
-            if 'start_date' in task_data and task_data['start_date']:
-                task_data['start_date'] = task_data['start_date'].isoformat()
-            if 'end_date' in task_data and task_data['end_date']:
-                task_data['end_date'] = task_data['end_date'].isoformat()
-            if 'createdAt' in task_data and task_data['createdAt']:
-                task_data['createdAt'] = task_data['createdAt'].isoformat()
-            if 'updatedAt' in task_data and task_data['updatedAt']:
-                task_data['updatedAt'] = task_data['updatedAt'].isoformat()
-            
-            task_list.append(task_data)
-            
-        return jsonify(task_list), 200
+        print("entered app.py")
+        user_id = request.args.get("userId")
+        tasks_ref = db.collection("Tasks")
+
+        if user_id:
+            query = tasks_ref.where("assigned_to", "array_contains", user_id)
+            results = query.stream()
+            print("query user id")
+        else:
+            results = tasks_ref.stream()
+
+        tasks = []
+        for doc in results:
+            task = doc.to_dict()
+            task["id"] = doc.id
+            tasks.append(task)
+
+        return jsonify(tasks), 200
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print("Error fetching tasks:", e)
+        return jsonify({"error": str(e)}), 500
 
 # =============== GET SINGLE TASK ===============
 @tasks_bp.route('/api/tasks/<task_id>', methods=['GET'])
