@@ -13,7 +13,7 @@ def create_task():
         task_data = request.get_json()
         
         # Validate required fields
-        required_fields = ['proj_ID', 'task_ID', 'task_name', 'start_date']
+        required_fields = ['task_ID', 'task_name', 'start_date']
         for field in required_fields:
             if not task_data.get(field):
                 return jsonify({'error': f'Required field missing: {field}'}), 400
@@ -32,7 +32,7 @@ def create_task():
 
         # Prepare task data for Firestore
         firestore_task_data = {
-            'proj_ID': task_data['proj_ID'],
+            'proj_ID': task_data.get('proj_ID', ''),
             'task_ID': task_data['task_ID'],
             'task_name': task_data['task_name'],
             'task_desc': task_data.get('task_desc', ''),
