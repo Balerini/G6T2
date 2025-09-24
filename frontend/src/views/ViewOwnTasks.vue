@@ -19,99 +19,78 @@
           </button>
         </div>
       </div>
-
-      <!-- Tasks -->
+    </div>
+    <!-- Tasks -->
+    <div class="tasks-section">
       <div class="container">
-        <div v-if="loading">Loading tasks...</div>
+        <div v-if="loading" class="loading-section">
+          <div class="container">
+            <div class="loading-spinner">Loading Tasks...</div>
+          </div>
+        </div>
         <div v-else>
-          <div
-            v-for="(task, index) in this.tasks"
-            :key="index"
-            class="task-card"
-          >
-            <div class="p-4 space-y-3">
-              <div class="flex justify-between items-center">
-                <h2 class="text-lg font-semibold">{{ task.task_name }}</h2>
-                <span
-                  :class="[
-                    'px-2 py-1 rounded-lg text-xs font-medium',
-                    task.task_status === 'To Do' ? 'bg-red-200 text-red-800' :
-                    task.task_status === 'In Progress' ? 'bg-yellow-200 text-yellow-800' :
-                    'bg-green-200 text-green-800'
-                  ]"
-                >
-                  {{ task.task_status }}
-                </span>
-              </div>
+          <div v-if="filteredTasks.length">
+            <div
+              v-for="(task, index) in this.filteredTasks"
+              :key="index"
+              class="task-card"
+            >
+              <!-- <div class="p-4 space-y-3">
+                <div class="flex justify-between items-center">
+                  <h2 class="text-lg font-semibold">{{ task.task_name }}</h2>
+                  <span
+                    :class="[
+                      'px-2 py-1 rounded-lg text-xs font-medium',
+                      task.task_status === 'To Do' ? 'bg-red-200 text-red-800' :
+                      task.task_status === 'In Progress' ? 'bg-yellow-200 text-yellow-800' :
+                      'bg-green-200 text-green-800'
+                    ]"
+                  >
+                    {{ task.task_status }}
+                  </span>
+                </div>
 
-              <p class="text-sm text-gray-600">{{ task.task_desc }}</p>
+                <p class="text-sm text-gray-600">{{ task.task_desc }}</p>
 
-              <div class="grid grid-cols-2 gap-2 text-sm">
-                <p><span class="font-medium">Project:</span> {{ task.proj_ID }}</p>
-                <p><span class="font-medium">Created By:</span> {{ task.created_by }}</p>
-                <p><span class="font-medium">Assigned To:</span> {{ task.assigned_to.join(', ') }}</p>
-                <p><span class="font-medium">Start:</span> {{ task.start_date }}</p>
-                <p><span class="font-medium">End:</span> {{ task.end_date || 'N/A' }}</p>
-                <p>
-                  <span class="font-medium">Attachments:</span>
-                  {{ task.attachments && task.attachments.length > 0 ? task.attachments.map(a => a.name || a).join(', ') : 'None' }}
-                </p>
-              </div>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                  <p><span class="font-medium">Project:</span> {{ task.proj_ID }}</p>
+                  <p><span class="font-medium">Created By:</span> {{ task.created_by }}</p>
+                  <p><span class="font-medium">Assigned To:</span> {{ task.assigned_to.join(', ') }}</p>
+                  <p><span class="font-medium">Start:</span> {{ task.start_date }}</p>
+                  <p><span class="font-medium">End:</span> {{ task.end_date || 'N/A' }}</p>
+                  <p>
+                    <span class="font-medium">Attachments:</span>
+                    {{ task.attachments && task.attachments.length > 0 ? task.attachments.map(a => a.name || a).join(', ') : 'None' }}
+                  </p>
+                </div>
 
-              <div class="flex justify-end">
-                <button class="px-4 py-2 bg-black text-white rounded-lg">View</button>
-              </div>
+                <div class="flex justify-end">
+                  <button class="px-4 py-2 bg-black text-white rounded-lg">View</button>
+                </div>
+              </div> -->
+              <task-card :task="task" class="mb-0"
+              @view-task="handleViewTask"/>
             </div>
+          </div>
+          <div v-else class="nofound-section">
+            No tasks of this status found.
           </div>
         </div>
       </div>
-    </div>      
+    </div>
   </div>
 </template>
 
-<!-- <script>
-const tasks = ref([]);
-const filter = ref("All");
-const projectFilter = ref("All Projects");
-const statuses = ["All", "To Do", "In Progress", "On Hold", "Completed"];
 
-const projectList = computed(() => [
-  "All Projects",
-  ...new Set(tasks.value.map((t) => t.project)),
-]);
-
-console.log("Project list =", projectList);
-// Example: fetch tasks for current user (replace with your auth userId)
-const currentUserId = "user_001";
-
-onMounted(async () => {
-  try {
-    // Get only this user’s tasks
-    tasks.value = await ownTasksService.getTasks(currentUserId);
-
-    // Or, if you want ALL tasks: 
-    // tasks.value = await TaskService.getTasks();
-  } catch (err) {
-    console.error("Failed to load tasks", err);
-  }
-});
-
-const filteredTasks = computed(() => {
-  return tasks.value.filter((task) => {
-    const statusMatch = filter.value === "All" || task.status === filter.value;
-    const projectMatch =
-      projectFilter.value === "All Projects" ||
-      task.project === projectFilter.value;
-    return statusMatch && projectMatch;
-  });
-});
-</script> -->
 <script>
-
+import TaskCard from '@/components/Projects/TaskCard.vue';
 import { ownTasksService } from '../services/myTaskService.js'
 
 export default {
   name: "ViewMyTask",
+  components: {
+    TaskCard
+  },
   data() {
     return {
       tasks: [],
@@ -191,6 +170,12 @@ export default {
         year: "numeric"
       });
       return `${start} - ${end}`;
+    },
+    handleViewTask(task) {
+      const projectId = task.proj_ID || task.projectId; 
+      const taskId = task.task_ID || task.taskId; 
+      console.log(projectId, taskId);
+      this.$router.push(`/projects/${projectId}/tasks/${taskId}`);
     }
   },
   computed: {
@@ -198,8 +183,8 @@ export default {
       if (this.filter === "All") {
         return this.tasks;
       }
-      console.log("call filter");
-      return this.tasks.filter((t) => t.status === this.filter);
+      console.log("call filter", this.filter);
+      return this.tasks.filter((t) => t.task_status === this.filter);
     }
   }
 };
@@ -231,6 +216,17 @@ export default {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+}
+.tasks-section {
+  padding: 2rem 0;
+}
+.loading-section, .nofound-section {
+  padding: 4rem 0;
+  text-align: center;
+}
+.loading-spinner {
+  font-size: 1.25rem;
+  color: #6b7280;
 }
 .tab-btn {
   padding: 0.625rem 1.25rem;
