@@ -9,13 +9,12 @@ const api = axios.create({
   },
 });
 
-// Add this comment at the top to tell ESLint that process is a global
 /* global process */
 
 export const projectService = {
-  async getAllProjects() {
+  // ============== Get all projects ==============
+    async getAllProjects() {
     try {
-      // console.log('Fetching all projects...');
       const response = await api.get('/api/projects');
       // console.log('Projects response:', response.data);
       return response.data;
@@ -25,11 +24,11 @@ export const projectService = {
     }
   },
 
-  async getProject(id) {
+  // ============== Get single project (with tasks included) ==============
+  async getProject(projectId) {
     try {
-      console.log('Fetching project with ID:', id);
-      const response = await api.get(`/api/projects/${id}`);
-      // console.log('Project response:', response.data);
+      const response = await api.get(`/api/projects/${projectId}`);
+      console.log('Project response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error in getProject:', error);
@@ -37,21 +36,46 @@ export const projectService = {
     }
   },
 
-  async getProjectTasks(proj_ID) {
+  // ============== Get all projects  ==============
+  async getAllProjectsWithTasks() {
     try {
-      console.log('Fetching tasks for project ID:', proj_ID);
-      const response = await api.get(`/api/projects/${proj_ID}/tasks`);
-      // console.log('Project tasks response:', response.data);
+      const response = await api.get('/api/projects');
+      console.log('Projects with tasks response:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Error in getProjectTasks:', error);
-      throw new Error(error.response?.data?.error || 'Failed to fetch project tasks');
+      console.error('Error in getAllProjectsWithTasks:', error);
+      throw new Error(error.response?.data?.error || 'Failed to fetch projects with tasks');
     }
   },
 
+  // ============== Get project with tasks (basically projects page) ==============
+  async getProjectWithTasks(projectId) {
+    try {
+      const response = await api.get(`/api/projects/${projectId}/tasks`);
+      console.log('Project with tasks response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error in getProjectWithTasks:', error);
+      throw new Error(error.response?.data?.error || 'Failed to fetch project with tasks');
+    }
+  },
+
+  // ============== Get specific task from project via id ==============
+  async getProjectTask(projectId, taskId) {
+    try {
+      console.log('Fetching task:', taskId, 'from project:', projectId);
+      const response = await api.get(`/api/projects/${projectId}/tasks/${taskId}`);
+      console.log('Project task response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error in getProjectTask:', error);
+      throw new Error(error.response?.data?.error || 'Failed to fetch project task');
+    }
+  },
+
+  // Get all users
   async getAllUsers() {
     try {
-      // console.log('Fetching all users...');
       const response = await api.get('/api/users');
       // console.log('Users response:', response.data);
       return response.data;

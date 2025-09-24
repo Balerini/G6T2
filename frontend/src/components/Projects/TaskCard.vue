@@ -88,29 +88,40 @@ export default {
       });
     },
     getUser(userId) {
-      // Convert both to strings for comparison, using user_ID from Firebase
-      const user = this.users.find(user => String(user.user_ID) === String(userId));
+      // First try to find by document ID (from backend API)
+      let user = this.users.find(user => String(user.id) === String(userId));
+
+      // Fallback to user_ID field if it exists
+      if (!user) {
+        user = this.users.find(user => String(user.user_ID) === String(userId));
+      }
+
       if (user) {
         return {
           ...user,
-          id: user.user_ID,
+          id: user.id || user.user_ID,
           initials: this.getInitials(user.name)
         };
       }
+
       // console.log(`User not found for task assignee ID: ${userId}`);
-      // console.log('Available users:', this.users.map(u => ({ user_ID: u.user_ID, name: u.name }))); 
+      // console.log('Available users:', this.users.map(u => ({ id: u.id, user_ID: u.user_ID, name: u.name })));
       return {
         id: userId,
         name: 'Unknown User',
         initials: 'UU'
       };
     },
-
     getCreatorName(userId) {
-      // Convert both to strings for comparison, using user_ID from Firebase
-      const user = this.users.find(u => String(u.user_ID) === String(userId));
+      // First try to find by document ID (from backend API)  
+      let user = this.users.find(u => String(u.id) === String(userId));
+
+      // Fallback to user_ID field if it exists
+      if (!user) {
+        user = this.users.find(u => String(u.user_ID) === String(userId));
+      }
+
       const name = user ? user.name : 'Unknown User';
-      // console.log(`Creator lookup - ID: ${userId}, Found: ${name}`);
       return name;
     },
     getInitials(name) {
@@ -121,6 +132,14 @@ export default {
         .join('')
         .substring(0, 2)
         .toUpperCase();
+    },
+    handleViewTask() {
+      console.log('TaskCard emitting task:', {
+        id: this.task.id,
+        task_ID: this.task.task_ID,
+        name: this.task.task_name
+      });
+      this.$emit('view-task', this.task);
     }
   }
 }

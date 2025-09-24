@@ -154,7 +154,7 @@
               </div>
               <div class="metadata-item">
                 <span class="metadata-label">Task ID</span>
-                <span class="metadata-value">{{ task.task_ID }}</span>
+                <span class="metadata-value">{{ task.id }}</span>
               </div>
               <div class="metadata-item">
                 <span class="metadata-label">Created By</span>
@@ -206,68 +206,57 @@ export default {
         const projectId = this.$route.params.projectId;
         const taskId = this.$route.params.taskId;
 
-        // console.log('Route params:', { projectId, taskId });
-        // console.log('ProjectService object:', projectService);
-        // console.log('Available methods:', Object.keys(projectService));
+        console.log('Route params:', { projectId, taskId });
 
-        // Check if the method exists
-        if (typeof projectService.getProject !== 'function') {
-          throw new Error('getProject method is not available in projectService');
-        }
-
-        // Load users first for name resolution
+        // Load users first
         try {
           this.users = await projectService.getAllUsers();
-          console.log('Loaded users:', this.users);
         } catch (userError) {
           console.warn('Could not load users:', userError);
         }
 
-        // Alternative approach: Get all projects first, then find the one we need
-        try {
-          const allProjects = await projectService.getAllProjects();
+        // Load all projects to diagnose the issue
+        const allProjects = await projectService.getAllProjects();
 
-          // Find the project by its proj_ID or document ID
-          this.parentProject = allProjects.find(p =>
-            p.id === projectId || p.proj_ID === projectId || p.proj_id === projectId
-          );
+        // Find which project actually contains the task we're looking for
+        let actualParentProject = null;
+        let foundTask = null;
 
-          // console.log('Found parent project:', this.parentProject);
-
-          if (this.parentProject && this.parentProject.tasks) {
-            // Find the specific task within the project's tasks
-            this.task = this.parentProject.tasks.find(task =>
-              task.task_ID === taskId || task.task_id === taskId || task.id === taskId
+        for (const project of allProjects) {
+          if (project.tasks) {
+            const taskInThisProject = project.tasks.find(task =>
+              String(task.id) === String(taskId) || String(task.task_ID) === String(taskId)
             );
-            // console.log('Found task:', this.task);
-          }
 
-        } catch (projectError) {
-          console.error('Error loading projects:', projectError);
-          // Fallback: try the single project endpoint
-          try {
-            console.log('Falling back to single project endpoint...');
-            const project = await projectService.getProject(projectId);
-            this.parentProject = project;
-
-            if (project && project.tasks) {
-              this.task = project.tasks.find(task =>
-                task.task_ID === taskId || task.task_id === taskId || task.id === taskId
-              );
+            if (taskInThisProject) {
+              actualParentProject = project;
+              foundTask = taskInThisProject;
+              break;
             }
-          } catch (singleProjectError) {
-            console.error('Single project endpoint also failed:', singleProjectError);
-            throw projectError; // Throw the original error
           }
         }
+        // Check if there's a mismatch
+        if (actualParentProject && String(actualParentProject.id) !== String(projectId)) {
+          this.parentProject = actualParentProject;
+          this.task = foundTask;
+        } else if (actualParentProject && foundTask) {
+          // Everything matches correctly
+          this.parentProject = actualParentProject;
+          this.task = foundTask;
+        } else {
+          // Task genuinely not found anywhere
+          allProjects.forEach(proj => {
+            if (proj.tasks && proj.tasks.length > 0) {
+              console.log(`${proj.proj_name}:`, proj.tasks.map(t => `${t.id} (${t.task_name})`));
+            }
+          });
+          return;
+        }
 
-        // If no task found, show error
+        // Double-check our final result
         if (!this.task || !this.parentProject) {
-          this.error = `Task (${taskId}) or project (${projectId}) not found. Available tasks: ${this.parentProject?.tasks?.map(t => t.task_ID || t.task_id || t.id).join(', ') || 'none'}`;
-          console.error(this.error);
-          setTimeout(() => {
-            this.$router.push('/projects');
-          }, 5000);
+          this.error = `Failed to load task data. Task: ${this.task ? 'Found' : 'Missing'}, Project: ${this.parentProject ? 'Found' : 'Missing'}`;
+          return;
         }
 
       } catch (error) {
@@ -314,7 +303,7 @@ export default {
     },
 
     formatDateRange(startDate, endDate) {
-      if (!startDate || !endDate) return 'No dates set';
+      if (!startDate || !endDate) return 'No start or end date set';
       const start = new Date(startDate).toLocaleDateString('en-US', {
         day: '2-digit',
         month: 'short'
@@ -328,7 +317,7 @@ export default {
     },
 
     formatStatus(status) {
-      return status?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown';
+      return status?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Not Started';
     },
 
     getDueDateStatus(dueDate) {
@@ -370,13 +359,28 @@ export default {
         .toUpperCase();
     },
 
+
     getUserName(userId) {
-      const user = this.users.find(u => u.id === userId);
+      // First try to find by document ID (from backend API)
+      let user = this.users.find(u => String(u.id) === String(userId));
+
+      // Fallback to user_ID field if it exists
+      if (!user) {
+        user = this.users.find(u => String(u.user_ID) === String(userId));
+      }
+
       return user ? user.name : 'Unknown User';
     },
 
     getCreatorName(userId) {
-      const user = this.users.find(u => u.id === userId);
+      // First try to find by document ID (from backend API)
+      let user = this.users.find(u => String(u.id) === String(userId));
+
+      // Fallback to user_ID field if it exists
+      if (!user) {
+        user = this.users.find(u => String(u.user_ID) === String(userId));
+      }
+
       return user ? user.name : 'Unknown User';
     }
   }
@@ -466,10 +470,21 @@ export default {
   flex-shrink: 0;
 }
 
-.status-progress { background: #fbbf24; }
-.status-todo { background: #ef4444; }
-.status-completed { background: #10b981; }
-.status-pending { background: #f59e0b; }
+.status-progress {
+  background: #fbbf24;
+}
+
+.status-todo {
+  background: #ef4444;
+}
+
+.status-completed {
+  background: #10b981;
+}
+
+.status-pending {
+  background: #f59e0b;
+}
 
 .banner-content {
   flex: 1;
@@ -590,10 +605,21 @@ export default {
   margin: 0;
 }
 
-.info-meta.overdue { color: #dc2626; }
-.info-meta.urgent { color: #ea580c; }
-.info-meta.warning { color: #ca8a04; }
-.info-meta.normal { color: #059669; }
+.info-meta.overdue {
+  color: #dc2626;
+}
+
+.info-meta.urgent {
+  color: #ea580c;
+}
+
+.info-meta.warning {
+  color: #ca8a04;
+}
+
+.info-meta.normal {
+  color: #059669;
+}
 
 /* User Info */
 .user-info {
@@ -786,30 +812,30 @@ export default {
     gap: 16px;
     align-items: flex-start;
   }
-  
+
   .page-content {
     padding: 16px;
   }
-  
+
   .info-grid {
     grid-template-columns: 1fr;
     padding: 16px;
   }
-  
+
   .parent-project-banner,
   .description-section,
   .attachments-section,
   .metadata-section {
     padding: 16px;
   }
-  
+
   .card-header {
     flex-direction: column;
     gap: 16px;
     align-items: flex-start;
     padding: 16px;
   }
-  
+
   .metadata-grid,
   .attachments-grid {
     grid-template-columns: 1fr;

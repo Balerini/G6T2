@@ -170,17 +170,27 @@ export default {
       });
       return `${start} - ${end}`;
     },
+    handleViewTask(task) {
+      // Emit the task with the project context
+      this.$emit('view-task', {
+        ...task,
+        parentProjectId: this.project.id
+      });
+    },
 
     getUser(userId) {
-      // Convert both to strings for comparison, using user_ID from Firebase
-      const user = this.users.find(user => String(user.user_ID) === String(userId));
+      let user = this.users.find(user => String(user.id) === String(userId));
+      if (!user) {
+        user = this.users.find(user => String(user.user_ID) === String(userId));
+      }
       if (user) {
         return {
           ...user,
-          id: user.user_ID, // Add id field for consistency
+          id: user.id || user.user_ID, 
           initials: this.getInitials(user.name)
         };
       }
+      
       return null;
     },
     getInitials(name) {

@@ -103,7 +103,8 @@ export default {
       try {
         this.loading = true;
         this.error = null;
-        this.projects = await projectService.getAllProjects();
+        this.projects = await projectService.getAllProjectsWithTasks();
+        console.log('Fetched projects with tasks:', this.projects);
       } catch (error) {
         console.error('Error fetching projects:', error);
         this.error = error.message;
@@ -141,9 +142,71 @@ export default {
     },
 
     handleViewTask(task) {
-      // Make sure you're using the correct field names from your database
-      const projectId = task.proj_ID || task.projectId; // Adjust based on your DB structure
-      const taskId = task.task_ID || task.taskId; // Adjust based on your DB structure
+      console.log('=== HANDLE VIEW TASK DEBUG ===');
+      console.log('Task clicked:', {
+        task: task,
+        taskId: task.id,
+        taskTaskId: task.task_ID,
+        taskName: task.task_name,
+        taskProjId: task.proj_ID,
+        allTaskFields: Object.keys(task)
+      });
+
+      // Find the project that contains this task using multiple approaches
+      let parentProject = null;
+
+      // Method 1: Find by task's proj_ID field (most reliable)
+      if (task.proj_ID) {
+        parentProject = this.projects.find(project => String(project.id) === String(task.proj_ID));
+        console.log('Method 1 (by task.proj_ID):', {
+          searchingFor: task.proj_ID,
+          found: parentProject ? parentProject.proj_name : 'NOT FOUND'
+        });
+      }
+
+      // Method 2: If not found, search through all project tasks (fallback)
+      if (!parentProject) {
+        parentProject = this.projects.find(project =>
+          project.tasks && project.tasks.some(t =>
+            String(t.id) === String(task.id) ||
+            String(t.task_ID) === String(task.task_ID) ||
+            String(t.id) === String(task.task_ID) ||
+            String(t.task_ID) === String(task.id)
+          )
+        );
+        console.log('Method 2 (searching through tasks):', {
+          found: parentProject ? parentProject.proj_name : 'NOT FOUND'
+        });
+      }
+
+      if (!parentProject) {
+        console.error('Could not find parent project for task:', task);
+        console.error('Available projects:', this.projects.map(p => ({
+          id: p.id,
+          name: p.proj_name,
+          taskCount: p.tasks ? p.tasks.length : 0
+        })));
+        return;
+      }
+
+      const projectId = parentProject.id;
+      const taskId = task.id; 
+
+      console.log('Navigation Decision:', {
+        projectId: projectId,
+        projectName: parentProject.proj_name,
+        taskId: taskId,
+        taskName: task.task_name,
+        navigationUrl: `/projects/${projectId}/tasks/${taskId}`
+      });
+
+      console.log('All available tasks in this project:',
+        parentProject.tasks ? parentProject.tasks.map(t => ({
+          id: t.id,
+          task_ID: t.task_ID,
+          name: t.task_name
+        })) : 'No tasks'
+      );
 
       this.$router.push(`/projects/${projectId}/tasks/${taskId}`);
     },
