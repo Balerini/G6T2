@@ -47,12 +47,6 @@ const routes = [
     meta: { showNav: true }
   },
   {
-    path: '/tasks/:taskId',
-    name: 'viewtaskdetails',
-    component: ViewTaskDetails,
-    meta: { showNav: true }
-  },
-  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }

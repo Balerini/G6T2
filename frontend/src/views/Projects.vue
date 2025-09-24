@@ -189,24 +189,10 @@ export default {
         return;
       }
 
-      const projectId = parentProject.id;
+      const projectId = task.proj_ID;
       const taskId = task.id; 
 
-      console.log('Navigation Decision:', {
-        projectId: projectId,
-        projectName: parentProject.proj_name,
-        taskId: taskId,
-        taskName: task.task_name,
-        navigationUrl: `/projects/${projectId}/tasks/${taskId}`
-      });
-
-      console.log('All available tasks in this project:',
-        parentProject.tasks ? parentProject.tasks.map(t => ({
-          id: t.id,
-          task_ID: t.task_ID,
-          name: t.task_name
-        })) : 'No tasks'
-      );
+      console.log(projectId, taskId);
 
       this.$router.push(`/projects/${projectId}/tasks/${taskId}`);
     },
