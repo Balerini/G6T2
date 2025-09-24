@@ -32,8 +32,8 @@ def create_task():
 
         # Prepare task data for Firestore
         firestore_task_data = {
-            'proj_ID': task_data.get('proj_ID', ''),
-            'task_ID': task_data['task_ID'],
+            'proj_ID': task_data['proj_ID'],
+            # 'task_ID': task_data['task_ID'],
             'task_name': task_data['task_name'],
             'task_desc': task_data.get('task_desc', ''),
             'start_date': start_date,
