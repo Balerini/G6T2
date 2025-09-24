@@ -1,5 +1,5 @@
 <template>
-  <form class="task-form" @submit.prevent="handleSubmit">
+  <form class="task-form" @submit.prevent="handleSubmit" novalidate>
     <!-- Project ID -->
     <div class="form-group">
       <label class="form-label" for="projId">
@@ -22,7 +22,6 @@
           @keydown.arrow-down.prevent="navigateProjectDown"
           @keydown.arrow-up.prevent="navigateProjectUp"
           :disabled="isLoadingProjects"
-          required
         />
         
         <!-- Clear button when project is selected -->
@@ -101,7 +100,6 @@
         type="text"
         class="form-input"
         placeholder="Enter task ID"
-        required
       />
     </div>
 
@@ -114,7 +112,6 @@
         type="text"
         class="form-input"
         placeholder="Enter task name"
-        required
       />
     </div>
 
@@ -152,7 +149,6 @@
         v-model="formData.start_date"
         type="date"
         class="form-input"
-        required
         @change="validateDates"
       />
     </div>
@@ -167,7 +163,6 @@
         v-model="formData.end_date"
         type="date"
         class="form-input"
-        :required="!formData.hasSubtasks"
         :min="formData.start_date || getCurrentDate()"
         @change="validateDates"
       />
@@ -354,7 +349,6 @@
         id="taskStatus" 
         v-model="formData.task_status" 
         class="form-select" 
-        :required="!formData.hasSubtasks"
       >
         <option value="" disabled>Select status</option>
         <option value="Not Started">Not Started</option>
@@ -830,6 +824,7 @@ export default {
     };
 
     // UPDATED: Form submission method
+    // UPDATED: Form submission method with scroll-to-field
     const handleSubmit = async () => {
       if (isSubmitting.value) {
         return;
@@ -839,33 +834,54 @@ export default {
         return;
       }
       
+      // Function to scroll to and focus a field
+      const scrollToField = (fieldId) => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          field.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+          setTimeout(() => {
+            field.focus();
+          }, 300);
+        }
+      };
+      
+      // Validate required fields and scroll to first empty one
+      if (!formData.proj_ID || !formData.proj_ID.trim()) {
+        scrollToField('projId');
+        return;
+      }
+      if (!formData.task_ID || !formData.task_ID.trim()) {
+        scrollToField('taskId');
+        return;
+      }
+      if (!formData.task_name || !formData.task_name.trim()) {
+        scrollToField('taskName');
+        return;
+      }
+      if (!formData.start_date) {
+        scrollToField('startDate');
+        return;
+      }
+      
+      // Conditional validation based on hasSubtasks
+      if (!formData.hasSubtasks) {
+        if (!formData.end_date) {
+          scrollToField('endDate');
+          return;
+        }
+        if (!formData.task_status) {
+          scrollToField('taskStatus');
+          return;
+        }
+      }
+
+      // If we get here, all validation passed
       isSubmitting.value = true;
       
       try {
-        // Validate required fields
-        if (!formData.proj_ID.trim()) {
-          throw new Error('Project ID is required');
-        }
-        if (!formData.task_ID.trim()) {
-          throw new Error('Task ID is required');
-        }
-        if (!formData.task_name.trim()) {
-          throw new Error('Task name is required');
-        }
-        if (!formData.start_date) {
-          throw new Error('Start date is required');
-        }
-        
-        // Conditional validation based on hasSubtasks
-        if (!formData.hasSubtasks) {
-          if (!formData.end_date) {
-            throw new Error('End date is required when subtasks are not enabled');
-          }
-          if (!formData.task_status) {
-            throw new Error('Task status is required when subtasks are not enabled');
-          }
-        }
-
         // Prepare task data for API call
         const taskData = prepareFormDataForSubmission();
         
