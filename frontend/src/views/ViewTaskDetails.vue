@@ -59,9 +59,13 @@
         <div class="task-details-card">
           <div class="card-header">
             <h2 class="task-title">{{ task.task_name }}</h2>
-            <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
-              {{ formatStatus(task.task_status) || 'Not Started' }}
+            <div class="header-actions"></div>
+              <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
+                {{ formatStatus(task.task_status) || 'Not Started' }}
             </div>
+            <button @click="openSubtaskModal" class="add-subtask-btn">
+              + Add Subtask
+            </button>
           </div>
 
           <!-- Key Information Grid -->
@@ -169,15 +173,31 @@
         </div>
       </div>
     </main>
+
+    <!-- Subtask Modal -->
+    <div v-if="showSubtaskModal" class="modal-overlay" @click="closeSubtaskModal">
+      <div class="modal-content" @click.stop>
+        <SubtaskForm 
+          :parentTaskId="task.id"
+          :parentProjectId="task.proj_ID"
+          @subtask-created="handleSubtaskCreated"
+          @cancel="closeSubtaskModal"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import { projectService } from '../services/projectService.js'
 // import { taskService } from '../services/taskService.js'
+import SubtaskForm from '../components/SubTaskForm.vue'
 
 export default {
   name: 'ViewIndivTask',
+  components: {
+    SubtaskForm
+  },
   data() {
     return {
       projects: [],
@@ -186,7 +206,8 @@ export default {
       task: null,
       parentProject: null,
       loading: true,
-      error: null
+      error: null,
+      showSubtaskModal: false
     }
   },
   created() {
@@ -382,6 +403,20 @@ export default {
       }
 
       return user ? user.name : 'Unknown User';
+    },
+
+    openSubtaskModal() {
+      this.showSubtaskModal = true;
+    },
+
+    closeSubtaskModal() {
+      this.showSubtaskModal = false;
+    },
+
+    handleSubtaskCreated() {
+      this.closeSubtaskModal();
+      // Optionally refresh task data
+      // this.loadTaskData();
     }
   }
 }
@@ -841,4 +876,87 @@ export default {
     grid-template-columns: 1fr;
   }
 }
+
+/* Header Actions */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.add-subtask-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.add-subtask-btn:hover {
+  background: #2563eb;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 0;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: #374151;
+}
+
+
 </style>
