@@ -3,7 +3,7 @@
     <!-- Project ID -->
     <div class="form-group">
       <label class="form-label" for="projId">
-        Project *
+        Project 
       </label>
       
       <!-- Combined search input with dropdown for projects -->
@@ -823,8 +823,7 @@ export default {
       };
     };
 
-    // UPDATED: Form submission method
-    // UPDATED: Form submission method with scroll-to-field
+    // UPDATED: Form submission method - remove project validation
     const handleSubmit = async () => {
       if (isSubmitting.value) {
         return;
@@ -849,10 +848,8 @@ export default {
       };
       
       // Validate required fields and scroll to first empty one
-      if (!formData.proj_ID || !formData.proj_ID.trim()) {
-        scrollToField('projId');
-        return;
-      }
+      // REMOVED: Project validation
+      
       if (!formData.task_ID || !formData.task_ID.trim()) {
         scrollToField('taskId');
         return;
@@ -888,7 +885,7 @@ export default {
         // Add other properties
         const finalTaskData = {
           ...taskData,
-          proj_ID: taskData.proj_ID.trim(),
+          proj_ID: taskData.proj_ID ? taskData.proj_ID.trim() : '', // Handle empty project ID
           task_ID: taskData.task_ID.trim(),
           task_name: taskData.task_name.trim(),
           task_desc: taskData.task_desc.trim(),
