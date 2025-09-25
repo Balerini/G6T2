@@ -532,16 +532,12 @@ export default {
       showProjectDropdown.value = !showProjectDropdown.value;
     };
 
-    // NEW: Computed properties for dropdown
     const filteredUsers = computed(() => {
       let filtered = users.value.filter(user => {
         // Filter out already selected users
         const isAlreadySelected = formData.assigned_to.some(assignee => assignee.id === user.id);
         
-        // Filter out current user
-        const isCurrentUser = user.id === currentUserId.value;
-        
-        return !isAlreadySelected && !isCurrentUser;
+        return !isAlreadySelected;
       });
       
       if (userSearch.value.trim()) {
