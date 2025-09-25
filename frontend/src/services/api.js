@@ -38,6 +38,8 @@ export const authAPI = {
   // Logout user
   logout: () => {
     localStorage.removeItem('user')
+    sessionStorage.removeItem('user')
+    sessionStorage.removeItem('isLoggedIn')
   },
 
   // Get current user from localStorage
@@ -49,6 +51,86 @@ export const authAPI = {
   // Check if user is logged in
   isLoggedIn: () => {
     return !!localStorage.getItem('user')
+  }
+}
+
+// Project API with department filtering
+export const projectAPI = {
+  // Get all projects (unfiltered - for admin use)
+  getAllProjects: async () => {
+    try {
+      const response = await api.get('/api/projects')
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { error: 'Failed to fetch projects' }
+    }
+  },
+
+  // Get projects filtered by division
+  getFilteredProjectsByDivision: async (divisionName) => {
+    try {
+      const response = await api.get(`/api/projects/filtered/${encodeURIComponent(divisionName)}`)
+      console.log('Filtered projects response:', response.data);
+      return response.data
+    } catch (error) {
+      console.error('Error fetching filtered projects:', error);
+      throw error.response?.data || { error: 'Failed to fetch filtered projects' }
+    }
+  },
+
+  // Get single project
+  getProject: async (projectId) => {
+    try {
+      const response = await api.get(`/api/projects/${projectId}`)
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { error: 'Failed to fetch project' }
+    }
+  },
+
+  // Get project with tasks
+  getProjectWithTasks: async (projectId) => {
+    try {
+      const response = await api.get(`/api/projects/${projectId}/tasks`)
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { error: 'Failed to fetch project with tasks' }
+    }
+  },
+
+  // Get specific task from project
+  getProjectTask: async (projectId, taskId) => {
+    try {
+      const response = await api.get(`/api/projects/${projectId}/tasks/${taskId}`)
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { error: 'Failed to fetch project task' }
+    }
+  }
+}
+
+// User API with department filtering
+export const userAPI = {
+  // Get all users (unfiltered - for admin use)
+  getAllUsers: async () => {
+    try {
+      const response = await api.get('/api/users')
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { error: 'Failed to fetch users' }
+    }
+  },
+
+  // Get users filtered by division
+  getFilteredUsersByDivision: async (divisionName) => {
+    try {
+      const response = await api.get(`/api/users/filtered/${encodeURIComponent(divisionName)}`)
+      console.log('Filtered users response:', response.data);
+      return response.data
+    } catch (error) {
+      console.error('Error fetching filtered users:', error);
+      throw error.response?.data || { error: 'Failed to fetch filtered users' }
+    }
   }
 }
 

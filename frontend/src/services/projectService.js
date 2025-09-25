@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { projectAPI, userAPI } from './api.js';
 
 const API_BASE_URL = process.env.VUE_APP_API_URL || 'http://localhost:8000';
 
@@ -12,6 +13,9 @@ const api = axios.create({
 /* global process */
 
 export const projectService = {
+  getAllProjectsWithTasks: (divisionName) => projectAPI.getFilteredProjectsByDivision(divisionName),
+  getAllUsers: (divisionName) => userAPI.getFilteredUsersByDivision(divisionName),
+
   // ============== Get all projects ==============
     async getAllProjects() {
     try {
@@ -36,17 +40,17 @@ export const projectService = {
     }
   },
 
-  // ============== Get all projects  ==============
-  async getAllProjectsWithTasks() {
-    try {
-      const response = await api.get('/api/projects');
-      console.log('Projects with tasks response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error in getAllProjectsWithTasks:', error);
-      throw new Error(error.response?.data?.error || 'Failed to fetch projects with tasks');
-    }
-  },
+  // // ============== Get all projects  ==============
+  // async getAllProjectsWithTasks() {
+  //   try {
+  //     const response = await api.get('/api/projects');
+  //     console.log('Projects with tasks response:', response.data);
+  //     return response.data;
+  //   } catch (error) {
+  //     console.error('Error in getAllProjectsWithTasks:', error);
+  //     throw new Error(error.response?.data?.error || 'Failed to fetch projects with tasks');
+  //   }
+  // },
 
   // ============== Get project with tasks (basically projects page) ==============
   async getProjectWithTasks(projectId) {
@@ -73,15 +77,15 @@ export const projectService = {
     }
   },
 
-  // Get all users
-  async getAllUsers() {
-    try {
-      const response = await api.get('/api/users');
-      // console.log('Users response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error in getAllUsers:', error);
-      throw new Error(error.response?.data?.error || 'Failed to fetch users');
-    }
-  }
+  // // ============== Get all users for projects collaborators, created by, assigned to ==============
+  // async getAllUsers() {
+  //   try { 
+  //     const response = await api.get('/api/users');
+  //     // console.log('Users response:', response.data);
+  //     return response.data;
+  //   } catch (error) {
+  //     console.error('Error in getAllUsers:', error);
+  //     throw new Error(error.response?.data?.error || 'Failed to fetch users');
+  //   }
+  // }
 };

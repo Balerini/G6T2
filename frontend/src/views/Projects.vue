@@ -4,7 +4,12 @@
     <div class="header-section">
       <div class="container">
         <div class="header-content">
-          <h1 class="hero-title">Projects</h1>
+          <div class="title-section">
+            <h1 class="hero-title">Projects</h1>
+            <div class="division-badge" v-if="currentUser">
+              {{ currentUser.division_name }} Department
+            </div>
+          </div>
           <div class="header-buttons">
             <button class="tab-btn new-project-btn" @click="navigateToCreateProject">
               + New Project
@@ -17,7 +22,7 @@
 
         <div class="action-tabs">
           <button class="tab-btn" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
-            All Projects
+            All Projects ({{ currentUser?.division_name || 'My Division' }})
           </button>
           <button class="tab-btn">
             Standalone Tasks
@@ -26,10 +31,21 @@
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="loading-section">
+    <!-- Access Denied Section -->
+    <div v-if="!currentUser" class="access-denied-section">
       <div class="container">
-        <div class="loading-spinner">Loading projects...</div>
+        <div class="access-denied-message">
+          <h2>Access Denied</h2>
+          <p>You need to be logged in to view projects. Please log in and try again.</p>
+          <button class="login-btn" @click="redirectToLogin">Go to Login</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div v-else-if="loading" class="loading-section">
+      <div class="container">
+        <div class="loading-spinner">Loading projects for {{ currentUser.division_name }} department...</div>
       </div>
     </div>
 
@@ -44,7 +60,12 @@
     <!-- Projects Section -->
     <div v-else class="projects-section">
       <div class="container">
-        <ProjectList :projects="filteredProjects" :users="users" @edit-project="handleEditProject"
+        <div v-if="filteredProjects.length === 0" class="no-projects">
+          <h3>No Projects Found</h3>
+          <p>There are no projects available for the {{ currentUser.division_name }} department yet.</p>
+          <button class="create-project-btn" @click="navigateToCreateProject">Create First Project</button>
+        </div>
+        <ProjectList v-else :projects="filteredProjects" :users="users" @edit-project="handleEditProject"
           @view-task="handleViewTask" @add-task="handleAddTask" />
       </div>
     </div>
@@ -67,7 +88,8 @@
 <script>
 import ProjectList from '../components/Projects/ProjectList.vue'
 import CreateTaskForm from '../components/CreateTaskForm.vue'
-import { projectService } from '../services/projectService.js'
+import AuthService from '../services/auth.js'
+import { projectAPI, userAPI } from '../services/api.js'
 
 export default {
   name: 'CRMProjectManager',
@@ -80,6 +102,7 @@ export default {
       activeTab: 'all',
       projects: [],
       users: [],
+      currentUser: null,
       showCreateTaskForm: false,
       selectedProject: null,
       loading: true,
@@ -95,37 +118,93 @@ export default {
     }
   },
   async created() {
+    // Check authentication status and get current user
+    if (!AuthService.checkAuthStatus()) {
+      console.warn('User not authenticated, redirecting to login');
+      this.loading = false;
+      return;
+    }
+
+    this.currentUser = AuthService.getCurrentUser();
+    console.log('Current user:', this.currentUser);
+    
+    if (!this.currentUser || !this.currentUser.division_name) {
+      this.error = 'User division information not available';
+      this.loading = false;
+      return;
+    }
+
     await this.fetchProjects();
     await this.fetchUsers();
   },
   methods: {
     async fetchProjects() {
+      if (!this.currentUser || !this.currentUser.division_name) {
+        this.error = 'User division information not available';
+        this.loading = false;
+        return;
+      }
+
       try {
         this.loading = true;
         this.error = null;
-        this.projects = await projectService.getAllProjectsWithTasks();
-        console.log('Fetched projects with tasks:', this.projects);
+        
+        console.log(`Fetching projects for division: ${this.currentUser.division_name}`);
+        
+        // Use the new filtered endpoint
+        this.projects = await projectAPI.getFilteredProjectsByDivision(this.currentUser.division_name);
+        
+        console.log('Fetched filtered projects:', this.projects);
+        console.log(`Found ${this.projects.length} projects for ${this.currentUser.division_name} department`);
+        
       } catch (error) {
         console.error('Error fetching projects:', error);
-        this.error = error.message;
+        this.error = error.error || error.message || 'Failed to fetch projects';
+        
+        // Fallback to regular projects if filtered endpoint fails
+        try {
+          console.log('Trying fallback to regular projects endpoint...');
+          this.projects = await projectAPI.getAllProjects();
+          console.log('Fallback successful, but data is not filtered by division');
+        } catch (fallbackError) {
+          console.error('Fallback also failed:', fallbackError);
+        }
       } finally {
         this.loading = false;
       }
     },
 
     async fetchUsers() {
-      try {
-        this.users = await projectService.getAllUsers();
-        // console.log('Fetched users:', this.users);
+      if (!this.currentUser || !this.currentUser.division_name) {
+        console.warn('Cannot fetch users - no division info');
+        return;
+      }
 
-        // // Verify user ID types
-        // if (this.users.length > 0) {
-        //   console.log('First user ID type:', typeof this.users[0].id);
-        //   console.log('First user ID value:', this.users[0].id);
-        // }
+      try {
+        console.log(`Fetching users for division: ${this.currentUser.division_name}`);
+        
+        // Use the new filtered endpoint to only get users from same division
+        this.users = await userAPI.getFilteredUsersByDivision(this.currentUser.division_name);
+        
+        console.log('Fetched filtered users:', this.users);
+        console.log(`Found ${this.users.length} users in ${this.currentUser.division_name} department`);
+        
       } catch (error) {
         console.error('Error fetching users:', error);
+        // Fallback to all users if filtered endpoint fails
+        try {
+          this.users = await userAPI.getAllUsers();
+          console.log('Fell back to all users (not filtered by division)');
+        } catch (fallbackError) {
+          console.error('Fallback users fetch also failed:', fallbackError);
+        }
       }
+    },
+
+    redirectToLogin() {
+      // Clear any stale session data
+      AuthService.logout();
+      this.$router.push('/login');
     },
 
     navigateToCreateProject() {
@@ -198,7 +277,6 @@ export default {
     },
 
     handleAddTask(project) {
-      // console.log('Add task to project:', project);
       this.selectedProject = project;
       this.showCreateTaskForm = true;
     },
@@ -210,7 +288,6 @@ export default {
 
     async handleTaskSubmit(taskData) {
       console.log('Task submitted:', taskData);
-      // Handle task submission logic here
       this.closeCreateTaskForm();
       // Refresh projects to show new task
       await this.fetchProjects();
@@ -241,8 +318,14 @@ export default {
 .header-content {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1.5rem;
+}
+
+.title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .hero-title {
@@ -250,7 +333,17 @@ export default {
   line-height: 1.2;
   font-weight: 800;
   color: #111827;
-  margin-bottom: 0.5rem;
+  margin: 0;
+}
+
+.division-badge {
+  background: #e0f2fe;
+  color: #0277bd;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  align-self: flex-start;
 }
 
 .action-tabs {
@@ -308,6 +401,73 @@ export default {
 
 .projects-section {
   padding: 2rem 0;
+}
+
+/* Access Denied State */
+.access-denied-section {
+  padding: 4rem 0;
+  text-align: center;
+}
+
+.access-denied-message h2 {
+  font-size: 1.5rem;
+  color: #dc2626;
+  margin-bottom: 1rem;
+}
+
+.access-denied-message p {
+  color: #6b7280;
+  margin-bottom: 2rem;
+}
+
+.login-btn {
+  background: #111827;
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.login-btn:hover {
+  background: #374151;
+}
+
+/* No Projects State */
+.no-projects {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.no-projects h3 {
+  font-size: 1.5rem;
+  color: #111827;
+  margin-bottom: 1rem;
+}
+
+.no-projects p {
+  color: #6b7280;
+  margin-bottom: 2rem;
+}
+
+.create-project-btn {
+  background: #111827;
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.create-project-btn:hover {
+  background: #374151;
 }
 
 /* Loading and Error States */
