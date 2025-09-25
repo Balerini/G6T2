@@ -41,8 +41,14 @@
             </span>
           </div>
 
-          <!-- Add Collaborator dropdown -->
+          <!-- Show message when no collaborators are available -->
+          <div v-if="availableStaff.length === 0" class="no-collaborators-message">
+            No collaborators are assigned to the parent task. Please assign collaborators to the main task first.
+          </div>
+
+          <!-- Add collaborator dropdown -->
           <select 
+            v-else
             v-model="selectedCollaboratorId"
             @change="addCollaborator"
             :disabled="selectedCollaborators.length >= 10"
@@ -194,6 +200,10 @@ const props = defineProps({
   parentProjectId: {
     type: [String, Number], 
     required: true
+  },
+  availableCollaborators: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -217,14 +227,19 @@ const selectedCollaborators = ref([])
 const selectedCollaboratorId = ref('')
 const currentUserRank = ref(3) 
 
-// Mock Data (Replace with API call ltr)
-const availableStaff = ref([
-  { id: 1, name: 'John Doe', department: 'Engineering', rank: 4 },
-  { id: 2, name: 'Jane Smith', department: 'Marketing', rank: 4 },
-  { id: 3, name: 'Bob Wilson', department: 'Engineering', rank: 3 },
-  { id: 4, name: 'Alice Brown', department: 'HR', rank: 2 },
-  { id: 5, name: 'Charlie Davis', department: 'Finance', rank: 4 },
-])
+// Use prop instead of mock data    
+const availableStaff = computed(() => {
+  if (!props.availableCollaborators || props.availableCollaborators.length === 0) {
+    return []
+  }
+  
+  return props.availableCollaborators.map(collaborator => ({
+    id: collaborator.id,
+    name: collaborator.name,
+    department: collaborator.department || 'Unknown',
+    rank: collaborator.rank || 3
+  }))
+})
 
 // File Attachments Data
 const selectedFiles = ref([])
@@ -646,5 +661,16 @@ const handleSubmit = async () => {
   border: 1px solid #f5c6cb;
   color: #721c24;
   border-radius: 6px;
+}
+
+.no-collaborators-message {
+  padding: 12px 16px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
+  margin-bottom: 12px;
 }
 </style>

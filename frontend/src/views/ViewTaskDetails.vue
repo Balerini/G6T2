@@ -180,6 +180,7 @@
         <SubtaskForm 
           :parentTaskId="task.id"
           :parentProjectId="task.proj_ID"
+          :availableCollaborators="getTaskCollaborators()"
           @subtask-created="handleSubtaskCreated"
           @cancel="closeSubtaskModal"
         />
@@ -417,6 +418,22 @@ export default {
       this.closeSubtaskModal();
       // Optionally refresh task data
       // this.loadTaskData();
+    },
+
+    getTaskCollaborators() {
+      if (!this.task || !this.task.assigned_to || !Array.isArray(this.task.assigned_to)) {
+        return [];
+      }
+
+      return this.task.assigned_to.map(userId => {
+        const user = this.users.find(u => String(u.id) === String(userId));
+        return user ? { 
+          id: user.id, 
+          name: user.name,
+          email: user.email || '',
+          department: user.department || 'Unknown'
+        } : null;
+      }).filter(user => user !== null);
     }
   }
 }
