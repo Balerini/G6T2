@@ -62,7 +62,10 @@ def create_app() -> Flask:
                             "email": email,
                             "id": doc.id,
                             "name": user_data.get('name', ''),
-                            "role": user_data.get('role', 'user')
+                            "role": user_data.get('role', 'user'),
+                            "role_name": user_data.get('role_name', ''),
+                            "role_num": user_data.get('role_num', 0),
+                            "division_name": user_data.get("division_name", ""),
                         }
                     }), 200
             
