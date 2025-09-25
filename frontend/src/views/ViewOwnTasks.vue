@@ -117,7 +117,12 @@ export default {
 
         // Replace with however you store logged-in user
         // const currentUserId = localStorage.getItem("userId");
-        const currentUserId = "user_001"; 
+        // const currentUserId = "user_001"; 
+        const userString = sessionStorage.getItem('user');
+        const userData = JSON.parse(userString);
+        const currentUserId = userData.id;
+        // console.log("user = ", userData);
+        // console.log("id = ", currentUserId);
 
         // Fetch tasks for this user
         this.tasks = await ownTasksService.getTasks(currentUserId);
