@@ -3,92 +3,40 @@
     <!-- Project ID -->
     <div class="form-group">
       <label class="form-label" for="projId">
-        Project 
+        Project *
       </label>
       
-      <!-- Combined search input with dropdown for projects -->
-      <div class="project-dropdown-container" :class="{ 'dropdown-open': showProjectDropdown }">
+      <!-- Simple project input field -->
+      <div class="project-input-container" style="position: relative;">
         <input
           id="projId"
-          v-model="projectSearch"
+          v-model="formData.proj_name"
           type="text"
           class="form-input"
-          :placeholder="isLoadingProjects ? 'Loading projects...' : 'Search and select project...'"
-          @focus="handleProjectInputFocus"
-          @blur="handleProjectInputBlur"
-          @input="handleProjectSearchInput"
-          @keydown.enter.prevent="selectFirstProjectMatch"
-          @keydown.escape="closeProjectDropdown"
-          @keydown.arrow-down.prevent="navigateProjectDown"
-          @keydown.arrow-up.prevent="navigateProjectUp"
+          :class="{ 'error': validationErrors.proj_name, 'readonly': selectedProject }"
+          :placeholder="isLoadingProjects ? 'Loading projects...' : 'Enter project name...'"
+          :readonly="!!selectedProject"
+          @input="validateField('proj_name', formData.proj_name)"
+          @blur="validateField('proj_name', formData.proj_name)"
           :disabled="isLoadingProjects"
         />
         
-        <!-- Clear button when project is selected -->
+        <!-- Clear button when project is selected and not readonly -->
         <div 
-          v-if="isProjectSelected" 
+          v-if="formData.proj_name && !selectedProject" 
           class="clear-selection-btn" 
           @click="clearProjectSelection"
-          title="Clear selection"
+          title="Clear project selection"
+          style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666; font-size: 18px; font-weight: bold; z-index: 10;"
         >
           ×
         </div>
-        
-        <!-- Dropdown icon when no project is selected -->
-        <div 
-          v-else
-          class="dropdown-toggle-icon" 
-          @click="toggleProjectDropdown"
-          :class="{ 'rotated': showProjectDropdown }"
-        >
-          ▼
-        </div>
-        
-        <!-- Dropdown options list -->
-        <div 
-          v-if="showProjectDropdown" 
-          class="dropdown-list"
-          @mousedown.prevent
-        >
-          <!-- Loading state -->
-          <div v-if="isLoadingProjects" class="dropdown-item loading">
-            Loading projects...
-          </div>
-          
-          <!-- No results found -->
-          <div 
-            v-else-if="filteredProjects.length === 0 && projectSearch" 
-            class="dropdown-item no-results"
-          >
-            No projects found matching "{{ projectSearch }}"
-          </div>
-          
-          <!-- Show all projects when no search -->
-          <div 
-            v-else-if="filteredProjects.length === 0 && !projectSearch" 
-            class="dropdown-item no-results"
-          >
-            No projects available
-          </div>
-          
-          <!-- Project options -->
-          <div 
-            v-for="(project, index) in filteredProjects" 
-            :key="project.id"
-            class="dropdown-item"
-            :class="{ 
-              'highlighted': index === projectHighlightedIndex
-            }"
-            @mousedown="selectProject(project)"
-            @mouseenter="projectHighlightedIndex = index"
-          >
-            <div class="user-info">
-              <span class="user-name">{{ `${project.proj_name}` }}</span>
-              <span v-if="project.name" class="user-email">{{ project.name }}</span>
-            </div>
-          </div>
-        </div>
       </div>
+      
+      <!-- Project validation error -->
+      <span v-if="validationErrors.proj_name" class="error-message">
+        {{ validationErrors.proj_name }}
+      </span>
     </div>
 
     <!-- Task Name -->
@@ -234,6 +182,7 @@
         v-if="showDropdown" 
         class="dropdown-list"
         @mousedown.prevent
+        @click.prevent
       >
         <!-- Loading state -->
         <div v-if="isLoadingUsers" class="dropdown-item loading">
@@ -393,21 +342,29 @@
         Cancel
       </button>
       <button type="submit" class="btn btn-primary" :disabled="isSubmitting || !isFormValid">
-        {{ isSubmitting ? 'Creating...' : 'Create Task' }}
+        {{ isUploadingFiles ? 'Uploading files...' : isSubmitting ? 'Creating...' : 'Create Task' }}
       </button>
     </div>
   </form>
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed, onBeforeUnmount, nextTick } from 'vue';
+import { ref, reactive, onMounted, computed, onBeforeUnmount, nextTick, watch } from 'vue';
 import { taskService } from '@/services/taskService';
+import { fileUploadService } from '@/services/fileUploadService';
 
 export default {
   name: "TaskForm",
+  props: {
+    selectedProject: {
+      type: Object,
+      default: null
+    }
+  },
   emits: ['submit', 'cancel', 'success', 'error'],
   setup(props, { emit }) {
     const isSubmitting = ref(false);
+    const isUploadingFiles = ref(false);
     const assignedToInput = ref('');
     const fileInput = ref(null);
     const dateValidationError = ref('');
@@ -447,11 +404,7 @@ export default {
     const dropdownCloseTimeout = ref(null);
 
     const projects = ref([]);
-    const projectSearch = ref('');
-    const showProjectDropdown = ref(false);
     const isLoadingProjects = ref(false); 
-    const projectHighlightedIndex = ref(-1);
-    const isProjectSelected = ref(false);
     const currentUserId = ref(null);
 
     const formData = reactive({
@@ -468,39 +421,6 @@ export default {
       hasSubtasks: false
     });
 
-    const filteredProjects = computed(() => {
-      if (!projects.value || projects.value.length === 0) {
-        return [];
-      }
-      
-      // Don't show dropdown if project is selected
-      if (isProjectSelected.value) {
-        return [];
-      }
-      
-      // If dropdown is closed, don't show results
-      if (!showProjectDropdown.value) {
-        return [];
-      }
-      
-      let filtered = projects.value;
-      
-      if (projectSearch.value && projectSearch.value.trim()) {
-        const searchTerm = projectSearch.value.toLowerCase().trim();
-        
-        filtered = filtered.filter(project => {
-          if (!project) return false;
-          
-          const projName = (project.proj_name || '').toString().toLowerCase();
-          const description = (project.description || '').toString().toLowerCase();
-          
-          return projName.includes(searchTerm) ||
-                description.includes(searchTerm);
-        });
-      }
-      
-      return filtered.slice(0, 20);
-    });
 
     const loadProjects = async () => {
       isLoadingProjects.value = true;
@@ -513,70 +433,15 @@ export default {
       }
     };
 
-    const selectProject = (project) => {
-      // console.log('Selecting project:', project.proj_ID);
-      
-      // Set the form data
-      formData.proj_name = project.proj_name;
-      
-      // Use proj_name instead of name
-      projectSearch.value = project.proj_name;
-      
-      isProjectSelected.value = true;
-      showProjectDropdown.value = false;
-      
-      // console.log('Final projectSearch.value:', projectSearch.value);
-      // console.log('Final formData.proj_ID:', formData.proj_ID);
-    };
 
     const clearProjectSelection = () => {
-      isProjectSelected.value = false;
-      formData.proj_name = '';
-      projectSearch.value = '';
-      showProjectDropdown.value = false;
-    };
-
-    const handleProjectInputFocus = () => {
-      // Only show dropdown if no project is selected
-      if (!isProjectSelected.value && !isLoadingProjects.value) {
-        showProjectDropdown.value = true;
-        projectHighlightedIndex.value = -1;
-      }
-      // Don't clear the text or show dropdown if project is already selected
-    };
-
-    const handleProjectSearchInput = () => {
-    // Only reset selection if user actually changes the input content
-    if (isProjectSelected.value && projectSearch.value !== getCurrentProjectDisplay()) {
-      isProjectSelected.value = false;
       formData.proj_name = '';
       
-      // Show dropdown for new search
-      if (!showProjectDropdown.value) {
-        showProjectDropdown.value = true;
-      }
-      projectHighlightedIndex.value = -1;
-    } else if (!isProjectSelected.value) {
-      // Show dropdown for new search when nothing is selected
-      if (!showProjectDropdown.value) {
-        showProjectDropdown.value = true;
-      }
-      projectHighlightedIndex.value = -1;
-    }
-  };
-
-    // Helper function to get current project display
-    const getCurrentProjectDisplay = () => {
-      if (!formData.proj_name) return '';
-      const selectedProject = projects.value.find(p => p.proj_name === formData.proj_name);
-      if (!selectedProject) return formData.proj_name;
-      
-      return selectedProject.proj_name;
+      // Clear validation error
+      validationErrors.proj_name = '';
     };
 
-    const toggleProjectDropdown = () => {
-      showProjectDropdown.value = !showProjectDropdown.value;
-    };
+
 
     const filteredUsers = computed(() => {
       let filtered = users.value.filter(user => {
@@ -632,6 +497,11 @@ export default {
     };
 
     const handleInputBlur = (event) => {
+      // Clear any existing timeout
+      if (dropdownCloseTimeout.value) {
+        clearTimeout(dropdownCloseTimeout.value);
+      }
+      
       // Check if the blur is because user clicked on a dropdown item
       const relatedTarget = event.relatedTarget;
       const dropdownContainer = document.querySelector('.search-dropdown-container');
@@ -641,9 +511,10 @@ export default {
         return;
       }
       
+      // Use a longer delay to prevent bouncing
       dropdownCloseTimeout.value = setTimeout(() => {
         closeDropdown();
-      }, 200);
+      }, 500);
     };
 
     const handleSearchInput = () => {
@@ -655,6 +526,12 @@ export default {
 
     const toggleDropdown = () => {
       if (isAtLimit.value || isLoadingUsers.value) return;
+      
+      // Clear any pending close timeout when manually toggling
+      if (dropdownCloseTimeout.value) {
+        clearTimeout(dropdownCloseTimeout.value);
+        dropdownCloseTimeout.value = null;
+      }
       
       showDropdown.value = !showDropdown.value;
       if (showDropdown.value) {
@@ -745,8 +622,10 @@ export default {
 
     // Keep all your existing functions
     const getCurrentDate = () => {
+      // Get current date in Singapore timezone
       const today = new Date();
-      return today.toISOString().split('T')[0];
+      const sgTime = new Date(today.toLocaleString("en-US", {timeZone: "Asia/Singapore"}));
+      return sgTime.toISOString().split('T')[0];
     };
 
     const onSubtasksChange = () => {
@@ -771,15 +650,16 @@ export default {
         return;
       }
       
-      // Validate file sizes
-      const maxFileSize = 10 * 1024 * 1024; // 10MB
+      // Validate each file
       for (let file of files) {
-        if (file.size > maxFileSize) {
-          validationErrors.attachments = `File "${file.name}" is too large. Maximum size is 10MB`;
+        const validation = fileUploadService.validateFile(file);
+        if (!validation.valid) {
+          validationErrors.attachments = validation.error;
           return;
         }
       }
       
+      // Add files to form data (will be uploaded when form is submitted)
       formData.attachments = [...formData.attachments, ...files];
       validationErrors.attachments = ''; // Clear error if successful
     };
@@ -793,11 +673,7 @@ export default {
     };
 
     const formatFileSize = (bytes) => {
-      if (bytes === 0) return '0 Bytes';
-      const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+      return fileUploadService.formatFileSize(bytes);
     };
 
     // Enhanced validation functions
@@ -833,10 +709,12 @@ export default {
         return 'Start date is required';
       }
       const startDate = new Date(value);
+      // Get current date in Singapore timezone
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const sgToday = new Date(today.toLocaleString("en-US", {timeZone: "Asia/Singapore"}));
+      sgToday.setHours(0, 0, 0, 0);
       
-      if (startDate < today) {
+      if (startDate < sgToday) {
         return 'Start date cannot be in the past';
       }
       return '';
@@ -914,8 +792,8 @@ export default {
         case 'task_desc':
           validationErrors.task_desc = touchedFields.task_desc ? validateTaskDescription(value) : '';
           break;
-        case 'proj_ID':
-          validationErrors.proj_ID = touchedFields.proj_ID ? validateProjectSelection(value) : '';
+        case 'proj_name':
+          validationErrors.proj_name = touchedFields.proj_name ? validateProjectSelection(value) : '';
           break;
         case 'start_date':
           validationErrors.start_date = touchedFields.start_date ? validateStartDate(value) : '';
@@ -941,15 +819,30 @@ export default {
 
     // Check if form is valid
     const isFormValid = computed(() => {
-      return !Object.values(validationErrors).some(error => error !== '') && 
-             !dateValidationError.value &&
-             validateTaskName(formData.task_name) === '' &&
-             validateStartDate(formData.start_date) === '' &&
-             validateEndDate(formData.end_date, formData.start_date) === '' &&
-             validateTaskStatus(formData.task_status) === '' &&
-             validateAttachments(formData.attachments) === '' &&
-             validateCollaborators(formData.assigned_to) === '';
+      const hasValidationErrors = Object.values(validationErrors).some(error => error !== '');
+      const hasDateError = dateValidationError.value;
+      
+      console.log('=== FORM VALIDATION CHECK ===');
+      console.log('Validation errors:', validationErrors);
+      console.log('Date error:', dateValidationError.value);
+      console.log('Has validation errors:', hasValidationErrors);
+      console.log('Has date error:', hasDateError);
+      console.log('Form valid:', !hasValidationErrors && !hasDateError);
+      
+      return !hasValidationErrors && !hasDateError;
     });
+
+    // Watch for selectedProject prop changes to pre-fill project
+    watch(() => props.selectedProject, (newProject) => {
+      if (newProject) {
+        console.log('Selected project changed:', newProject);
+        const projectName = newProject.proj_name || newProject.name || '';
+        formData.proj_name = projectName;
+        // Clear any existing project validation error
+        validationErrors.proj_name = '';
+        console.log('Pre-filled project name:', formData.proj_name);
+      }
+    }, { immediate: true });
 
     onMounted(() => {
       // Get current user from sessionStorage
@@ -958,7 +851,6 @@ export default {
           const userData = sessionStorage.getItem('user');
           if (userData) {
             const user = JSON.parse(userData);
-            console.log('Current user data:', user); // Debug log
             return user; // Return the full user object
           }
           return null;
@@ -972,7 +864,7 @@ export default {
       if (currentUser) {
         formData.created_by = currentUser.name;
         // Store current user for filtering
-        currentUserId.value = currentUser.id; // Add this line
+        currentUserId.value = currentUser.id; 
       } else {
         formData.created_by = 'Not Logged In';
       }
@@ -980,6 +872,15 @@ export default {
       loadUsers();
       loadProjects();
       document.addEventListener('click', handleOutsideClick);
+      
+      // Test Firebase Storage connection
+      fileUploadService.testStorageConnection().then(success => {
+        if (success) {
+          console.log('Firebase Storage is working correctly');
+        } else {
+          console.error('Firebase Storage is not working - check your configuration');
+        }
+      });
     });
 
     const resetForm = () => {
@@ -1016,6 +917,7 @@ export default {
       });
     };
 
+
     // UPDATED: Prepare form data for submission (send only user IDs)
     const prepareFormDataForSubmission = () => {
       return {
@@ -1026,7 +928,35 @@ export default {
 
     // UPDATED: Form submission method with comprehensive validation
     const handleSubmit = async () => {
+      console.log('=== FORM SUBMISSION STARTED ===');
+      console.log('Is submitting:', isSubmitting.value);
+      console.log('Form valid:', isFormValid.value);
+      console.log('Form data:', formData);
+      console.log('Validation errors:', validationErrors);
+      console.log('Date validation error:', dateValidationError.value);
+      console.log('=== HANDLE SUBMIT FUNCTION CALLED ===');
+      
       if (isSubmitting.value) {
+        console.log('Already submitting, returning early');
+        return;
+      }
+      
+      // Trigger validation for all fields
+      console.log('=== TRIGGERING ALL FIELD VALIDATIONS ===');
+      validateField('proj_name', formData.proj_name, true);
+      validateField('task_name', formData.task_name, true);
+      validateField('task_desc', formData.task_desc, true);
+      validateField('start_date', formData.start_date, true);
+      validateField('end_date', formData.end_date, true);
+      validateField('task_status', formData.task_status, true);
+      validateField('collaborators', formData.assigned_to, true);
+      
+      // Check if form is actually valid
+      if (!isFormValid.value) {
+        console.log('Form is not valid, not submitting');
+        console.log('Validation errors:', validationErrors);
+        console.log('Date validation error:', dateValidationError.value);
+        console.log('Form data:', formData);
         return;
       }
       
@@ -1054,6 +984,7 @@ export default {
       let firstErrorField = null;
       
       // Validate required fields
+      validationErrors.proj_name = validateProjectSelection(formData.proj_name);
       validationErrors.task_name = validateTaskName(formData.task_name);
       validationErrors.start_date = validateStartDate(formData.start_date);
       validationErrors.end_date = validateEndDate(formData.end_date, formData.start_date);
@@ -1062,6 +993,10 @@ export default {
       validationErrors.collaborators = validateCollaborators(formData.assigned_to);
       
       // Check for any validation errors
+      if (validationErrors.proj_name) {
+        hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'projId';
+      }
       if (validationErrors.task_name) {
         hasErrors = true;
         if (!firstErrorField) firstErrorField = 'taskName';
@@ -1089,6 +1024,10 @@ export default {
       
       // If there are errors, scroll to the first one and return
       if (hasErrors) {
+        console.log('=== VALIDATION ERRORS PREVENTING SUBMISSION ===');
+        console.log('Validation errors:', validationErrors);
+        console.log('First error field:', firstErrorField);
+        console.log('Form data:', formData);
         if (firstErrorField) {
           scrollToField(firstErrorField);
         }
@@ -1102,49 +1041,105 @@ export default {
         // Prepare task data for API call
         const taskData = prepareFormDataForSubmission();
         
+        // Upload files to Firebase Storage first
+        let uploadedAttachments = [];
+        if (formData.attachments.length > 0) {
+          isUploadingFiles.value = true;
+          console.log('Uploading files to Firebase Storage...');
+          console.log('Files to upload:', formData.attachments);
+          const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+          const userId = currentUser.id || 'anonymous';
+          console.log('Current user:', currentUser);
+          console.log('User ID:', userId);
+          
+          // Generate a temporary task ID for file organization
+          const tempTaskId = `temp_${Date.now()}`;
+          console.log('Temporary task ID:', tempTaskId);
+          
+          try {
+            uploadedAttachments = await fileUploadService.uploadMultipleFiles(
+              formData.attachments, 
+              tempTaskId, 
+              userId
+            );
+            console.log('Files uploaded successfully:', uploadedAttachments);
+          } catch (uploadError) {
+            console.error('File upload failed:', uploadError);
+            throw uploadError;
+          } finally {
+            isUploadingFiles.value = false;
+          }
+        } else {
+          console.log('No files to upload');
+        }
+        
         // Add other properties
         const finalTaskData = {
           ...taskData,
-          // proj_ID: taskData.proj_ID ? taskData.proj_ID.trim() : '', // Handle empty project ID
-          task_ID: taskData.task_ID.trim(),
           task_name: taskData.task_name.trim(),
           task_desc: taskData.task_desc.trim(),
           start_date: taskData.start_date,
           end_date: taskData.end_date || null,
           created_by: taskData.created_by,
-          attachments: formData.attachments.map(file => ({
-            name: file.name,
-            size: file.size,
-            type: file.type
-          })),
+          attachments: uploadedAttachments, // Use uploaded file data instead of raw files
           task_status: taskData.task_status || null,
           hasSubtasks: taskData.hasSubtasks
         };
 
+        console.log('=== FINAL TASK DATA DEBUG ===');
+        console.log('Project name being sent:', finalTaskData.proj_name);
+        console.log('Project name type:', typeof finalTaskData.proj_name);
+        console.log('Project name length:', finalTaskData.proj_name ? finalTaskData.proj_name.length : 'null/undefined');
+
         console.log('Submitting task data to API:', finalTaskData);
 
         // Call backend API
+        console.log('=== CALLING BACKEND API ===');
+        console.log('Final task data being sent:', finalTaskData);
+        console.log('API endpoint: /api/tasks');
+        
         const response = await taskService.createTask(finalTaskData);
         
+        console.log('=== TASK CREATED SUCCESSFULLY ===');
         console.log('Task created successfully:', response);
+        console.log('About to reset form...');
         
         // Reset form first
         resetForm();
+        console.log('Form reset completed');
         
         // Emit success event
+        console.log('=== EMITTING SUCCESS EVENT ===');
+        console.log('Response to emit:', response);
+        console.log('Response type:', typeof response);
+        console.log('Response keys:', response ? Object.keys(response) : 'No response');
+        console.log('About to emit success event...');
         emit('success', response);
+        console.log('Success event emitted successfully');
+        
+        // Add a small delay to ensure the event is processed
+        setTimeout(() => {
+          console.log('Success event should have been processed by now');
+        }, 100);
         
       } catch (error) {
-        console.error('Error creating task:', error);
+        console.error('=== ERROR CREATING TASK ===');
+        console.error('Error details:', error);
+        console.error('Error message:', error.message);
+        console.error('Error response:', error.response);
+        console.error('Error status:', error.response?.status);
+        console.error('Error data:', error.response?.data);
         
         const errorMessage = error.message || 'An unexpected error occurred';
         emit('error', errorMessage);
         
       } finally {
         isSubmitting.value = false;
+        isUploadingFiles.value = false;
         console.log('Form submission completed');
       }
     };
+
 
     return {
       // Existing returns
@@ -1152,6 +1147,7 @@ export default {
       assignedToInput,
       fileInput,
       isSubmitting,
+      isUploadingFiles,
       dateValidationError,
       validationErrors,
       isFormValid,
@@ -1185,17 +1181,8 @@ export default {
       navigateUp,
 
       projects,
-      projectSearch,
-      showProjectDropdown,
       isLoadingProjects,
-      filteredProjects,
-      projectHighlightedIndex,
-      isProjectSelected,
-      handleProjectSearchInput, 
-      clearProjectSelection,
-      handleProjectInputFocus,
-      toggleProjectDropdown,
-      selectProject      
+      clearProjectSelection      
     };
   }
 };
@@ -1241,7 +1228,8 @@ export default {
   font-family: inherit;
 }
 
-.readonly-input {
+.readonly-input,
+.form-input.readonly {
   background-color: #f8f9fa;
   color: #6c757d;
   cursor: not-allowed;

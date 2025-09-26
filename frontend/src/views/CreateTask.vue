@@ -11,6 +11,9 @@
     <!-- Success Message -->
     <div v-if="successMessage" class="alert alert-success">
       {{ successMessage }}
+      <div v-if="isRedirecting" class="redirect-message">
+        Redirecting to projects page...
+      </div>
     </div>
     
     <!-- Error Message -->
@@ -22,10 +25,12 @@
     <main class="page-content">
       <div class="form-container">
         <TaskForm 
+          ref="taskForm"
           @success="handleSuccess" 
           @error="handleError"
           @cancel="goBack"
         />
+        
       </div>
     </main>
   </div>
@@ -42,26 +47,27 @@ export default {
   data() {
     return {
       successMessage: '',
-      errorMessage: ''
+      errorMessage: '',
+      isRedirecting: false
     };
   },
   methods: {
     goBack() {
-      this.$router.push("/projects");
+      // Add a query parameter to trigger refresh
+      this.$router.push("/projects?refresh=true");
     },
-    handleSuccess(taskData) {
-      console.log('Success handler called with:', taskData);
-      this.successMessage = `Task "${taskData.taskName}" created successfully!`;
+    handleSuccess(response) {
+      const taskName = response?.task_name || response?.name || 'Task';
+      this.successMessage = `✅ Task "${taskName}" created successfully!`;
       this.errorMessage = '';
+      this.isRedirecting = true;
       
       // Redirect after a short delay to show the success message
       setTimeout(() => {
-        console.log('Redirecting back to projects...');
         this.goBack();
-      }, 1500);
+      }, 2500);
     },
     handleError(error) {
-      console.log('Error handler called with:', error);
       this.errorMessage = `Error creating task: ${error}`;
       this.successMessage = '';
     }
@@ -96,6 +102,13 @@ export default {
   background-color: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
+}
+
+.redirect-message {
+  margin-top: 8px;
+  font-size: 14px;
+  opacity: 0.8;
+  font-style: italic;
 }
 
 /* Rest of existing styles */

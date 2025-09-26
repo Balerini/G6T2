@@ -3,6 +3,7 @@ from firebase_utils import get_firestore_client
 from firebase_admin import firestore
 from datetime import datetime
 import traceback
+import pytz
 
 tasks_bp = Blueprint('tasks', __name__)
 
@@ -11,9 +12,12 @@ tasks_bp = Blueprint('tasks', __name__)
 def create_task():
     try:
         task_data = request.get_json()
+        print(f"=== BACKEND TASK CREATION DEBUG ===")
+        print(f"Received task data: {task_data}")
+        print(f"Task data keys: {list(task_data.keys()) if task_data else 'No data'}")
         
         # Validate required fields
-        required_fields = ['task_ID', 'task_name', 'start_date']
+        required_fields = ['task_name', 'start_date']
         for field in required_fields:
             if not task_data.get(field):
                 return jsonify({'error': f'Required field missing: {field}'}), 400
@@ -21,19 +25,43 @@ def create_task():
         # Get Firestore client
         db = get_firestore_client()
 
-        # Convert date strings to datetime objects
-        start_date = datetime.strptime(task_data['start_date'], '%Y-%m-%d')
-        end_date = None
+        # Convert date strings to datetime objects with Singapore timezone
+        sg_tz = pytz.timezone('Asia/Singapore')
         
+        start_date = datetime.strptime(task_data['start_date'], '%Y-%m-%d')
+        start_date = sg_tz.localize(start_date)
+        
+        end_date = None
         if task_data.get('end_date'):
             end_date = datetime.strptime(task_data['end_date'], '%Y-%m-%d')
-            # Set end time to end of day
-            end_date = end_date.replace(hour=23, minute=59, second=59)
+            # Set end time to end of day in Singapore timezone
+            end_date = sg_tz.localize(end_date.replace(hour=23, minute=59, second=59))
+
+        # Get project ID from project name if provided
+        proj_id = None
+        if task_data.get('proj_name'):
+            # Find the project by name to get its ID
+            projects_ref = db.collection('Projects')
+            projects_query = projects_ref.where('proj_name', '==', task_data.get('proj_name')).limit(1)
+            project_docs = list(projects_query.stream())
+            if project_docs:
+                proj_id = project_docs[0].id
+                print(f"Found project ID {proj_id} for project name: {task_data.get('proj_name')}")
+            else:
+                print(f"Warning: Project not found for name: {task_data.get('proj_name')}")
+                # List all available projects for debugging
+                all_projects = projects_ref.stream()
+                print("Available projects:")
+                for proj in all_projects:
+                    proj_data = proj.to_dict()
+                    print(f"  - ID: {proj.id}, Name: {proj_data.get('proj_name', 'No name')}")
+        else:
+            print("No project name provided in task data")
 
         # Prepare task data for Firestore
         firestore_task_data = {
-            'proj_ID': task_data['proj_ID'],
-            # 'task_ID': task_data['task_ID'],
+            'proj_name': task_data.get('proj_name', ''),
+            'proj_ID': proj_id,  # Add project ID for proper relationship
             'task_name': task_data['task_name'],
             'task_desc': task_data.get('task_desc', ''),
             'start_date': start_date,
@@ -48,8 +76,10 @@ def create_task():
         }
 
         # Add document to Firestore
+        print(f"Adding task to Firestore: {firestore_task_data}")
         doc_ref = db.collection('Tasks').add(firestore_task_data)
         task_id = doc_ref[1].id
+        print(f"Task created successfully with ID: {task_id}")
 
         # Prepare response data
         response_data = firestore_task_data.copy()
@@ -57,8 +87,9 @@ def create_task():
         response_data['start_date'] = start_date.isoformat()
         if end_date:
             response_data['end_date'] = end_date.isoformat()
-        response_data['createdAt'] = datetime.now().isoformat()
-        response_data['updatedAt'] = datetime.now().isoformat()
+        response_data['createdAt'] = datetime.now(sg_tz).isoformat()
+        response_data['updatedAt'] = datetime.now(sg_tz).isoformat()
+        response_data['proj_ID'] = proj_id  # Include project ID in response
 
         return jsonify(response_data), 201
 
@@ -180,13 +211,16 @@ def update_task(task_id):
         update_data = request.get_json()
         db = get_firestore_client()
         
-        # Handle date conversion if dates are being updated
+        # Handle date conversion if dates are being updated with Singapore timezone
+        sg_tz = pytz.timezone('Asia/Singapore')
+        
         if 'start_date' in update_data and update_data['start_date']:
-            update_data['start_date'] = datetime.strptime(update_data['start_date'], '%Y-%m-%d')
+            start_date = datetime.strptime(update_data['start_date'], '%Y-%m-%d')
+            update_data['start_date'] = sg_tz.localize(start_date)
         
         if 'end_date' in update_data and update_data['end_date']:
             end_date = datetime.strptime(update_data['end_date'], '%Y-%m-%d')
-            update_data['end_date'] = end_date.replace(hour=23, minute=59, second=59)
+            update_data['end_date'] = sg_tz.localize(end_date.replace(hour=23, minute=59, second=59))
 
         # Add updated timestamp
         update_data['updatedAt'] = firestore.SERVER_TIMESTAMP

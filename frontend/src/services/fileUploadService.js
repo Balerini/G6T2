@@ -1,0 +1,128 @@
+// src/services/fileUploadService.js
+import { storage } from '../firebase.js';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+
+class FileUploadService {
+  async uploadFile(file, taskId, userId) {
+    try {
+      console.log('Starting file upload:', { fileName: file.name, taskId, userId });
+      
+      // Create a unique filename with timestamp
+      const timestamp = Date.now();
+      const fileName = `${timestamp}_${file.name}`;
+      console.log('Generated filename:', fileName);
+      
+      // Create storage reference
+      const storageRef = ref(storage, `tasks/${taskId}/attachments/${fileName}`);
+      console.log('Storage reference created:', storageRef.fullPath);
+      
+      // Upload file
+      console.log('Starting upload...');
+      const snapshot = await uploadBytes(storageRef, file);
+      console.log('Upload completed, getting download URL...');
+      
+      // Get download URL
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      console.log('Download URL obtained:', downloadURL);
+      
+      const result = {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        downloadURL: downloadURL,
+        storagePath: snapshot.ref.fullPath,
+        uploadedAt: new Date().toISOString()
+      };
+      
+      console.log('File upload result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw new Error(`Failed to upload file: ${error.message}`);
+    }
+  }
+
+ 
+  async uploadMultipleFiles(files, taskId, userId) {
+    try {
+      console.log('Starting multiple file upload:', { fileCount: files.length, taskId, userId });
+      const uploadPromises = files.map((file, index) => {
+        console.log(`Uploading file ${index + 1}/${files.length}:`, file.name);
+        return this.uploadFile(file, taskId, userId);
+      });
+      const uploadedFiles = await Promise.all(uploadPromises);
+      console.log('All files uploaded successfully:', uploadedFiles);
+      return uploadedFiles;
+    } catch (error) {
+      console.error('Error uploading multiple files:', error);
+      throw new Error(`Failed to upload files: ${error.message}`);
+    }
+  }
+
+ 
+  async deleteFile(storagePath) {
+    try {
+      const fileRef = ref(storage, storagePath);
+      await deleteObject(fileRef);
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      throw new Error(`Failed to delete file: ${error.message}`);
+    }
+  }
+
+  
+  validateFile(file) {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+      'text/plain'
+    ];
+
+    if (file.size > maxSize) {
+      return {
+        valid: false,
+        error: `File "${file.name}" is too large. Maximum size is 10MB`
+      };
+    }
+
+    if (!allowedTypes.includes(file.type)) {
+      return {
+        valid: false,
+        error: `File type "${file.type}" is not allowed. Allowed types: PDF, DOC, DOCX, JPG, PNG, TXT`
+      };
+    }
+
+    return { valid: true };
+  }
+
+  
+  formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+ 
+  async testStorageConnection() {
+    try {
+      console.log('Testing Firebase Storage connection...');
+      const testRef = ref(storage, 'test/connection-test.txt');
+      const testBlob = new Blob(['Firebase Storage Test'], { type: 'text/plain' });
+      
+      await uploadBytes(testRef, testBlob);
+      console.log('Firebase Storage connection test successful');
+      return true;
+    } catch (error) {
+      console.error('Firebase Storage connection test failed:', error);
+      return false;
+    }
+  }
+}
+
+export const fileUploadService = new FileUploadService();
