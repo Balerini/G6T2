@@ -10,7 +10,6 @@ const firebaseConfig = {
   measurementId: process.env.VUE_APP_FIREBASE_MEASUREMENT_ID
 };
 
-
 // Validate configuration
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
   console.error('Missing Firebase environment variables. Please check your .env file.');
