@@ -98,12 +98,12 @@
     <div v-if="showCreateTaskForm" class="modal-overlay" @click="closeCreateTaskForm">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2 class="modal-title">Create Task</h2>
+          <h2 class="modal-title">{{ selectedProject ? 'Add Task to ' + selectedProject.proj_name : 'Create New Task' }}</h2>
           <button class="close-button" @click="closeCreateTaskForm">×</button>
         </div>
         <div class="modal-body">
           <CreateTaskForm 
-            :selected-project="selectedProject" 
+            :selectedProject="selectedProject" 
             @success="handleTaskSubmit" 
             @error="handleTaskError" 
             @cancel="closeCreateTaskForm" 
@@ -253,7 +253,8 @@ export default {
     },
 
     navigateToCreateTask() {
-      this.$router.push('/createtask');
+      this.selectedProject = null; // No pre-selected project
+      this.showCreateTaskForm = true;
     },
 
     handleEditProject(project) {

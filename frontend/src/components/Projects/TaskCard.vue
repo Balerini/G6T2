@@ -88,6 +88,9 @@ export default {
       });
     },
     getUser(userId) {
+      console.log('DEBUG: Getting user for ID:', userId);
+      console.log('DEBUG: Available users:', this.users);
+      
       // First try to find by document ID (from backend API)
       let user = this.users.find(user => String(user.id) === String(userId));
 
@@ -97,15 +100,17 @@ export default {
       }
 
       if (user) {
-        return {
+        const userWithInitials = {
           ...user,
           id: user.id || user.user_ID,
           initials: this.getInitials(user.name)
         };
+        console.log('DEBUG: Found user:', userWithInitials);
+        return userWithInitials;
       }
 
-      // console.log(`User not found for task assignee ID: ${userId}`);
-      // console.log('Available users:', this.users.map(u => ({ id: u.id, user_ID: u.user_ID, name: u.name })));
+      console.log(`User not found for task assignee ID: ${userId}`);
+      console.log('Available users:', this.users.map(u => ({ id: u.id, user_ID: u.user_ID, name: u.name })));
       return {
         id: userId,
         name: 'Unknown User',

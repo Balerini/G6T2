@@ -1,35 +1,107 @@
 <template>
   <form class="task-form" @submit.prevent="handleSubmit" novalidate>
-    <!-- Project ID -->
+    <!-- Project Selection -->
     <div class="form-group">
       <label class="form-label" for="projId">
         Project *
       </label>
       
-      <!-- Simple project input field -->
-      <div class="project-input-container" style="position: relative;">
+      <!-- Project dropdown -->
+      <div class="search-dropdown-container" :class="{ 'dropdown-open': showProjectDropdown }">
         <input
+          v-if="!selectedProject"
           id="projId"
-          v-model="formData.proj_name"
+          v-model="displayValue"
           type="text"
           class="form-input"
-          :class="{ 'error': validationErrors.proj_name, 'readonly': selectedProject }"
-          :placeholder="isLoadingProjects ? 'Loading projects...' : 'Enter project name...'"
-          :readonly="!!selectedProject"
-          @input="validateField('proj_name', formData.proj_name)"
-          @blur="validateField('proj_name', formData.proj_name)"
+          :class="{ 'error': validationErrors.proj_name }"
+          :placeholder="isLoadingProjects ? 'Loading projects...' : 'Search and select project...'"
+          @focus="handleProjectInputFocus"
+          @blur="handleProjectInputBlur"
+          @input="handleProjectSearchInput"
+          @keydown.enter.prevent="selectFirstProjectMatch"
+          @keydown.escape="closeProjectDropdown"
+          @keydown.arrow-down.prevent="navigateProjectDown"
+          @keydown.arrow-up.prevent="navigateProjectUp"
           :disabled="isLoadingProjects"
         />
         
-        <!-- Clear button when project is selected and not readonly -->
-        <div 
-          v-if="formData.proj_name && !selectedProject" 
-          class="clear-selection-btn" 
-          @click="clearProjectSelection"
-          title="Clear project selection"
-          style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666; font-size: 18px; font-weight: bold; z-index: 10;"
+        <!-- Locked input for Add Task (project pre-selected) -->
+        <div
+          v-else
+          class="form-input locked"
+          :class="{ 'error': validationErrors.proj_name }"
         >
-          ×
+          {{ selectedProject.proj_name }}
+        </div>
+        
+        <!-- Dropdown icon and clear button - only show for New Task (not Add Task) -->
+        <div class="input-actions" v-if="!selectedProject">
+          <div 
+            v-if="selectedProjectRef" 
+            class="clear-selection-btn" 
+            @click="clearProjectSelection"
+            title="Clear project selection"
+          >
+            ×
+          </div>
+          <div 
+            class="dropdown-toggle-icon" 
+            :class="{ 'rotated': showProjectDropdown }"
+            @click="toggleProjectDropdown"
+            title="Select project"
+          >
+            ▼
+          </div>
+        </div>
+        
+        
+        <!-- Dropdown options list -->
+        <div 
+          v-if="showProjectDropdown && !selectedProject" 
+          class="dropdown-list"
+          @mousedown.prevent
+          @click.prevent
+        >
+          <!-- Loading state -->
+          <div v-if="isLoadingProjects" class="dropdown-item loading">
+            Loading projects...
+          </div>
+          
+          <!-- No results found -->
+          <div 
+            v-else-if="filteredProjects.length === 0 && projectSearch" 
+            class="dropdown-item no-results"
+          >
+            No projects found matching "{{ projectSearch }}"
+          </div>
+          
+          <!-- Show all projects when no search -->
+          <div 
+            v-else-if="filteredProjects.length === 0 && !projectSearch" 
+            class="dropdown-item no-results"
+          >
+            No projects available
+          </div>
+          
+          <!-- Project options -->
+          <div 
+            v-for="(project, index) in filteredProjects" 
+            :key="`project-${index}-${project.id || project.proj_name || 'unknown'}`"
+            class="dropdown-item"
+            :class="{ 
+              'highlighted': index === projectHighlightedIndex,
+              'selected': isProjectSelected(project)
+            }"
+            @mousedown.prevent="selectProject(project)"
+            @mouseenter="projectHighlightedIndex = index"
+          >
+            <div class="project-info">
+              <span class="project-name">{{ project.proj_name }}</span>
+              <span v-if="project.proj_desc" class="project-description">{{ project.proj_desc }}</span>
+            </div>
+            <span v-if="isProjectSelected(project)" class="selected-indicator">✓</span>
+          </div>
         </div>
       </div>
       
@@ -208,7 +280,7 @@
         <!-- User options -->
         <div 
           v-for="(user, index) in filteredUsers" 
-          :key="user.id"
+          :key="`user-${index}-${user.id || user.name || 'unknown'}`"
           class="dropdown-item"
           :class="{ 
             'highlighted': index === highlightedIndex,
@@ -230,7 +302,7 @@
     <div class="assignee-tags" v-if="formData.assigned_to.length > 0">
       <span 
         v-for="(assignee, index) in formData.assigned_to" 
-        :key="assignee.id"
+        :key="`assignee-${index}-${assignee.id || assignee.name || 'unknown'}`"
         class="assignee-tag"
       >
         {{ assignee.name }}
@@ -287,12 +359,16 @@
       <div class="file-preview-container" v-if="formData.attachments.length > 0">
         <div 
           v-for="(file, index) in formData.attachments" 
-          :key="index"
+          :key="`file-${index}-${file.name || 'unknown'}`"
           class="file-preview-item"
+          :style="{ borderLeftColor: getFileTypeColor(file.type) }"
         >
+          <div class="file-icon">
+            {{ getFileIcon(file.type) }}
+          </div>
           <div class="file-info">
             <span class="file-name">{{ file.name }}</span>
-            <span class="file-size">({{ formatFileSize(file.size) }})</span>
+            <span class="file-size">{{ formatFileSize(file.size) }}</span>
           </div>
           <button 
             type="button" 
@@ -406,6 +482,13 @@ export default {
     const projects = ref([]);
     const isLoadingProjects = ref(false); 
     const currentUserId = ref(null);
+    
+    // Project dropdown state
+    const projectSearch = ref('');
+    const showProjectDropdown = ref(false);
+    const projectHighlightedIndex = ref(-1);
+    const projectDropdownCloseTimeout = ref(null);
+    const selectedProjectRef = ref(null);
 
     const formData = reactive({
       proj_name: '',
@@ -425,7 +508,18 @@ export default {
     const loadProjects = async () => {
       isLoadingProjects.value = true;
       try {
-        projects.value = await taskService.getProjects();
+        console.log('Loading projects...');
+        const projectsData = await taskService.getProjects();
+        console.log('Projects loaded:', projectsData);
+        
+        // Check for duplicate IDs
+        const ids = projectsData.map(p => p.id);
+        const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+        if (duplicateIds.length > 0) {
+          console.warn('Duplicate project IDs found:', duplicateIds);
+        }
+        
+        projects.value = projectsData;
       } catch (error) {
         console.error('Error loading projects:', error);
       } finally {
@@ -436,9 +530,164 @@ export default {
 
     const clearProjectSelection = () => {
       formData.proj_name = '';
-      
-      // Clear validation error
+      selectedProjectRef.value = null;
+      projectSearch.value = '';
       validationErrors.proj_name = '';
+      // Open dropdown after clearing to show all projects
+      showProjectDropdown.value = true;
+    };
+
+    // Project dropdown methods
+    const displayValue = computed({
+      get() {
+        // For Add Task (project pre-selected), return the project name
+        if (props.selectedProject) {
+          return props.selectedProject.proj_name;
+        }
+        
+        // For New Task (no project pre-selected), handle dropdown logic
+        if (showProjectDropdown.value) {
+          return projectSearch.value;
+        }
+        return selectedProjectRef.value ? selectedProjectRef.value.proj_name : projectSearch.value;
+      },
+      set(value) {
+        // Don't allow changes if project is pre-selected (Add Task button)
+        if (props.selectedProject) {
+          return;
+        }
+        
+        projectSearch.value = value;
+        // Clear selected project when user starts typing
+        if (value && selectedProjectRef.value) {
+          selectedProjectRef.value = null;
+          formData.proj_name = '';
+        }
+      }
+    });
+
+    const filteredProjects = computed(() => {
+      console.log('Filtering projects:', { search: projectSearch.value, projects: projects.value });
+      if (!projectSearch.value) {
+        return projects.value;
+      }
+      const filtered = projects.value.filter(project => 
+        project.proj_name.toLowerCase().includes(projectSearch.value.toLowerCase()) ||
+        (project.proj_desc && project.proj_desc.toLowerCase().includes(projectSearch.value.toLowerCase()))
+      );
+      console.log('Filtered projects:', filtered);
+      
+      // Check for duplicates in filtered results
+      const filteredIds = filtered.map(p => p.id);
+      const duplicateFilteredIds = filteredIds.filter((id, index) => filteredIds.indexOf(id) !== index);
+      if (duplicateFilteredIds.length > 0) {
+        console.warn('Duplicate IDs in filtered projects:', duplicateFilteredIds);
+      }
+      
+      return filtered;
+    });
+
+    const isProjectSelected = (project) => {
+      return selectedProjectRef.value && selectedProjectRef.value.id === project.id;
+    };
+
+    const selectProject = (project) => {
+      console.log('Selecting project:', project);
+      selectedProjectRef.value = project;
+      formData.proj_name = project.proj_name;
+      projectSearch.value = ''; // Clear search to allow new searches
+      closeProjectDropdown();
+      validateField('proj_name', project.proj_name);
+    };
+
+    const handleProjectInputFocus = () => {
+      // Don't open dropdown if project is pre-selected (Add Task button)
+      if (props.selectedProject) {
+        return;
+      }
+      
+      if (!isLoadingProjects.value) {
+        showProjectDropdown.value = true;
+        projectHighlightedIndex.value = -1;
+        // Clear the search when focusing to allow new search
+        if (selectedProjectRef.value) {
+          projectSearch.value = '';
+        }
+      }
+    };
+
+    const handleProjectInputBlur = (event) => {
+      if (projectDropdownCloseTimeout.value) {
+        clearTimeout(projectDropdownCloseTimeout.value);
+      }
+      
+      const relatedTarget = event.relatedTarget;
+      const dropdownContainer = document.querySelector('.search-dropdown-container');
+      
+      if (relatedTarget && dropdownContainer && dropdownContainer.contains(relatedTarget)) {
+        return;
+      }
+      
+      projectDropdownCloseTimeout.value = setTimeout(() => {
+        closeProjectDropdown();
+      }, 500);
+    };
+
+    const handleProjectSearchInput = () => {
+      projectHighlightedIndex.value = -1;
+      if (!showProjectDropdown.value) {
+        showProjectDropdown.value = true;
+      }
+    };
+
+    const toggleProjectDropdown = () => {
+      // Don't allow toggling if project is pre-selected (Add Task button)
+      if (props.selectedProject) {
+        return;
+      }
+      
+      if (projectDropdownCloseTimeout.value) {
+        clearTimeout(projectDropdownCloseTimeout.value);
+        projectDropdownCloseTimeout.value = null;
+      }
+      
+      showProjectDropdown.value = !showProjectDropdown.value;
+      if (showProjectDropdown.value) {
+        nextTick(() => {
+          const input = document.getElementById('projId');
+          if (input) {
+            input.focus();
+          }
+        });
+      }
+    };
+
+    const closeProjectDropdown = () => {
+      showProjectDropdown.value = false;
+      projectHighlightedIndex.value = -1;
+    };
+
+    const selectFirstProjectMatch = () => {
+      if (filteredProjects.value.length > 0) {
+        selectProject(filteredProjects.value[0]);
+      }
+    };
+
+    const navigateProjectDown = () => {
+      if (!showProjectDropdown.value) {
+        showProjectDropdown.value = true;
+        return;
+      }
+      
+      if (projectHighlightedIndex.value < filteredProjects.value.length - 1) {
+        projectHighlightedIndex.value++;
+      }
+    };
+
+    const navigateProjectUp = () => {
+      if (projectHighlightedIndex.value > 0) {
+        projectHighlightedIndex.value--;
+      }
     };
 
 
@@ -676,6 +925,14 @@ export default {
       return fileUploadService.formatFileSize(bytes);
     };
 
+    const getFileIcon = (fileType) => {
+      return fileUploadService.getFileIcon(fileType);
+    };
+
+    const getFileTypeColor = (fileType) => {
+      return fileUploadService.getFileTypeColor(fileType);
+    };
+
     // Enhanced validation functions
     const validateTaskName = (value) => {
       if (!value || !value.trim()) {
@@ -835,12 +1092,13 @@ export default {
     // Watch for selectedProject prop changes to pre-fill project
     watch(() => props.selectedProject, (newProject) => {
       if (newProject) {
-        console.log('Selected project changed:', newProject);
         const projectName = newProject.proj_name || newProject.name || '';
         formData.proj_name = projectName;
+        selectedProjectRef.value = newProject;
         // Clear any existing project validation error
         validationErrors.proj_name = '';
-        console.log('Pre-filled project name:', formData.proj_name);
+        // Ensure dropdown is closed for Add Task
+        showProjectDropdown.value = false;
       }
     }, { immediate: true });
 
@@ -1155,6 +1413,8 @@ export default {
       handleFileUpload,
       removeFile,
       formatFileSize,
+      getFileIcon,
+      getFileTypeColor,
       validateDates,
       validateField,
       handleSubmit,
@@ -1182,7 +1442,25 @@ export default {
 
       projects,
       isLoadingProjects,
-      clearProjectSelection      
+      clearProjectSelection,
+      
+      // Project dropdown methods
+      projectSearch,
+      displayValue,
+      showProjectDropdown,
+      projectHighlightedIndex,
+      selectedProjectRef,
+      filteredProjects,
+      isProjectSelected,
+      selectProject,
+      handleProjectInputFocus,
+      handleProjectInputBlur,
+      handleProjectSearchInput,
+      toggleProjectDropdown,
+      closeProjectDropdown,
+      selectFirstProjectMatch,
+      navigateProjectDown,
+      navigateProjectUp
     };
   }
 };
@@ -1233,6 +1511,16 @@ export default {
   background-color: #f8f9fa;
   color: #6c757d;
   cursor: not-allowed;
+}
+
+.form-input.locked {
+  background-color: #f3f4f6;
+  color: #374151;
+  cursor: not-allowed;
+  border-color: #d1d5db;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.7;
 }
 
 .form-input:focus,
@@ -1303,6 +1591,56 @@ export default {
 
 .remove-tag:hover {
   color: #000000;
+}
+
+/* Project Dropdown Styles */
+.input-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+}
+
+.clear-selection-btn {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  height: 24px;
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.clear-selection-btn:hover {
+  background: #ef4444;
+  color: white;
+  border-color: #dc2626;
+}
+
+.project-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.project-info .project-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.project-info .project-description {
+  font-size: 0.875rem;
+  color: #666;
 }
 
 /* File Upload */
@@ -1467,6 +1805,7 @@ export default {
 
 .search-dropdown-container {
   position: relative;
+  z-index: 1;
 }
 
 .search-dropdown-container .form-input {
@@ -1498,7 +1837,7 @@ export default {
   border-radius: 6px;
   max-height: 250px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 9999;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   margin-top: 2px;
 }

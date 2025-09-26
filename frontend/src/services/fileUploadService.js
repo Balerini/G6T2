@@ -7,12 +7,13 @@ class FileUploadService {
     try {
       console.log('Starting file upload:', { fileName: file.name, taskId, userId });
       
-      // Create a unique filename with timestamp
+      // Create a unique filename with timestamp and user info
       const timestamp = Date.now();
-      const fileName = `${timestamp}_${file.name}`;
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const fileName = `${timestamp}_${userId}_${sanitizedFileName}`;
       console.log('Generated filename:', fileName);
       
-      // Create storage reference
+      // Create storage reference with better organization
       const storageRef = ref(storage, `tasks/${taskId}/attachments/${fileName}`);
       console.log('Storage reference created:', storageRef.fullPath);
       
@@ -26,12 +27,16 @@ class FileUploadService {
       console.log('Download URL obtained:', downloadURL);
       
       const result = {
+        id: `${taskId}_${timestamp}`, // Unique ID for the attachment
         name: file.name,
+        originalName: file.name,
         size: file.size,
         type: file.type,
         downloadURL: downloadURL,
         storagePath: snapshot.ref.fullPath,
-        uploadedAt: new Date().toISOString()
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: userId,
+        taskId: taskId
       };
       
       console.log('File upload result:', result);
@@ -106,6 +111,34 @@ class FileUploadService {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  getFileIcon(fileType) {
+    if (fileType.startsWith('image/')) {
+      return '🖼️';
+    } else if (fileType.includes('pdf')) {
+      return '📄';
+    } else if (fileType.includes('word') || fileType.includes('document')) {
+      return '📝';
+    } else if (fileType.includes('text')) {
+      return '📄';
+    } else {
+      return '📎';
+    }
+  }
+
+  getFileTypeColor(fileType) {
+    if (fileType.startsWith('image/')) {
+      return '#10b981'; // Green
+    } else if (fileType.includes('pdf')) {
+      return '#ef4444'; // Red
+    } else if (fileType.includes('word') || fileType.includes('document')) {
+      return '#3b82f6'; // Blue
+    } else if (fileType.includes('text')) {
+      return '#6b7280'; // Gray
+    } else {
+      return '#8b5cf6'; // Purple
+    }
   }
 
  
