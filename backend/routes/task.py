@@ -147,7 +147,12 @@ def get_tasks():
         for doc in results:
             task = doc.to_dict()
             task["id"] = doc.id
-            tasks.append(task)
+            
+            # Only include tasks that don't have a project (proj_ID is null or empty)
+            if not task.get('proj_ID') or task.get('proj_ID') == '':
+                tasks.append(task)
+            else:
+                print(f"Excluding task {doc.id} from My Tasks - it belongs to project {task.get('proj_ID')}")
 
         return jsonify(tasks), 200
 
