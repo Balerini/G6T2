@@ -81,27 +81,20 @@ def get_filtered_projects_by_division(division_name):
                     task_data = task.to_dict()
                     task_data['id'] = task.id
                     
-                    # Check if task should be included (assigned_to or created_by from same division)
-                    assigned_to = task_data.get('assigned_to', [])
-                    created_by = task_data.get('created_by', '')
+                    # Include all tasks for projects that have collaborators from the same division
+                    # (removed the restrictive task-level filtering)
                     
-                    task_has_same_division_user = (
-                        any(user_id in same_division_user_ids for user_id in assigned_to) or
-                        created_by in same_division_user_ids
-                    )
+                    # Convert task timestamps
+                    if 'start_date' in task_data and task_data['start_date']:
+                        task_data['start_date'] = task_data['start_date'].isoformat()
+                    if 'end_date' in task_data and task_data['end_date']:
+                        task_data['end_date'] = task_data['end_date'].isoformat()
+                    if 'createdAt' in task_data and task_data['createdAt']:
+                        task_data['createdAt'] = task_data['createdAt'].isoformat()
+                    if 'updatedAt' in task_data and task_data['updatedAt']:
+                        task_data['updatedAt'] = task_data['updatedAt'].isoformat()
                     
-                    if task_has_same_division_user:
-                        # Convert task timestamps
-                        if 'start_date' in task_data and task_data['start_date']:
-                            task_data['start_date'] = task_data['start_date'].isoformat()
-                        if 'end_date' in task_data and task_data['end_date']:
-                            task_data['end_date'] = task_data['end_date'].isoformat()
-                        if 'createdAt' in task_data and task_data['createdAt']:
-                            task_data['createdAt'] = task_data['createdAt'].isoformat()
-                        if 'updatedAt' in task_data and task_data['updatedAt']:
-                            task_data['updatedAt'] = task_data['updatedAt'].isoformat()
-                        
-                        task_list.append(task_data)
+                    task_list.append(task_data)
                 
                 project_data['tasks'] = task_list
                 filtered_projects.append(project_data)

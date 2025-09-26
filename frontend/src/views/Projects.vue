@@ -31,6 +31,30 @@
       </div>
     </div>
 
+    <!-- Success Toast -->
+    <transition name="toast-slide">
+      <div v-if="successMessage" class="toast toast-success">
+        <div class="toast-icon">🎉</div>
+        <div class="toast-content">
+          <div class="toast-title">Success!</div>
+          <div class="toast-message">{{ successMessage }}</div>
+        </div>
+        <button @click="clearSuccessMessage" class="toast-close">×</button>
+      </div>
+    </transition>
+
+    <!-- Error Toast -->
+    <transition name="toast-slide">
+      <div v-if="errorMessage" class="toast toast-error">
+        <div class="toast-icon">❌</div>
+        <div class="toast-content">
+          <div class="toast-title">Error</div>
+          <div class="toast-message">{{ errorMessage }}</div>
+        </div>
+        <button @click="clearErrorMessage" class="toast-close">×</button>
+      </div>
+    </transition>
+
     <!-- Access Denied Section -->
     <div v-if="!currentUser" class="access-denied-section">
       <div class="container">
@@ -78,7 +102,12 @@
           <button class="close-button" @click="closeCreateTaskForm">×</button>
         </div>
         <div class="modal-body">
-          <CreateTaskForm @submit="handleTaskSubmit" @cancel="closeCreateTaskForm" />
+          <CreateTaskForm 
+            :selected-project="selectedProject" 
+            @success="handleTaskSubmit" 
+            @error="handleTaskError" 
+            @cancel="closeCreateTaskForm" 
+          />
         </div>
       </div>
     </div>
@@ -106,7 +135,9 @@ export default {
       showCreateTaskForm: false,
       selectedProject: null,
       loading: true,
-      error: null
+      error: null,
+      successMessage: '',
+      errorMessage: ''
     }
   },
   computed: {
@@ -136,6 +167,16 @@ export default {
 
     await this.fetchProjects();
     await this.fetchUsers();
+  },
+
+  async mounted() {
+    // Check if we need to refresh data (e.g., after task creation)
+    if (this.$route.query.refresh === 'true') {
+      console.log('Refreshing projects due to refresh parameter');
+      await this.fetchProjects();
+      // Remove the refresh parameter from URL
+      this.$router.replace({ path: '/projects' });
+    }
   },
   methods: {
     async fetchProjects() {
@@ -287,16 +328,180 @@ export default {
     },
 
     async handleTaskSubmit(taskData) {
+      console.log('=== PROJECTS PAGE SUCCESS HANDLER ===');
       console.log('Task submitted:', taskData);
+      console.log('Task data type:', typeof taskData);
+      console.log('Task data keys:', taskData ? Object.keys(taskData) : 'No task data');
+      
+      // Show success feedback
+      const taskName = taskData?.task_name || taskData?.name || 'Task';
+      this.successMessage = `✅ Task "${taskName}" created successfully!`;
+      this.errorMessage = '';
+      
+      // Scroll to top to show the toast
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Close the modal
       this.closeCreateTaskForm();
+      
       // Refresh projects to show new task
       await this.fetchProjects();
+      console.log('Projects refreshed after task creation');
+      
+      // Clear success message after a delay
+      setTimeout(() => {
+        this.clearSuccessMessage();
+      }, 4000);
+    },
+
+    handleTaskError(error) {
+      console.error('Task creation error:', error);
+      this.errorMessage = `Error creating task: ${error}`;
+      this.successMessage = '';
+    },
+
+    clearSuccessMessage() {
+      this.successMessage = '';
+    },
+
+    clearErrorMessage() {
+      this.errorMessage = '';
     }
   }
 }
 </script>
 
 <style scoped>
+/* Toast Notifications */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  min-width: 280px;
+  max-width: 400px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  animation: toastBounce 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.toast-success {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border-left: 4px solid #2E7D32;
+  animation: toastBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55), toastPulse 2s ease-in-out infinite;
+}
+
+.toast-error {
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+  color: white;
+  border-left: 4px solid #c62828;
+}
+
+.toast-icon {
+  font-size: 20px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 2px;
+  opacity: 0.9;
+}
+
+.toast-message {
+  font-size: 12px;
+  line-height: 1.3;
+  opacity: 0.95;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 10px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toast-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Toast Animations */
+.toast-slide-enter-active {
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.toast-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.toast-slide-enter-from {
+  transform: translateX(100%) scale(0.8);
+  opacity: 0;
+}
+
+.toast-slide-leave-to {
+  transform: translateX(100%) scale(0.8);
+  opacity: 0;
+}
+
+@keyframes toastBounce {
+  0% {
+    transform: translateX(100%) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: translateX(-10px) scale(1.05);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toastPulse {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+  50% {
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3), 0 0 12px rgba(76, 175, 80, 0.2);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .toast {
+    right: 10px;
+    left: 10px;
+    min-width: auto;
+    max-width: none;
+  }
+}
 .crm-container {
   min-height: 100vh;
   background: #f8fafc;
