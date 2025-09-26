@@ -83,30 +83,12 @@
             @mouseenter="projectHighlightedIndex = index"
           >
             <div class="user-info">
-              <span class="user-name">{{ `${project.proj_name} (${project.proj_ID})` }}</span>
+              <span class="user-name">{{ `${project.proj_name}` }}</span>
               <span v-if="project.name" class="user-email">{{ project.name }}</span>
             </div>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Task ID -->
-    <div class="form-group">
-      <label class="form-label" for="taskId">Task ID *</label>
-      <input
-        id="taskId"
-        v-model="formData.task_ID"
-        type="text"
-        class="form-input"
-        :class="{ 'error': validationErrors.task_ID }"
-        placeholder="Enter task ID"
-        @input="validateField('task_ID', $event.target.value)"
-        @blur="validateField('task_ID', formData.task_ID)"
-      />
-      <span v-if="validationErrors.task_ID" class="error-message">
-        {{ validationErrors.task_ID }}
-      </span>
     </div>
 
     <!-- Task Name -->
@@ -435,7 +417,7 @@ export default {
       task_ID: '',
       task_name: '',
       task_desc: '',
-      proj_ID: '',
+      proj_name: '',
       start_date: '',
       end_date: '',
       task_status: '',
@@ -448,7 +430,7 @@ export default {
       task_ID: false,
       task_name: false,
       task_desc: false,
-      proj_ID: false,
+      proj_name: false,
       start_date: false,
       end_date: false,
       task_status: false,
@@ -473,7 +455,7 @@ export default {
     const currentUserId = ref(null);
 
     const formData = reactive({
-      proj_ID: '',
+      proj_name: '',
       task_ID: '',
       task_name: '',
       task_desc: '',
@@ -509,12 +491,10 @@ export default {
         filtered = filtered.filter(project => {
           if (!project) return false;
           
-          const name = (project.name || '').toString().toLowerCase();
-          const projID = (project.proj_ID || project.proj_id || '').toString().toLowerCase();
+          const projName = (project.proj_name || '').toString().toLowerCase();
           const description = (project.description || '').toString().toLowerCase();
           
-          return name.includes(searchTerm) ||
-                projID.includes(searchTerm) ||
+          return projName.includes(searchTerm) ||
                 description.includes(searchTerm);
         });
       }
@@ -537,14 +517,10 @@ export default {
       // console.log('Selecting project:', project.proj_ID);
       
       // Set the form data
-      formData.proj_ID = project.proj_ID;
+      formData.proj_name = project.proj_name;
       
       // Use proj_name instead of name
-      if (project.proj_name && project.proj_name.trim() !== '') {
-        projectSearch.value = `${project.proj_name} (${project.proj_ID})`;
-      } else {
-        projectSearch.value = project.proj_ID;
-      }
+      projectSearch.value = project.proj_name;
       
       isProjectSelected.value = true;
       showProjectDropdown.value = false;
@@ -555,7 +531,7 @@ export default {
 
     const clearProjectSelection = () => {
       isProjectSelected.value = false;
-      formData.proj_ID = '';
+      formData.proj_name = '';
       projectSearch.value = '';
       showProjectDropdown.value = false;
     };
@@ -570,34 +546,32 @@ export default {
     };
 
     const handleProjectSearchInput = () => {
-      // Only reset selection if user actually changes the input content
-      if (isProjectSelected.value && projectSearch.value !== getCurrentProjectDisplay()) {
-        isProjectSelected.value = false;
-        formData.proj_ID = '';
-        
-        // Show dropdown for new search
-        if (!showProjectDropdown.value) {
-          showProjectDropdown.value = true;
-        }
-        projectHighlightedIndex.value = -1;
-      } else if (!isProjectSelected.value) {
-        // Show dropdown for new search when nothing is selected
-        if (!showProjectDropdown.value) {
-          showProjectDropdown.value = true;
-        }
-        projectHighlightedIndex.value = -1;
+    // Only reset selection if user actually changes the input content
+    if (isProjectSelected.value && projectSearch.value !== getCurrentProjectDisplay()) {
+      isProjectSelected.value = false;
+      formData.proj_name = '';
+      
+      // Show dropdown for new search
+      if (!showProjectDropdown.value) {
+        showProjectDropdown.value = true;
       }
-    };
+      projectHighlightedIndex.value = -1;
+    } else if (!isProjectSelected.value) {
+      // Show dropdown for new search when nothing is selected
+      if (!showProjectDropdown.value) {
+        showProjectDropdown.value = true;
+      }
+      projectHighlightedIndex.value = -1;
+    }
+  };
 
     // Helper function to get current project display
     const getCurrentProjectDisplay = () => {
-      if (!formData.proj_ID) return '';
-      const selectedProject = projects.value.find(p => p.proj_ID === formData.proj_ID);
-      if (!selectedProject) return formData.proj_ID;
+      if (!formData.proj_name) return '';
+      const selectedProject = projects.value.find(p => p.proj_name === formData.proj_name);
+      if (!selectedProject) return formData.proj_name;
       
-      return selectedProject.name 
-        ? `${selectedProject.proj_ID} - ${selectedProject.name}` 
-        : selectedProject.proj_ID;
+      return selectedProject.proj_name;
     };
 
     const toggleProjectDropdown = () => {
@@ -827,22 +801,6 @@ export default {
     };
 
     // Enhanced validation functions
-    const validateTaskID = (value) => {
-      if (!value || !value.trim()) {
-        return 'Task ID is required';
-      }
-      if (value.length < 2) {
-        return 'Task ID must be at least 2 characters';
-      }
-      if (value.length > 50) {
-        return 'Task ID must be less than 50 characters';
-      }
-      if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
-        return 'Task ID can only contain letters, numbers, hyphens, and underscores';
-      }
-      return '';
-    };
-
     const validateTaskName = (value) => {
       if (!value || !value.trim()) {
         return 'Task name is required';
@@ -950,9 +908,6 @@ export default {
       }
       
       switch (fieldName) {
-        case 'task_ID':
-          validationErrors.task_ID = touchedFields.task_ID ? validateTaskID(value) : '';
-          break;
         case 'task_name':
           validationErrors.task_name = touchedFields.task_name ? validateTaskName(value) : '';
           break;
@@ -988,7 +943,6 @@ export default {
     const isFormValid = computed(() => {
       return !Object.values(validationErrors).some(error => error !== '') && 
              !dateValidationError.value &&
-             validateTaskID(formData.task_ID) === '' &&
              validateTaskName(formData.task_name) === '' &&
              validateStartDate(formData.start_date) === '' &&
              validateEndDate(formData.end_date, formData.start_date) === '' &&
@@ -1030,7 +984,7 @@ export default {
 
     const resetForm = () => {
       Object.assign(formData, {
-        proj_ID: '',
+        proj_name: '',
         task_ID: '',
         task_name: '',
         task_desc: '',
@@ -1100,7 +1054,6 @@ export default {
       let firstErrorField = null;
       
       // Validate required fields
-      validationErrors.task_ID = validateTaskID(formData.task_ID);
       validationErrors.task_name = validateTaskName(formData.task_name);
       validationErrors.start_date = validateStartDate(formData.start_date);
       validationErrors.end_date = validateEndDate(formData.end_date, formData.start_date);
@@ -1109,10 +1062,6 @@ export default {
       validationErrors.collaborators = validateCollaborators(formData.assigned_to);
       
       // Check for any validation errors
-      if (validationErrors.task_ID) {
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'taskId';
-      }
       if (validationErrors.task_name) {
         hasErrors = true;
         if (!firstErrorField) firstErrorField = 'taskName';
@@ -1156,7 +1105,7 @@ export default {
         // Add other properties
         const finalTaskData = {
           ...taskData,
-          proj_ID: taskData.proj_ID ? taskData.proj_ID.trim() : '', // Handle empty project ID
+          // proj_ID: taskData.proj_ID ? taskData.proj_ID.trim() : '', // Handle empty project ID
           task_ID: taskData.task_ID.trim(),
           task_name: taskData.task_name.trim(),
           task_desc: taskData.task_desc.trim(),
