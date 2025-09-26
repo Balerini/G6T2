@@ -17,7 +17,7 @@ export const projectService = {
   getAllUsers: (divisionName) => userAPI.getFilteredUsersByDivision(divisionName),
 
   // ============== Get all projects ==============
-    async getAllProjects() {
+  async getAllProjects() {
     try {
       const response = await api.get('/api/projects');
       // console.log('Projects response:', response.data);
@@ -77,7 +77,7 @@ export const projectService = {
     }
   },
 
-  // // ============== Get all users for projects collaborators, created by, assigned to ==============
+  // ============== Get all users for projects collaborators, created by, assigned to ==============
   // async getAllUsers() {
   //   try { 
   //     const response = await api.get('/api/users');
@@ -87,5 +87,15 @@ export const projectService = {
   //     console.error('Error in getAllUsers:', error);
   //     throw new Error(error.response?.data?.error || 'Failed to fetch users');
   //   }
-  // }
+  // },
+
+  async getAllUsersUnfiltered() {
+    try {
+      const response = await api.get('/api/users');
+      return response.data;
+    } catch (error) {
+      console.error('Error in getAllUsersUnfiltered:', error);
+      throw new Error(error.response?.data?.error || 'Failed to fetch users');
+    }
+  }
 };

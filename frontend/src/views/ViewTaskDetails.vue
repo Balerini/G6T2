@@ -60,8 +60,8 @@
           <div class="card-header">
             <h2 class="task-title">{{ task.task_name }}</h2>
             <div class="header-actions"></div>
-              <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
-                {{ formatStatus(task.task_status) || 'Not Started' }}
+            <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
+              {{ formatStatus(task.task_status) || 'Not Started' }}
             </div>
             <button @click="openSubtaskModal" class="add-subtask-btn">
               + Add Subtask
@@ -177,13 +177,9 @@
     <!-- Subtask Modal -->
     <div v-if="showSubtaskModal" class="modal-overlay" @click="closeSubtaskModal">
       <div class="modal-content" @click.stop>
-        <SubtaskForm 
-          :parentTaskId="task.id"
-          :parentProjectId="task.proj_ID"
-          :availableCollaborators="getTaskCollaborators()"
-          @subtask-created="handleSubtaskCreated"
-          @cancel="closeSubtaskModal"
-        />
+        <SubtaskForm :parentTaskId="task.id" :parentProjectId="task.proj_ID"
+          :availableCollaborators="getTaskCollaborators()" @subtask-created="handleSubtaskCreated"
+          @cancel="closeSubtaskModal" />
       </div>
     </div>
   </div>
@@ -232,7 +228,7 @@ export default {
 
         // Load users first
         try {
-          this.users = await projectService.getAllUsers();
+          this.users = await projectService.getAllUsersUnfiltered();
         } catch (userError) {
           console.warn('Could not load users:', userError);
         }
@@ -427,8 +423,8 @@ export default {
 
       return this.task.assigned_to.map(userId => {
         const user = this.users.find(u => String(u.id) === String(userId));
-        return user ? { 
-          id: user.id, 
+        return user ? {
+          id: user.id,
           name: user.name,
           email: user.email || '',
           department: user.department || 'Unknown'
@@ -974,6 +970,4 @@ export default {
 .close-btn:hover {
   color: #374151;
 }
-
-
 </style>
