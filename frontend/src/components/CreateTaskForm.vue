@@ -99,8 +99,14 @@
         v-model="formData.task_ID"
         type="text"
         class="form-input"
+        :class="{ 'error': validationErrors.task_ID }"
         placeholder="Enter task ID"
+        @input="validateField('task_ID', $event.target.value)"
+        @blur="validateField('task_ID', formData.task_ID)"
       />
+      <span v-if="validationErrors.task_ID" class="error-message">
+        {{ validationErrors.task_ID }}
+      </span>
     </div>
 
     <!-- Task Name -->
@@ -111,8 +117,14 @@
         v-model="formData.task_name"
         type="text"
         class="form-input"
+        :class="{ 'error': validationErrors.task_name }"
         placeholder="Enter task name"
+        @input="validateField('task_name', $event.target.value)"
+        @blur="validateField('task_name', formData.task_name)"
       />
+      <span v-if="validationErrors.task_name" class="error-message">
+        {{ validationErrors.task_name }}
+      </span>
     </div>
 
     <!-- Task Description -->
@@ -122,9 +134,18 @@
         id="taskDesc"
         v-model="formData.task_desc"
         class="form-textarea"
-        placeholder="Enter task description"
+        :class="{ 'error': validationErrors.task_desc }"
+        placeholder="Enter task description (max 500 characters)"
         rows="4"
+        @input="validateField('task_desc', $event.target.value)"
+        @blur="validateField('task_desc', formData.task_desc)"
       ></textarea>
+      <div class="char-count">
+        {{ formData.task_desc.length }}/500 characters
+      </div>
+      <span v-if="validationErrors.task_desc" class="error-message">
+        {{ validationErrors.task_desc }}
+      </span>
     </div>
 
     <!-- Subtasks Checkbox -->
@@ -149,25 +170,33 @@
         v-model="formData.start_date"
         type="date"
         class="form-input"
-        @change="validateDates"
+        :class="{ 'error': validationErrors.start_date }"
+        :min="getCurrentDate()"
+        @change="validateDates; validateField('start_date', formData.start_date)"
+        @blur="validateField('start_date', formData.start_date)"
       />
+      <span v-if="validationErrors.start_date" class="error-message">
+        {{ validationErrors.start_date }}
+      </span>
     </div>
 
     <!-- End Date -->
     <div class="form-group">
       <label class="form-label" for="endDate">
-        End Date {{ formData.hasSubtasks ? '' : '*' }}
+        End Date *
       </label>
       <input
         id="endDate"
         v-model="formData.end_date"
         type="date"
         class="form-input"
+        :class="{ 'error': validationErrors.end_date }"
         :min="formData.start_date || getCurrentDate()"
-        @change="validateDates"
+        @change="validateDates; validateField('end_date', formData.end_date)"
+        @blur="validateField('end_date', formData.end_date)"
       />
-      <span v-if="dateValidationError" class="error-message">
-        {{ dateValidationError }}
+      <span v-if="validationErrors.end_date || dateValidationError" class="error-message">
+        {{ validationErrors.end_date || dateValidationError }}
       </span>
     </div>
 
@@ -187,7 +216,7 @@
     <!-- Assigned To -->
     <div class="form-group">
     <label class="form-label" for="assignedTo">
-      Collaborators ({{ formData.hasSubtasks ? '0-5' : '0-10' }} max)
+      Collaborators * ({{ formData.hasSubtasks ? '1-5' : '1-10' }} required)
     </label>
     
     <!-- Combined search input with dropdown -->
@@ -197,8 +226,9 @@
         v-model="userSearch"
         type="text"
         class="form-input"
+        :class="{ 'error': validationErrors.collaborators }"
         :placeholder="isLoadingUsers ? 'Loading users...' : 'Search and select collaborators...'"
-        @focus="handleInputFocus"
+        @focus="handleInputFocus; validateField('collaborators', formData.assigned_to)"
         @blur="handleInputBlur"
         @input="handleSearchInput"
         @keydown.enter.prevent="selectFirstMatch"
@@ -292,6 +322,11 @@
     <div v-if="formData.assigned_to.length > 0" class="status-message info">
       {{ formData.assigned_to.length }} collaborator{{ formData.assigned_to.length !== 1 ? 's' : '' }} selected
     </div>
+    
+    <!-- Collaborators validation error -->
+    <span v-if="validationErrors.collaborators" class="error-message">
+      {{ validationErrors.collaborators }}
+    </span>
   </div>
 
 
@@ -338,17 +373,25 @@
           </button>
         </div>
       </div>
+      
+      <!-- Attachment validation error -->
+      <span v-if="validationErrors.attachments" class="error-message">
+        {{ validationErrors.attachments }}
+      </span>
     </div>
 
     <!-- Task Status -->
     <div class="form-group">
       <label class="form-label" for="taskStatus">
-        Task Status {{ formData.hasSubtasks ? '' : '*' }}
+        Task Status *
       </label>
       <select 
         id="taskStatus" 
         v-model="formData.task_status" 
-        class="form-select" 
+        class="form-select"
+        :class="{ 'error': validationErrors.task_status }"
+        @change="validateField('task_status', formData.task_status)"
+        @blur="validateField('task_status', formData.task_status)"
       >
         <option value="" disabled>Select status</option>
         <option value="Not Started">Not Started</option>
@@ -357,6 +400,9 @@
         <option value="Completed">Completed</option>
         <option value="Cancelled">Cancelled</option>
       </select>
+      <span v-if="validationErrors.task_status" class="error-message">
+        {{ validationErrors.task_status }}
+      </span>
     </div>
 
     <!-- Form Actions -->
@@ -364,7 +410,7 @@
       <button type="button" class="btn btn-cancel" @click="$emit('cancel')" :disabled="isSubmitting">
         Cancel
       </button>
-      <button type="submit" class="btn btn-primary" :disabled="isSubmitting || !!dateValidationError">
+      <button type="submit" class="btn btn-primary" :disabled="isSubmitting || !isFormValid">
         {{ isSubmitting ? 'Creating...' : 'Create Task' }}
       </button>
     </div>
@@ -383,6 +429,32 @@ export default {
     const assignedToInput = ref('');
     const fileInput = ref(null);
     const dateValidationError = ref('');
+    
+    // Enhanced validation state
+    const validationErrors = reactive({
+      task_ID: '',
+      task_name: '',
+      task_desc: '',
+      proj_ID: '',
+      start_date: '',
+      end_date: '',
+      task_status: '',
+      attachments: '',
+      collaborators: ''
+    });
+
+    // Track which fields have been touched by the user
+    const touchedFields = reactive({
+      task_ID: false,
+      task_name: false,
+      task_desc: false,
+      proj_ID: false,
+      start_date: false,
+      end_date: false,
+      task_status: false,
+      attachments: false,
+      collaborators: false
+    });
 
     // NEW: Dropdown-related reactive data
     const users = ref([]);
@@ -648,6 +720,9 @@ export default {
         email: user.email
       });
       
+      // Validate collaborators after adding (don't mark as touched automatically)
+      validateField('collaborators', formData.assigned_to, false);
+      
       // Reset search but DON'T close dropdown
       userSearch.value = '';
       
@@ -710,17 +785,29 @@ export default {
     // UPDATED: Remove assignee method for dropdown (works with objects now)
     const removeAssignee = (index) => {
       formData.assigned_to.splice(index, 1);
+      // Validate collaborators after removing (don't mark as touched automatically)
+      validateField('collaborators', formData.assigned_to, false);
     };
 
     const handleFileUpload = (event) => {
       const files = Array.from(event.target.files);
       
       if (formData.attachments.length + files.length > 3) {
-        alert('Maximum 3 files allowed');
+        validationErrors.attachments = 'Maximum 3 files allowed';
         return;
       }
       
+      // Validate file sizes
+      const maxFileSize = 10 * 1024 * 1024; // 10MB
+      for (let file of files) {
+        if (file.size > maxFileSize) {
+          validationErrors.attachments = `File "${file.name}" is too large. Maximum size is 10MB`;
+          return;
+        }
+      }
+      
       formData.attachments = [...formData.attachments, ...files];
+      validationErrors.attachments = ''; // Clear error if successful
     };
 
     const removeFile = (index) => {
@@ -739,6 +826,108 @@ export default {
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
+    // Enhanced validation functions
+    const validateTaskID = (value) => {
+      if (!value || !value.trim()) {
+        return 'Task ID is required';
+      }
+      if (value.length < 2) {
+        return 'Task ID must be at least 2 characters';
+      }
+      if (value.length > 50) {
+        return 'Task ID must be less than 50 characters';
+      }
+      if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
+        return 'Task ID can only contain letters, numbers, hyphens, and underscores';
+      }
+      return '';
+    };
+
+    const validateTaskName = (value) => {
+      if (!value || !value.trim()) {
+        return 'Task name is required';
+      }
+      if (value.length < 3) {
+        return 'Task name must be at least 3 characters';
+      }
+      if (value.length > 100) {
+        return 'Task name must be less than 100 characters';
+      }
+      return '';
+    };
+
+    const validateTaskDescription = (value) => {
+      if (value && value.length > 500) {
+        return 'Task description must be less than 500 characters';
+      }
+      return '';
+    };
+
+    const validateProjectSelection = (value) => {
+      if (!value || !value.trim()) {
+        return 'Please select a project';
+      }
+      return '';
+    };
+
+    const validateStartDate = (value) => {
+      if (!value) {
+        return 'Start date is required';
+      }
+      const startDate = new Date(value);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (startDate < today) {
+        return 'Start date cannot be in the past';
+      }
+      return '';
+    };
+
+    const validateEndDate = (value, startDate) => {
+      if (!value) {
+        return 'End date is required';
+      }
+      if (!startDate) {
+        return '';
+      }
+      const start = new Date(startDate);
+      const end = new Date(value);
+      
+      if (end <= start) {
+        return 'End date must be after start date';
+      }
+      return '';
+    };
+
+    const validateTaskStatus = (value) => {
+      if (!value || !value.trim()) {
+        return 'Task status is required';
+      }
+      return '';
+    };
+
+    const validateAttachments = (files) => {
+      if (files.length > 3) {
+        return 'Maximum 3 files allowed';
+      }
+      
+      const maxFileSize = 10 * 1024 * 1024; // 10MB
+      for (let file of files) {
+        if (file.size > maxFileSize) {
+          return `File "${file.name}" is too large. Maximum size is 10MB`;
+        }
+      }
+      return '';
+    };
+
+    const validateCollaborators = (collaborators) => {
+      if (!collaborators || collaborators.length === 0) {
+        return 'At least 1 collaborator is required';
+      }
+      return '';
+    };
+
     const validateDates = () => {
       dateValidationError.value = '';
       
@@ -753,6 +942,60 @@ export default {
       }
       return true;
     };
+
+    // Real-time validation
+    const validateField = (fieldName, value, markAsTouched = true) => {
+      if (markAsTouched) {
+        touchedFields[fieldName] = true;
+      }
+      
+      switch (fieldName) {
+        case 'task_ID':
+          validationErrors.task_ID = touchedFields.task_ID ? validateTaskID(value) : '';
+          break;
+        case 'task_name':
+          validationErrors.task_name = touchedFields.task_name ? validateTaskName(value) : '';
+          break;
+        case 'task_desc':
+          validationErrors.task_desc = touchedFields.task_desc ? validateTaskDescription(value) : '';
+          break;
+        case 'proj_ID':
+          validationErrors.proj_ID = touchedFields.proj_ID ? validateProjectSelection(value) : '';
+          break;
+        case 'start_date':
+          validationErrors.start_date = touchedFields.start_date ? validateStartDate(value) : '';
+          // Re-validate end date when start date changes
+          if (formData.end_date && touchedFields.end_date) {
+            validationErrors.end_date = validateEndDate(formData.end_date, value);
+          }
+          break;
+        case 'end_date':
+          validationErrors.end_date = touchedFields.end_date ? validateEndDate(value, formData.start_date) : '';
+          break;
+        case 'task_status':
+          validationErrors.task_status = touchedFields.task_status ? validateTaskStatus(value) : '';
+          break;
+        case 'attachments':
+          validationErrors.attachments = touchedFields.attachments ? validateAttachments(value) : '';
+          break;
+        case 'collaborators':
+          validationErrors.collaborators = touchedFields.collaborators ? validateCollaborators(value) : '';
+          break;
+      }
+    };
+
+    // Check if form is valid
+    const isFormValid = computed(() => {
+      return !Object.values(validationErrors).some(error => error !== '') && 
+             !dateValidationError.value &&
+             validateTaskID(formData.task_ID) === '' &&
+             validateTaskName(formData.task_name) === '' &&
+             validateStartDate(formData.start_date) === '' &&
+             validateEndDate(formData.end_date, formData.start_date) === '' &&
+             validateTaskStatus(formData.task_status) === '' &&
+             validateAttachments(formData.attachments) === '' &&
+             validateCollaborators(formData.assigned_to) === '';
+    });
 
     onMounted(() => {
       // Get current user from sessionStorage
@@ -806,9 +1049,17 @@ export default {
       
       assignedToInput.value = '';
       dateValidationError.value = '';
-      userSearch.value = ''; // NEW: Reset search
-      closeDropdown(); // NEW: Close dropdown
+      userSearch.value = '';
+      closeDropdown(); 
       formData.created_by = 'Current User';
+      
+      // Clear validation errors and touched fields
+      Object.keys(validationErrors).forEach(key => {
+        validationErrors[key] = '';
+      });
+      Object.keys(touchedFields).forEach(key => {
+        touchedFields[key] = false;
+      });
     };
 
     // UPDATED: Prepare form data for submission (send only user IDs)
@@ -819,13 +1070,9 @@ export default {
       };
     };
 
-    // UPDATED: Form submission method - remove project validation
+    // UPDATED: Form submission method with comprehensive validation
     const handleSubmit = async () => {
       if (isSubmitting.value) {
-        return;
-      }
-      
-      if (formData.end_date && !validateDates()) {
         return;
       }
       
@@ -843,32 +1090,60 @@ export default {
         }
       };
       
-      // Validate required fields and scroll to first empty one
-      // REMOVED: Project validation
+      // Mark all fields as touched to show validation errors
+      Object.keys(touchedFields).forEach(key => {
+        touchedFields[key] = true;
+      });
       
-      if (!formData.task_ID || !formData.task_ID.trim()) {
-        scrollToField('taskId');
-        return;
+      // Validate all fields and show errors
+      let hasErrors = false;
+      let firstErrorField = null;
+      
+      // Validate required fields
+      validationErrors.task_ID = validateTaskID(formData.task_ID);
+      validationErrors.task_name = validateTaskName(formData.task_name);
+      validationErrors.start_date = validateStartDate(formData.start_date);
+      validationErrors.end_date = validateEndDate(formData.end_date, formData.start_date);
+      validationErrors.task_status = validateTaskStatus(formData.task_status);
+      validationErrors.attachments = validateAttachments(formData.attachments);
+      validationErrors.collaborators = validateCollaborators(formData.assigned_to);
+      
+      // Check for any validation errors
+      if (validationErrors.task_ID) {
+        hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'taskId';
       }
-      if (!formData.task_name || !formData.task_name.trim()) {
-        scrollToField('taskName');
-        return;
+      if (validationErrors.task_name) {
+        hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'taskName';
       }
-      if (!formData.start_date) {
-        scrollToField('startDate');
-        return;
+      if (validationErrors.start_date) {
+        hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'startDate';
+      }
+      if (validationErrors.end_date) {
+        hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'endDate';
+      }
+      if (validationErrors.task_status) {
+        hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'taskStatus';
+      }
+      if (validationErrors.attachments) {
+        hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'attachments';
+      }
+      if (validationErrors.collaborators) {
+        hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'assignedTo';
       }
       
-      // Conditional validation based on hasSubtasks
-      if (!formData.hasSubtasks) {
-        if (!formData.end_date) {
-          scrollToField('endDate');
-          return;
+      // If there are errors, scroll to the first one and return
+      if (hasErrors) {
+        if (firstErrorField) {
+          scrollToField(firstErrorField);
         }
-        if (!formData.task_status) {
-          scrollToField('taskStatus');
-          return;
-        }
+        return;
       }
 
       // If we get here, all validation passed
@@ -929,11 +1204,14 @@ export default {
       fileInput,
       isSubmitting,
       dateValidationError,
+      validationErrors,
+      isFormValid,
       removeAssignee,
       handleFileUpload,
       removeFile,
       formatFileSize,
       validateDates,
+      validateField,
       handleSubmit,
       getCurrentDate,
       onSubtasksChange,
@@ -1037,6 +1315,23 @@ export default {
 .error-message {
   color: #dc3545;
   font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}
+
+/* Error styling for form inputs */
+.form-input.error,
+.form-select.error,
+.form-textarea.error {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.1);
+}
+
+/* Character count */
+.char-count {
+  font-size: 12px;
+  color: #666666;
+  text-align: right;
   margin-top: 4px;
 }
 
