@@ -216,29 +216,18 @@ export default {
     },
 
     async fetchUsers() {
-      if (!this.currentUser || !this.currentUser.division_name) {
-        console.warn('Cannot fetch users - no division info');
-        return;
-      }
-
       try {
-        console.log(`Fetching users for division: ${this.currentUser.division_name}`);
+        console.log('Fetching all users for avatar display');
         
-        // Use the new filtered endpoint to only get users from same division
-        this.users = await userAPI.getFilteredUsersByDivision(this.currentUser.division_name);
+        // Load all users to ensure we have all assignees
+        this.users = await userAPI.getAllUsers();
         
-        console.log('Fetched filtered users:', this.users);
-        console.log(`Found ${this.users.length} users in ${this.currentUser.division_name} department`);
+        console.log('Fetched all users:', this.users);
+        console.log(`Found ${this.users.length} users total`);
         
       } catch (error) {
         console.error('Error fetching users:', error);
-        // Fallback to all users if filtered endpoint fails
-        try {
-          this.users = await userAPI.getAllUsers();
-          console.log('Fell back to all users (not filtered by division)');
-        } catch (fallbackError) {
-          console.error('Fallback users fetch also failed:', fallbackError);
-        }
+        this.users = [];
       }
     },
 

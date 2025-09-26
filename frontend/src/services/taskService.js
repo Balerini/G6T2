@@ -41,6 +41,24 @@ export const taskService = {
     }
   },
 
+  async getTaskById(id) {
+    try {
+      const response = await api.get(`/api/tasks/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to fetch task');
+    }
+  },
+
+  async getProjectById(id) {
+    try {
+      const response = await api.get(`/api/projects/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to fetch project');
+    }
+  },
+
   async updateTask(id, taskData) {
     try {
       // id can be Firestore doc id or business task_ID; backend resolves both

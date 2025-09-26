@@ -2,7 +2,24 @@
   <div class="subtask-form-container">
     <h2 class="form-title">Create New Subtask</h2>
     
-    <form class="subtask-form" @submit.prevent="handleSubmit" novalidate>
+    <!-- Loading state -->
+    <div v-if="isLoadingParentData" class="loading-state">
+      <p>Loading parent task data...</p>
+    </div>
+    
+    <!-- Form -->
+    <form v-else class="subtask-form" @submit.prevent="handleSubmit" novalidate>
+      <!-- PROJECT INFO (Pre-filled, read-only) -->
+      <div class="form-group">
+        <label class="form-label">Project</label>
+        <input
+          :value="parentProject?.proj_name || 'Loading...'"
+          type="text"
+          readonly
+          class="form-input readonly"
+        />
+      </div>
+
       <!-- INPUT SUBTASK NAME -->
       <div class="form-group">
         <label for="name" class="form-label">
@@ -17,6 +34,21 @@
           :class="{ 'error': errors.name }" 
         />
         <span v-if="errors.name" class="error-message">{{ errors.name }}</span>
+      </div>
+
+      <!-- SUBTASK DESCRIPTION -->
+      <div class="form-group">
+        <label for="description" class="form-label">
+          Description
+        </label>
+        <textarea
+          id="description"
+          v-model="form.description"
+          class="form-input"
+          rows="3"
+          :class="{ 'error': errors.description }"
+        ></textarea>
+        <span v-if="errors.description" class="error-message">{{ errors.description }}</span>
       </div>
 
       <div class="form-group">
@@ -72,21 +104,38 @@
         <span v-if="errors.collaborators" class="error-message">{{ errors.collaborators }}</span>
       </div>
 
-      <!-- INPUT DEADLINE + DATE RESTRICTION -->
+      <!-- START DATE -->
       <div class="form-group">
-        <label for="deadline" class="form-label">
-          Deadline *
+        <label for="startDate" class="form-label">
+          Start Date *
         </label>
         <input
-          id="deadline"
-          v-model="form.deadline"
+          id="startDate"
+          v-model="form.startDate"
           type="date"
           required
           :min="today" 
           class="form-input"
-          :class="{ 'error': errors.deadline }"
+          :class="{ 'error': errors.startDate }"
         />
-        <span v-if="errors.deadline" class="error-message">{{ errors.deadline }}</span>
+        <span v-if="errors.startDate" class="error-message">{{ errors.startDate }}</span>
+      </div>
+
+      <!-- END DATE -->
+      <div class="form-group">
+        <label for="endDate" class="form-label">
+          End Date *
+        </label>
+        <input
+          id="endDate"
+          v-model="form.endDate"
+          type="date"
+          required
+          :min="form.startDate || today" 
+          class="form-input"
+          :class="{ 'error': errors.endDate }"
+        />
+        <span v-if="errors.endDate" class="error-message">{{ errors.endDate }}</span>
       </div>
 
       <!-- FILE ATTACHMENTS -->
@@ -188,7 +237,8 @@
 
 <script setup>
 /* eslint-disable no-undef */
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { taskService } from '@/services/taskService'
 
 // Props for parent task and project IDs
 // eslint-disable-next-line no-unused-vars
@@ -212,7 +262,9 @@ const emit = defineEmits(['subtask-created', 'cancel'])
 
 const form = ref({
   name: '',
-  deadline: '',
+  description: '',
+  startDate: '',
+  endDate: '',
   status: ''
 })
 
@@ -221,6 +273,11 @@ const isSubmitting = ref(false)
 const showSuccess = ref(false)
 const showError = ref(false)
 const errorMessage = ref('')
+
+// Parent task and project data
+const parentTask = ref(null)
+const parentProject = ref(null)
+const isLoadingParentData = ref(true)
 
 // Collaborators data
 const selectedCollaborators = ref([])
@@ -240,6 +297,64 @@ const availableStaff = computed(() => {
     rank: collaborator.rank || 3
   }))
 })
+
+// Load parent task data and pre-fill form
+const loadParentTaskData = async () => {
+  try {
+    isLoadingParentData.value = true;
+    
+    // Load parent task data
+    const taskData = await taskService.getTaskById(props.parentTaskId);
+    parentTask.value = taskData;
+    
+    // Load parent project data
+    const projectData = await taskService.getProjectById(props.parentProjectId);
+    parentProject.value = projectData;
+    
+    // Pre-fill form with parent task data only if parent task has hasSubtasks: true
+    if (parentTask.value) {
+      // Check if parent task was marked to have subtasks with pre-filled details
+      if (parentTask.value.hasSubtasks === true) {
+        // Don't pre-fill the subtask name and description - let user enter unique values
+        form.value.name = '';
+        form.value.description = '';
+        form.value.startDate = parentTask.value.start_date ? parentTask.value.start_date.split('T')[0] : '';
+        form.value.endDate = parentTask.value.end_date ? parentTask.value.end_date.split('T')[0] : '';
+        form.value.status = parentTask.value.task_status || '';
+        
+        // Pre-fill collaborators from parent task
+        if (parentTask.value.assigned_to && parentTask.value.assigned_to.length > 0) {
+          selectedCollaborators.value = parentTask.value.assigned_to.map(collaborator => ({
+            id: collaborator.id || collaborator,
+            name: collaborator.name || collaborator,
+            department: collaborator.department || 'Unknown',
+            rank: collaborator.rank || 3
+          }));
+        }
+      } else {
+        // If checkbox was not ticked, don't pre-fill anything - start with empty form
+        form.value.name = '';
+        form.value.description = '';
+        form.value.startDate = '';
+        form.value.endDate = '';
+        form.value.status = '';
+        selectedCollaborators.value = [];
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error loading parent task data:', error);
+    errorMessage.value = 'Failed to load parent task data';
+    showError.value = true;
+  } finally {
+    isLoadingParentData.value = false;
+  }
+}
+
+// Initialize on component mount
+onMounted(() => {
+  loadParentTaskData();
+});
 
 // File Attachments Data
 const selectedFiles = ref([])
@@ -315,7 +430,7 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-// Check if Name filled + Deadline Set (not past) + Status selected
+// Check if Name filled + Dates Set + Status selected
 const validateForm = () => {
   errors.value = {}
   
@@ -323,10 +438,16 @@ const validateForm = () => {
     errors.value.name = 'Subtask name is required'
   }
   
-  if (!form.value.deadline) {
-    errors.value.deadline = 'Deadline is required'
-  } else if (new Date(form.value.deadline) < new Date()) {
-    errors.value.deadline = 'Deadline cannot be in the past'
+  if (!form.value.startDate) {
+    errors.value.startDate = 'Start date is required'
+  } else if (new Date(form.value.startDate) < new Date()) {
+    errors.value.startDate = 'Start date cannot be in the past'
+  }
+  
+  if (!form.value.endDate) {
+    errors.value.endDate = 'End date is required'
+  } else if (new Date(form.value.endDate) < new Date(form.value.startDate)) {
+    errors.value.endDate = 'End date cannot be before start date'
   }
   
   if (!form.value.status) {
@@ -368,7 +489,9 @@ const handleSubmit = async () => {
     // FORM RESETS
     form.value = {
       name: '',
-      deadline: '',
+      description: '',
+      startDate: '',
+      endDate: '',
       status: ''
     }
     selectedCollaborators.value = []
@@ -405,6 +528,13 @@ const handleSubmit = async () => {
   margin-bottom: 24px;
 }
 
+.loading-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666666;
+  font-size: 16px;
+}
+
 .subtask-form {
   display: flex;
   flex-direction: column;
@@ -425,7 +555,8 @@ const handleSubmit = async () => {
 }
 
 .form-input,
-.form-select {
+.form-select,
+textarea {
   width: 100%;
   padding: 12px 16px;
   font-size: 16px;
@@ -435,6 +566,12 @@ const handleSubmit = async () => {
   border-radius: 6px;
   transition: all 0.2s ease;
   box-sizing: border-box;
+  font-family: inherit;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .form-input:focus,
@@ -447,6 +584,12 @@ const handleSubmit = async () => {
 .form-input.error,
 .form-select.error {
   border-color: #dc3545;
+}
+
+.form-input.readonly {
+  background-color: #f5f5f5;
+  color: #666666;
+  cursor: not-allowed;
 }
 
 .form-input::placeholder {

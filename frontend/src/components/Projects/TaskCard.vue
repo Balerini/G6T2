@@ -88,9 +88,6 @@ export default {
       });
     },
     getUser(userId) {
-      console.log('DEBUG: Getting user for ID:', userId);
-      console.log('DEBUG: Available users:', this.users);
-      
       // First try to find by document ID (from backend API)
       let user = this.users.find(user => String(user.id) === String(userId));
 
@@ -99,18 +96,29 @@ export default {
         user = this.users.find(user => String(user.user_ID) === String(userId));
       }
 
+      // If still not found, try to find by name (for cases where assigned_to contains names instead of IDs)
+      if (!user) {
+        user = this.users.find(user => user.name === userId);
+      }
+
       if (user) {
-        const userWithInitials = {
+        return {
           ...user,
           id: user.id || user.user_ID,
           initials: this.getInitials(user.name)
         };
-        console.log('DEBUG: Found user:', userWithInitials);
-        return userWithInitials;
       }
-
-      console.log(`User not found for task assignee ID: ${userId}`);
-      console.log('Available users:', this.users.map(u => ({ id: u.id, user_ID: u.user_ID, name: u.name })));
+      
+      // If userId looks like a name, create a user object with that name
+      if (typeof userId === 'string' && !userId.includes('_') && !userId.match(/^[a-zA-Z0-9]{20,}$/)) {
+        return {
+          id: userId,
+          name: userId,
+          initials: this.getInitials(userId)
+        };
+      }
+      
+      // Return unknown user with proper initials
       return {
         id: userId,
         name: 'Unknown User',

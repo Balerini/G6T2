@@ -164,6 +164,8 @@
       </label>
     </div>
 
+
+
     <!-- Start Date -->
     <div class="form-group">
       <label class="form-label" for="startDate">Start Date *</label>
@@ -1913,6 +1915,8 @@ export default {
 .status-message.info {
   color: #1976d2;
 }
+
+
 
 /* Update existing assignee-tag styles to work with objects */
 .assignee-tags {

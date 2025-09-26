@@ -95,33 +95,30 @@ export default {
     uniqueCollaborators() {
       const collaboratorIds = new Set();
 
-      // Add project collaborators
-      if (this.project.collaborators && Array.isArray(this.project.collaborators)) {
-        this.project.collaborators.forEach(id => {
-          if (id) collaboratorIds.add(String(id)); // Convert to string
-        });
-      }
-
-      // Add task assignees
+      // Only add collaborators from tasks (assignees and creators) within this specific project
       if (this.project.tasks && Array.isArray(this.project.tasks)) {
-        this.project.tasks.forEach(task => {
+        this.project.tasks.forEach((task) => {
+          // Add task assignees
           if (task.assigned_to && Array.isArray(task.assigned_to)) {
             task.assigned_to.forEach(id => {
-              if (id) collaboratorIds.add(String(id)); // Convert to string
+              if (id) {
+                collaboratorIds.add(String(id));
+              }
             });
           }
-          // Also add task creator
+          // Add task creator
           if (task.created_by) {
-            collaboratorIds.add(String(task.created_by)); // Convert to string
+            collaboratorIds.add(String(task.created_by));
           }
         });
       }
 
-      // Convert IDs to user objects and limit to 4 for display
-      return Array.from(collaboratorIds)
+      // Convert IDs to user objects
+      const collaborators = Array.from(collaboratorIds)
         .map(id => this.getUser(id))
-        .filter(user => user)
-        .slice(0, 4);
+        .filter(user => user);
+        
+      return collaborators;
     }
   },
   methods: {
@@ -179,15 +176,33 @@ export default {
     },
 
     getUser(userId) {
+      // First try to find by document ID (from backend API)
       let user = this.users.find(user => String(user.id) === String(userId));
+      
+      // Fallback to user_ID field if it exists
       if (!user) {
         user = this.users.find(user => String(user.user_ID) === String(userId));
       }
+      
+      // If still not found, try to find by name (for cases where assigned_to contains names instead of IDs)
+      if (!user) {
+        user = this.users.find(user => user.name === userId);
+      }
+      
       if (user) {
         return {
           ...user,
           id: user.id || user.user_ID, 
           initials: this.getInitials(user.name)
+        };
+      }
+      
+      // If userId looks like a name, create a user object with that name
+      if (typeof userId === 'string' && !userId.includes('_') && !userId.match(/^[a-zA-Z0-9]{20,}$/)) {
+        return {
+          id: userId,
+          name: userId,
+          initials: this.getInitials(userId)
         };
       }
       
