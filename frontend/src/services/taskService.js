@@ -96,10 +96,17 @@ export const taskService = {
     }
   },
 
-  async getProjects() {
+  async getProjects(userId, divisionName) {
     try {
-      const response = await api.get('/api/projects');
-      return response.data;
+      if (userId && divisionName) {
+        // Use filtered API to get only projects where user is a collaborator
+        const response = await api.get(`/api/projects/filtered/${encodeURIComponent(divisionName)}?user_id=${encodeURIComponent(userId)}`);
+        return response.data;
+      } else {
+        // Fallback to all projects if no user info
+        const response = await api.get('/api/projects');
+        return response.data;
+      }
     } catch (error) {
       throw new Error(error.response?.data?.error || 'Failed to fetch projects');
     }

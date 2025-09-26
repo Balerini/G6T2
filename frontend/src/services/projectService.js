@@ -13,7 +13,7 @@ const api = axios.create({
 /* global process */
 
 export const projectService = {
-  getAllProjectsWithTasks: (divisionName) => projectAPI.getFilteredProjectsByDivision(divisionName),
+  getAllProjectsWithTasks: (divisionName, userId) => projectAPI.getFilteredProjectsByDivision(divisionName, userId),
   getAllUsers: (divisionName) => userAPI.getFilteredUsersByDivision(divisionName),
 
   // ============== Get all projects ==============

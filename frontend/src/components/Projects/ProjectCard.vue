@@ -93,27 +93,19 @@ export default {
   },
   computed: {
     uniqueCollaborators() {
+      // Use project-level collaborators from the database
       const collaboratorIds = new Set();
 
-      // Only add collaborators from tasks (assignees and creators) within this specific project
-      if (this.project.tasks && Array.isArray(this.project.tasks)) {
-        this.project.tasks.forEach((task) => {
-          // Add task assignees
-          if (task.assigned_to && Array.isArray(task.assigned_to)) {
-            task.assigned_to.forEach(id => {
-              if (id) {
-                collaboratorIds.add(String(id));
-              }
-            });
-          }
-          // Add task creator
-          if (task.created_by) {
-            collaboratorIds.add(String(task.created_by));
+      // Add project collaborators from the database
+      if (this.project.collaborators && Array.isArray(this.project.collaborators)) {
+        this.project.collaborators.forEach(id => {
+          if (id) {
+            collaboratorIds.add(String(id));
           }
         });
       }
 
-      // Convert IDs to user objects
+      // Convert IDs to user objects - only include users that actually exist
       const collaborators = Array.from(collaboratorIds)
         .map(id => this.getUser(id))
         .filter(user => user);
@@ -197,15 +189,7 @@ export default {
         };
       }
       
-      // If userId looks like a name, create a user object with that name
-      if (typeof userId === 'string' && !userId.includes('_') && !userId.match(/^[a-zA-Z0-9]{20,}$/)) {
-        return {
-          id: userId,
-          name: userId,
-          initials: this.getInitials(userId)
-        };
-      }
-      
+      // Don't create user objects for non-existent users - return null
       return null;
     },
     getInitials(name) {

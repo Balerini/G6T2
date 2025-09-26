@@ -192,8 +192,8 @@ export default {
         
         console.log(`Fetching projects for division: ${this.currentUser.division_name}`);
         
-        // Use the new filtered endpoint
-        this.projects = await projectAPI.getFilteredProjectsByDivision(this.currentUser.division_name);
+        // Use the new filtered endpoint with user ID
+        this.projects = await projectAPI.getFilteredProjectsByDivision(this.currentUser.division_name, this.currentUser.id);
         
         console.log('Fetched filtered projects:', this.projects);
         console.log(`Found ${this.projects.length} projects for ${this.currentUser.division_name} department`);

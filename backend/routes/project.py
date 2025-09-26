@@ -28,18 +28,17 @@ def get_users_from_same_division(division_name):
 # =============== GET FILTERED PROJECTS BY DIVISION ===============
 @projects_bp.route('/api/projects/filtered/<division_name>', methods=['GET'])
 def get_filtered_projects_by_division(division_name):
-    """Get projects filtered by division - only shows projects where collaborators are from same division"""
+    """Get projects filtered by division - only shows projects where current user is a collaborator"""
     try:
         db = get_firestore_client()
         
-        print(f"Filtering projects for division: {division_name}")
+        # Get current user ID from query parameters
+        current_user_id = request.args.get('user_id')
+        if not current_user_id:
+            print("No user ID provided in query parameters")
+            return jsonify({'error': 'User ID required'}), 400
         
-        # Get all user IDs from the same division
-        same_division_user_ids = get_users_from_same_division(division_name)
-        
-        if not same_division_user_ids:
-            print(f"No users found in division {division_name}")
-            return jsonify([]), 200
+        print(f"Filtering projects for division: {division_name}, user: {current_user_id}")
         
         # Get all projects
         projects_ref = db.collection('Projects')
@@ -51,14 +50,12 @@ def get_filtered_projects_by_division(division_name):
             project_data = project.to_dict()
             project_data['id'] = project.id
             
-            # Check if any collaborator is from the same division
+            # Check if current user is a collaborator of this project
             collaborators = project_data.get('collaborators', [])
-            has_same_division_collaborator = any(
-                collab_id in same_division_user_ids for collab_id in collaborators
-            )
+            is_user_collaborator = current_user_id in collaborators
             
-            if has_same_division_collaborator:
-                print(f"Project {project_data.get('proj_name', 'Unknown')} included for {division_name}")
+            if is_user_collaborator:
+                print(f"Project {project_data.get('proj_name', 'Unknown')} included - user is collaborator")
                 
                 # Convert timestamps to ISO format
                 if 'start_date' in project_data and project_data['start_date']:
@@ -70,7 +67,7 @@ def get_filtered_projects_by_division(division_name):
                 if 'updatedAt' in project_data and project_data['updatedAt']:
                     project_data['updatedAt'] = project_data['updatedAt'].isoformat()
                 
-                # Get filtered tasks for this project
+                # Get all tasks for this project (since user is a collaborator)
                 project_doc_id = project.id
                 tasks_ref = db.collection('Tasks')
                 tasks_query = tasks_ref.where('proj_ID', '==', project_doc_id)
@@ -80,9 +77,6 @@ def get_filtered_projects_by_division(division_name):
                 for task in tasks:
                     task_data = task.to_dict()
                     task_data['id'] = task.id
-                    
-                    # Include all tasks for projects that have collaborators from the same division
-                    # (removed the restrictive task-level filtering)
                     
                     # Convert task timestamps
                     if 'start_date' in task_data and task_data['start_date']:
@@ -98,8 +92,10 @@ def get_filtered_projects_by_division(division_name):
                 
                 project_data['tasks'] = task_list
                 filtered_projects.append(project_data)
+            else:
+                print(f"Project {project_data.get('proj_name', 'Unknown')} excluded - user is not collaborator")
         
-        print(f"Returning {len(filtered_projects)} filtered projects for {division_name}")
+        print(f"Returning {len(filtered_projects)} filtered projects for user {current_user_id}")
         return jsonify(filtered_projects), 200
         
     except Exception as e:

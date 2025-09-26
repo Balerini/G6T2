@@ -67,9 +67,9 @@ export const projectAPI = {
   },
 
   // Get projects filtered by division
-  getFilteredProjectsByDivision: async (divisionName) => {
+  getFilteredProjectsByDivision: async (divisionName, userId) => {
     try {
-      const response = await api.get(`/api/projects/filtered/${encodeURIComponent(divisionName)}`)
+      const response = await api.get(`/api/projects/filtered/${encodeURIComponent(divisionName)}?user_id=${encodeURIComponent(userId)}`)
       console.log('Filtered projects response:', response.data);
       return response.data
     } catch (error) {

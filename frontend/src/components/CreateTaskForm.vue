@@ -3,7 +3,7 @@
     <!-- Project Selection -->
     <div class="form-group">
       <label class="form-label" for="projId">
-        Project *
+        Project
       </label>
       
       <!-- Project dropdown -->
@@ -447,6 +447,21 @@ export default {
     const fileInput = ref(null);
     const dateValidationError = ref('');
     
+    // Helper function to get current user
+    const getCurrentUser = () => {
+      try {
+        const userData = sessionStorage.getItem('user');
+        if (userData) {
+          const user = JSON.parse(userData);
+          return user; // Return the full user object
+        }
+        return null;
+      } catch (error) {
+        console.error('Error getting current user:', error);
+        return null;
+      }
+    };
+    
     // Enhanced validation state
     const validationErrors = reactive({
       task_ID: '',
@@ -511,7 +526,19 @@ export default {
       isLoadingProjects.value = true;
       try {
         console.log('Loading projects...');
-        const projectsData = await taskService.getProjects();
+        
+        // Get current user info for filtering
+        const currentUser = getCurrentUser();
+        let projectsData;
+        
+        if (currentUser && currentUser.id && currentUser.division_name) {
+          console.log('Loading projects for user:', currentUser.id, 'division:', currentUser.division_name);
+          projectsData = await taskService.getProjects(currentUser.id, currentUser.division_name);
+        } else {
+          console.log('No user info available, loading all projects');
+          projectsData = await taskService.getProjects();
+        }
+        
         console.log('Projects loaded:', projectsData);
         
         // Check for duplicate IDs
@@ -956,12 +983,6 @@ export default {
       return '';
     };
 
-    const validateProjectSelection = (value) => {
-      if (!value || !value.trim()) {
-        return 'Please select a project';
-      }
-      return '';
-    };
 
     const validateStartDate = (value) => {
       if (!value) {
@@ -1052,7 +1073,8 @@ export default {
           validationErrors.task_desc = touchedFields.task_desc ? validateTaskDescription(value) : '';
           break;
         case 'proj_name':
-          validationErrors.proj_name = touchedFields.proj_name ? validateProjectSelection(value) : '';
+          // Project is optional, no validation needed
+          validationErrors.proj_name = '';
           break;
         case 'start_date':
           validationErrors.start_date = touchedFields.start_date ? validateStartDate(value) : '';
@@ -1105,21 +1127,7 @@ export default {
     }, { immediate: true });
 
     onMounted(() => {
-      // Get current user from sessionStorage
-      const getCurrentUser = () => {
-        try {
-          const userData = sessionStorage.getItem('user');
-          if (userData) {
-            const user = JSON.parse(userData);
-            return user; // Return the full user object
-          }
-          return null;
-        } catch (error) {
-          console.error('Error getting current user:', error);
-          return null;
-        }
-      };
-
+      // Get current user using the helper function
       const currentUser = getCurrentUser();
       if (currentUser) {
         formData.created_by = currentUser.name;
@@ -1243,8 +1251,7 @@ export default {
       let hasErrors = false;
       let firstErrorField = null;
       
-      // Validate required fields
-      validationErrors.proj_name = validateProjectSelection(formData.proj_name);
+      // Validate required fields (project is optional)
       validationErrors.task_name = validateTaskName(formData.task_name);
       validationErrors.start_date = validateStartDate(formData.start_date);
       validationErrors.end_date = validateEndDate(formData.end_date, formData.start_date);
@@ -1252,11 +1259,7 @@ export default {
       validationErrors.attachments = validateAttachments(formData.attachments);
       validationErrors.collaborators = validateCollaborators(formData.assigned_to);
       
-      // Check for any validation errors
-      if (validationErrors.proj_name) {
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'projId';
-      }
+      // Check for any validation errors (skip project validation)
       if (validationErrors.task_name) {
         hasErrors = true;
         if (!firstErrorField) firstErrorField = 'taskName';
