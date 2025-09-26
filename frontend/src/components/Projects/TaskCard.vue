@@ -126,7 +126,9 @@ export default {
       };
     },
     getCreatorName(userId) {
-      // First try to find by document ID (from backend API)  
+      if (!userId) return 'Unknown User';
+      
+      // First try to find by document ID (from backend API)
       let user = this.users.find(u => String(u.id) === String(userId));
 
       // Fallback to user_ID field if it exists
@@ -134,8 +136,20 @@ export default {
         user = this.users.find(u => String(u.user_ID) === String(userId));
       }
 
-      const name = user ? user.name : 'Unknown User';
-      return name;
+      // If still not found, try to find by name (in case created_by was stored as name)
+      if (!user) {
+        user = this.users.find(u => u.name === userId);
+      }
+
+      // If still not found, try partial matching
+      if (!user) {
+        user = this.users.find(u => 
+          String(u.id).includes(String(userId)) || 
+          String(userId).includes(String(u.id))
+        );
+      }
+
+      return user ? user.name : `User ${userId}`;
     },
     getInitials(name) {
       if (!name) return 'U';

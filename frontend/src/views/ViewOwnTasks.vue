@@ -178,9 +178,16 @@ export default {
     },
     handleViewTask(task) {
       const projectId = task.proj_ID || task.projectId; 
-      const taskId = task.task_ID || task.taskId; 
-      console.log(projectId, taskId);
-      this.$router.push(`/projects/${projectId}/tasks/${taskId}`);
+      const taskId = task.id || task.task_ID || task.taskId; 
+      console.log('Viewing task:', { projectId, taskId, task });
+      
+      // If task has a project, go to project task view
+      if (projectId) {
+        this.$router.push(`/projects/${projectId}/tasks/${taskId}`);
+      } else {
+        // If task has no project, go to standalone task view
+        this.$router.push(`/tasks/${taskId}`);
+      }
     }
   },
   computed: {
