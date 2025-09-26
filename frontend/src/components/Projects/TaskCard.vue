@@ -220,8 +220,13 @@ export default {
 
 .assignee-list {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.assignee-list .assignee-avatar {
+  margin-right: 0;
 }
 
 .attachments-list {
