@@ -2,7 +2,6 @@
   <div class="project-card">
     <!-- Project Header -->
     <div class="project-header">
-      <div class="project-status-indicator" :class="getStatusClass(project.proj_status)"></div>
       <h2 class="project-title">{{ project.proj_name }}</h2>
       <button class="edit-btn" @click="$emit('edit-project', project)">✏️</button>
     </div>
@@ -14,12 +13,6 @@
         <div class="meta-item">
           <span class="meta-label">Duration:</span>
           <span class="meta-value">{{ formatDateRange(project.start_date, project.end_date) }}</span>
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Status:</span>
-          <span class="status-badge" :class="getStatusClass(project.proj_status)">
-            {{ formatStatus(project.proj_status) }}
-          </span>
         </div>
         <div class="meta-item collaborators-section">
           <span class="meta-label">Collaborators:</span>
@@ -127,25 +120,6 @@ export default {
         this.$set(this.project.tasks, idx, { ...this.project.tasks[idx], ...updated })
       }
     },
-    getStatusClass(status) {
-      if (!status) return 'status-default';
-
-      // Convert status to lowercase and handle various formats
-      const normalizedStatus = status.toLowerCase().replace(/[\s_]/g, '-');
-
-      const statusClasses = {
-        'not-started': 'status-todo',
-        'in-progress': 'status-progress',
-        'on-hold': 'status-pending',
-        'completed': 'status-completed',
-        'cancelled': 'status-pending'
-      };
-
-      return statusClasses[normalizedStatus] || 'status-default';
-    },
-    formatStatus(status) {
-      return status?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown';
-    },
     formatDateRange(startDate, endDate) {
       if (!startDate || !endDate) return 'No dates set';
       const start = new Date(startDate).toLocaleDateString('en-US', {
@@ -220,28 +194,6 @@ export default {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid #f3f4f6;
   gap: 1rem;
-}
-
-.project-status-indicator {
-  width: 4px;
-  height: 40px;
-  border-radius: 2px;
-}
-
-.status-progress {
-  background: #fbbf24;
-}
-
-.status-todo {
-  background: #ef4444;
-}
-
-.status-completed {
-  background: #10b981;
-}
-
-.status-pending {
-  background: #f59e0b;
 }
 
 .project-title {
@@ -422,33 +374,6 @@ export default {
 .meta-value {
   color: #111827;
   font-weight: 500;
-}
-
-.status-badge {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-weight: 500;
-}
-
-.status-badge.status-progress {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.status-badge.status-todo {
-  background: #fecaca;
-  color: #991b1b;
-}
-
-.status-badge.status-completed {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status-badge.status-pending {
-  background: #fed7aa;
-  color: #9a3412;
 }
 
 .tasks-container {
