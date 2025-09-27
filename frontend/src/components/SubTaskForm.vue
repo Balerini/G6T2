@@ -114,11 +114,17 @@
           v-model="form.startDate"
           type="date"
           required
-          :min="today" 
+          :min="getSubtaskMinStartDate()"
+          :max="getSubtaskMaxEndDate()"
           class="form-input"
           :class="{ 'error': errors.startDate }"
+          @change="validateDates()"
+          @blur="validateForm()"
         />
         <span v-if="errors.startDate" class="error-message">{{ errors.startDate }}</span>
+        <div v-if="getDateConstraintInfo()" class="date-constraint-info">
+          {{ getDateConstraintInfo() }}
+        </div>
       </div>
 
       <!-- END DATE -->
@@ -131,9 +137,12 @@
           v-model="form.endDate"
           type="date"
           required
-          :min="form.startDate || today" 
+          :min="form.startDate || getSubtaskMinStartDate()"
+          :max="getSubtaskMaxEndDate()"
           class="form-input"
           :class="{ 'error': errors.endDate }"
+          @change="validateDates()"
+          @blur="validateForm()"
         />
         <span v-if="errors.endDate" class="error-message">{{ errors.endDate }}</span>
       </div>
@@ -298,6 +307,219 @@ const availableStaff = computed(() => {
   }))
 })
 
+const getSubtaskMinStartDate = () => {
+  const today = new Date().toISOString().split('T')[0]
+  
+  // Priority 1: Task dates (if both exist)
+  if (parentTask.value?.start_date) {
+    const taskStartDate = new Date(parentTask.value.start_date).toISOString().split('T')[0]
+    return taskStartDate > today ? taskStartDate : today
+  }
+  
+  // Priority 2: Project dates (if task dates don't exist)
+  if (parentProject.value?.start_date) {
+    const projectStartDate = new Date(parentProject.value.start_date).toISOString().split('T')[0]
+    return projectStartDate > today ? projectStartDate : today
+  }
+  
+  // Priority 3: Just today (if no project/task dates)
+  return today
+}
+
+// Get maximum end date for subtask
+const getSubtaskMaxEndDate = () => {
+  // Priority 1: Task end date (if exists)
+  if (parentTask.value?.end_date) {
+    return new Date(parentTask.value.end_date).toISOString().split('T')[0]
+  }
+  
+  // Priority 2: Project end date (if task end date doesn't exist)
+  if (parentProject.value?.end_date) {
+    return new Date(parentProject.value.end_date).toISOString().split('T')[0]
+  }
+  
+  // Priority 3: No constraint (if no project/task dates)
+  return null
+}
+
+// Get info text about date constraints
+const getDateConstraintInfo = () => {
+  if (parentTask.value?.start_date && parentTask.value?.end_date) {
+    const startDate = new Date(parentTask.value.start_date).toLocaleDateString('en-SG', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+    const endDate = new Date(parentTask.value.end_date).toLocaleDateString('en-SG', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+    return `Task dates: ${startDate} - ${endDate}`
+  }
+  
+  if (parentProject.value?.start_date && parentProject.value?.end_date) {
+    const startDate = new Date(parentProject.value.start_date).toLocaleDateString('en-SG', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+    const endDate = new Date(parentProject.value.end_date).toLocaleDateString('en-SG', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+    return `Project dates: ${startDate} - ${endDate}`
+  }
+  
+  return null
+}
+
+// Validate dates with cascading logic
+// Validate dates with cascading logic
+const validateDates = () => {
+  // Clear previous date errors
+  if (errors.value.startDate) delete errors.value.startDate
+  if (errors.value.endDate) delete errors.value.endDate
+  
+  // Validate start date
+  if (form.value.startDate) {
+    const startDate = new Date(form.value.startDate)
+    
+    // Create today's date for comparison - more explicit usage
+    const todayDate = new Date()
+    todayDate.setHours(0, 0, 0, 0)
+    
+    // Cannot be in the past
+    if (startDate < todayDate) {
+      errors.value.startDate = 'Start date cannot be in the past'
+      return
+    }
+    
+    // Check task constraints first
+    if (parentTask.value?.start_date) {
+      const taskStartDate = new Date(parentTask.value.start_date)
+      if (startDate < taskStartDate) {
+        const formattedDate = new Date(parentTask.value.start_date).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.startDate = `Start date cannot be before task start date (${formattedDate})`
+        return
+      }
+    }
+    
+    if (parentTask.value?.end_date) {
+      const taskEndDate = new Date(parentTask.value.end_date)
+      if (startDate > taskEndDate) {
+        const formattedDate = new Date(parentTask.value.end_date).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.startDate = `Start date cannot be after task end date (${formattedDate})`
+        return
+      }
+    }
+    
+    // If no task constraints, check project constraints
+    if (!parentTask.value?.start_date && parentProject.value?.start_date) {
+      const projectStartDate = new Date(parentProject.value.start_date)
+      if (startDate < projectStartDate) {
+        const formattedDate = new Date(parentProject.value.start_date).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.startDate = `Start date cannot be before project start date (${formattedDate})`
+        return
+      }
+    }
+    
+    if (!parentTask.value?.end_date && parentProject.value?.end_date) {
+      const projectEndDate = new Date(parentProject.value.end_date)
+      if (startDate > projectEndDate) {
+        const formattedDate = new Date(parentProject.value.end_date).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.startDate = `Start date cannot be after project end date (${formattedDate})`
+        return
+      }
+    }
+  }
+  
+  // Validate end date - no need to declare 'today' again
+  if (form.value.endDate) {
+    const endDate = new Date(form.value.endDate)
+    
+    // Must be after start date
+    if (form.value.startDate) {
+      const startDate = new Date(form.value.startDate)
+      if (endDate <= startDate) {
+        errors.value.endDate = 'End date must be after start date'
+        return
+      }
+    }
+    
+    // Check task constraints first
+    if (parentTask.value?.end_date) {
+      const taskEndDate = new Date(parentTask.value.end_date)
+      if (endDate > taskEndDate) {
+        const formattedDate = new Date(parentTask.value.end_date).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.endDate = `End date cannot be after task end date (${formattedDate})`
+        return
+      }
+    }
+    
+    if (parentTask.value?.start_date) {
+      const taskStartDate = new Date(parentTask.value.start_date)
+      if (endDate < taskStartDate) {
+        const formattedDate = new Date(parentTask.value.start_date).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.endDate = `End date cannot be before task start date (${formattedDate})`
+        return
+      }
+    }
+    
+    // If no task constraints, check project constraints
+    if (!parentTask.value?.end_date && parentProject.value?.end_date) {
+      const projectEndDate = new Date(parentProject.value.end_date)
+      if (endDate > projectEndDate) {
+        const formattedDate = new Date(parentProject.value.end_date).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.endDate = `End date cannot be after project end date (${formattedDate})`
+        return
+      }
+    }
+    
+    if (!parentTask.value?.start_date && parentProject.value?.start_date) {
+      const projectStartDate = new Date(parentProject.value.start_date)
+      if (endDate < projectStartDate) {
+        const formattedDate = new Date(parentProject.value.start_date).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.endDate = `End date cannot be before project start date (${formattedDate})`
+        return
+      }
+    }
+  }
+}
+
 // Load parent task data and pre-fill form
 const loadParentTaskData = async () => {
   try {
@@ -359,11 +581,6 @@ onMounted(() => {
 // File Attachments Data
 const selectedFiles = ref([])
 const fileInput = ref(null)
-
-// DATE FORMAT (so date input don't select beyond past date)
-const today = computed(() => {
-  return new Date().toISOString().split('T')[0]
-})
 
 // Check if Current user can assign tasks to this staff member
 const canAssignTo = (staff) => {
@@ -440,14 +657,15 @@ const validateForm = () => {
   
   if (!form.value.startDate) {
     errors.value.startDate = 'Start date is required'
-  } else if (new Date(form.value.startDate) < new Date()) {
-    errors.value.startDate = 'Start date cannot be in the past'
   }
   
   if (!form.value.endDate) {
     errors.value.endDate = 'End date is required'
-  } else if (new Date(form.value.endDate) < new Date(form.value.startDate)) {
-    errors.value.endDate = 'End date cannot be before start date'
+  }
+  
+  // Use the new date validation
+  if (form.value.startDate || form.value.endDate) {
+    validateDates()
   }
   
   if (!form.value.status) {
@@ -815,5 +1033,12 @@ textarea {
   font-size: 14px;
   text-align: center;
   margin-bottom: 12px;
+}
+
+.date-constraint-info {
+  font-size: 12px;
+  color: #666666;
+  margin-top: 4px;
+  font-style: italic;
 }
 </style>
