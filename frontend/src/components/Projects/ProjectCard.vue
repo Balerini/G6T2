@@ -29,21 +29,90 @@
       </div>
     </div>
 
-    <!-- Tasks -->
+    <!-- Tasks Container -->
     <div class="tasks-container">
-      <TaskItem
-        v-for="task in project.tasks"
-        :key="task.task_ID"
-        :task="task"
-        :users="users"
-        @view-task="$emit('view-task', $event)"
-        @edit-task="openEdit(task)"
-      />
+      <!-- Tasks Header with Sort Controls and Status Filter -->
+      <div v-if="project.tasks && project.tasks.length > 0" class="tasks-header">
+        <div class="tasks-info">
+          <h4 class="tasks-count">
+            {{ filteredAndSortedTasks.length }} of {{ project.tasks.length }} Task{{ project.tasks.length !== 1 ? 's' : '' }}
+            <span v-if="taskStatusFilter !== 'all'" class="filter-indicator" :class="`status-${taskStatusFilter.toLowerCase().replace(' ', '-')}`">
+              ({{ taskStatusFilter }})
+            </span>
+          </h4>
+        </div>
+        
+        <div class="tasks-controls">
+          <!-- Status Filter -->
+          <div class="status-filter">
+            <label class="filter-label">Filter:</label>
+              <select 
+                v-model="taskStatusFilter" 
+                class="status-filter-select"
+                @change="onStatusFilterChange"
+              >
+                <option value="all">All Status</option>
+                <option value="Unassigned">Unassigned</option>
+                <option value="Ongoing">Ongoing</option>
+                <option value="Under Review">Under Review</option>
+                <option value="Completed">Completed</option>
+              </select>
+          </div>
+          
+          <!-- Date Sort Controls -->
+          <div class="tasks-sort-controls">
+            <span class="sort-label">Sort:</span>
+            <div class="sort-toggle-group">
+              <button 
+                class="sort-toggle-btn"
+                :class="{ 'active': taskSortOrder === 'asc' }"
+                @click="setTaskSortOrder('asc')"
+              >
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                  <path d="M6 3L9 6H3L6 3Z" fill="currentColor"/>
+                </svg>
+                Earliest
+              </button>
+              <button 
+                class="sort-toggle-btn"
+                :class="{ 'active': taskSortOrder === 'desc' }"
+                @click="setTaskSortOrder('desc')"
+              >
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                  <path d="M6 9L3 6H9L6 9Z" fill="currentColor"/>
+                </svg>
+                Latest
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
+      <!-- Tasks List (using filtered and sorted tasks) -->
+      <div class="tasks-list">
+        <TaskItem
+          v-for="task in filteredAndSortedTasks"
+          :key="task.task_ID"
+          :task="task"
+          :users="users"
+          @view-task="$emit('view-task', $event)"
+          @edit-task="openEdit(task)"
+        />
+        
+        <!-- No tasks message when filtered -->
+        <div v-if="filteredAndSortedTasks.length === 0 && project.tasks.length > 0" class="no-tasks-filtered">
+          <p>No tasks found with status: <strong>{{ taskStatusFilter.replace('-', ' ') }}</strong></p>
+          <button class="clear-filter-btn" @click="clearStatusFilter">Show All Tasks</button>
+        </div>
+      </div>
+
+      <!-- Add Task Button -->
       <button class="add-task-btn" @click="$emit('add-task', project)">
         + Add Task
       </button>
     </div>
+
+    <!-- Edit Task Modal -->
     <EditTask
       v-if="selectedTask"
       :visible="showEdit"
@@ -81,10 +150,79 @@ export default {
   data() {
     return {
       showEdit: false,
-      selectedTask: null
+      selectedTask: null,
+      taskSortOrder: 'asc', // Date sorting
+      taskStatusFilter: 'all' // 🆕 ADD STATUS FILTER
     }
   },
   computed: {
+    // 🆕 REPLACE sortedTasks with filteredAndSortedTasks
+    filteredAndSortedTasks() {
+      if (!this.project.tasks || this.project.tasks.length === 0) {
+        return [];
+      }
+
+      // First, filter by status
+      let filtered = [...this.project.tasks];
+      
+      if (this.taskStatusFilter !== 'all') {
+        filtered = filtered.filter(task => {
+          const taskStatus = task.task_status || task.status || 'Unassigned'; // Updated default
+          return taskStatus === this.taskStatusFilter;
+        });
+      }
+
+      // Then, sort by date (existing sorting logic stays the same)
+      const sorted = filtered.sort((a, b) => {
+        // Handle tasks without start_date (put them at the end)
+        if (!a.start_date && !b.start_date) return 0;
+        if (!a.start_date) return 1;
+        if (!b.start_date) return -1;
+        
+        const dateA = new Date(a.start_date);
+        const dateB = new Date(b.start_date);
+        
+        // Check for invalid dates
+        if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
+        if (isNaN(dateA.getTime())) return 1;
+        if (isNaN(dateB.getTime())) return -1;
+        
+        if (this.taskSortOrder === 'asc') {
+          return dateA - dateB; // Earliest first
+        } else {
+          return dateB - dateA; // Latest first
+        }
+      });
+
+      console.log(`Tasks in ${this.project.proj_name} - Status: ${this.taskStatusFilter}, Sort: ${this.taskSortOrder}, Count: ${sorted.length}`);
+
+      return sorted;
+    },
+
+    // 🆕 ADD STATUS COUNTS for potential badge display
+    statusCounts() {
+      if (!this.project.tasks || this.project.tasks.length === 0) {
+        return {};
+      }
+
+      const counts = {
+        'Unassigned': 0,
+        'Ongoing': 0,
+        'Under Review': 0,
+        'Completed': 0
+      };
+
+      this.project.tasks.forEach(task => {
+        const status = task.task_status || task.status || 'Unassigned'; // Default to Unassigned
+        // Use 'in' operator to check if status exists
+        if (status in counts) {
+          counts[status]++;
+        }
+      });
+
+      return counts;
+    },
+
     uniqueCollaborators() {
       // Use project-level collaborators from the database
       const collaboratorIds = new Set();
@@ -107,10 +245,30 @@ export default {
     }
   },
   methods: {
+    setTaskSortOrder(order) {
+      console.log(`Setting task sort order to: ${order} for project: ${this.project.proj_name}`);
+      this.taskSortOrder = order;
+    },
+
+    // 🆕 ADD STATUS FILTER METHODS
+    onStatusFilterChange() {
+      console.log(`Filtering tasks by status: ${this.taskStatusFilter} for project: ${this.project.proj_name}`);
+    },
+
+    clearStatusFilter() {
+      this.taskStatusFilter = 'all';
+    },
+
+    // 🆕 ADD METHOD TO GET STATUS COUNT
+    getStatusCount(status) {
+      return this.statusCounts[status] || 0;
+    },
+
     openEdit(task) {
       this.selectedTask = task
       this.showEdit = true
     },
+
     onTaskSaved(updated) {
       this.showEdit = false
       // Update task in local project view (minimal local sync)
@@ -120,6 +278,7 @@ export default {
         this.$set(this.project.tasks, idx, { ...this.project.tasks[idx], ...updated })
       }
     },
+
     formatDateRange(startDate, endDate) {
       if (!startDate || !endDate) return 'No dates set';
       const start = new Date(startDate).toLocaleDateString('en-US', {
@@ -133,6 +292,7 @@ export default {
       });
       return `${start} - ${end}`;
     },
+
     handleViewTask(task) {
       // Emit the task with the project context
       this.$emit('view-task', {
@@ -166,6 +326,7 @@ export default {
       // Don't create user objects for non-existent users - return null
       return null;
     },
+
     getInitials(name) {
       if (!name) return 'U';
       return name
@@ -174,7 +335,7 @@ export default {
         .join('')
         .substring(0, 2)
         .toUpperCase();
-    },
+    }
   }
 }
 </script>
@@ -419,5 +580,224 @@ export default {
   .collaborators-section {
     justify-content: flex-start;
   }
+}
+
+/* Tasks Container */
+.tasks-container {
+  margin-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1.5rem;
+}
+
+/* Enhanced Tasks Header */
+.tasks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tasks-info {
+  flex: 1;
+}
+
+.tasks-count {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+.filter-indicator {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #3b82f6;
+  background: #dbeafe;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  margin-left: 0.5rem;
+}
+
+.tasks-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Status Filter */
+.status-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.status-filter-select {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.status-filter-select:hover {
+  border-color: #9ca3af;
+}
+
+.status-filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* Enhanced Sort Controls */
+.tasks-sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tasks-sort-controls .sort-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.sort-toggle-group {
+  display: flex;
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 1px;
+  border: 1px solid #e5e7eb;
+}
+
+.sort-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.sort-toggle-btn:hover {
+  color: #374151;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.sort-toggle-btn.active {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+}
+
+.sort-toggle-btn svg {
+  width: 10px;
+  height: 10px;
+  transition: all 0.2s ease;
+}
+
+.sort-toggle-btn.active svg {
+  color: #3b82f6;
+}
+
+/* No Tasks Filtered State */
+.no-tasks-filtered {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #6b7280;
+  border: 2px dashed #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.no-tasks-filtered p {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+}
+
+.clear-filter-btn {
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filter-btn:hover {
+  background: #2563eb;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .tasks-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .tasks-controls {
+    width: 100%;
+    justify-content: space-between;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .status-filter,
+  .tasks-sort-controls {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .status-filter-select {
+    flex: 1;
+    max-width: none;
+  }
+}
+
+/* Status-based styling for filter indicator */
+.filter-indicator.status-unassigned {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.filter-indicator.status-ongoing {
+  background: #dbeafe;
+  color: #3b82f6;
+}
+
+.filter-indicator.status-under-review {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.filter-indicator.status-completed {
+  background: #d1fae5;
+  color: #065f46;
 }
 </style>
