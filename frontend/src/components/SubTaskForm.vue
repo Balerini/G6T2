@@ -576,11 +576,7 @@ const validateDates = () => {
       // Only check project constraints if task has no dates at all
       if (parentProject.value?.start_date) {
         const projectStartDate = new Date(parentProject.value.start_date)
-        // Normalize dates to compare only the date part (ignore time)
-        const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
-        const projectStartDateOnly = new Date(projectStartDate.getFullYear(), projectStartDate.getMonth(), projectStartDate.getDate())
-        
-        if (startDateOnly < projectStartDateOnly) {
+        if (startDate < projectStartDate) {
           const formattedDate = new Date(parentProject.value.start_date).toLocaleDateString('en-SG', {
             day: '2-digit',
             month: 'short',
@@ -593,11 +589,7 @@ const validateDates = () => {
       
       if (parentProject.value?.end_date) {
         const projectEndDate = new Date(parentProject.value.end_date)
-        // Normalize dates to compare only the date part (ignore time)
-        const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
-        const projectEndDateOnly = new Date(projectEndDate.getFullYear(), projectEndDate.getMonth(), projectEndDate.getDate())
-        
-        if (startDateOnly > projectEndDateOnly) {
+        if (startDate > projectEndDate) {
           const formattedDate = new Date(parentProject.value.end_date).toLocaleDateString('en-SG', {
             day: '2-digit',
             month: 'short',
@@ -1126,12 +1118,10 @@ const handleSubmit = async () => {
       isUploadingFiles.value = true;
       
       // Show upload progress message
-      // Emit upload progress event
-      const progressMsg = `📤 Uploading ${selectedFiles.value.length} file(s)...`;
-      emit('upload-progress', progressMsg);
-      uploadProgressMessage.value = '';
+      uploadProgressMessage.value = `📤 Uploading ${selectedFiles.value.length} file(s)...`;
       successMessage.value = '';
       errorMessage.value = '';
+      console.log('Upload progress message set:', uploadProgressMessage.value);
       
       try {
         // Generate a temporary subtask ID for file organization
@@ -1145,16 +1135,17 @@ const handleSubmit = async () => {
         );
         console.log('Files uploaded successfully:', uploadedAttachments);
         
-        // Emit upload success event
-        const successMsg = `✅ ${uploadedAttachments.length} file(s) uploaded successfully!`;
-        emit('upload-success', successMsg);
+        // Show success message for file upload
         uploadProgressMessage.value = '';
-        successMessage.value = '';
+        successMessage.value = `✅ ${uploadedAttachments.length} file(s) uploaded successfully!`;
+        console.log('File upload success message set:', successMessage.value);
         
-        // No need to clear since we're using events
+        // Clear success message after delay
+        setTimeout(() => {
+          successMessage.value = '';
+        }, 3000);
       } catch (uploadError) {
         console.error('File upload failed:', uploadError);
-        emit('upload-error', `Failed to upload files: ${uploadError.message}`);
         uploadProgressMessage.value = '';
         showError.value = true;
         errorMessage.value = `Failed to upload files: ${uploadError.message}`;
@@ -1224,8 +1215,6 @@ const handleSubmit = async () => {
       errorMsg = error.message;
     }
     
-    // Emit error event
-    emit('subtask-error', errorMsg);
     successMessage.value = '';
     uploadProgressMessage.value = '';
     showError.value = true

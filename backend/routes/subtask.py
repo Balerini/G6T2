@@ -8,7 +8,7 @@ subtask_bp = Blueprint('subtask', __name__)
 def create_subtask():
     try:
         data = request.get_json()
-        print("=== BACKEND SUBTASK CREATION DEBUG ===")
+        print(f"=== BACKEND SUBTASK CREATION DEBUG ===")
         print(f"Received subtask data: {data}")
         print(f"Data keys: {list(data.keys()) if data else 'No data'}")
         
