@@ -46,7 +46,7 @@
     <!-- Error Toast -->
     <transition name="toast-slide">
       <div v-if="errorMessage" class="toast toast-error">
-        <div class="toast-icon">❌</div>
+        <div class="toast-icon">⌘</div>
         <div class="toast-content">
           <div class="toast-title">Error</div>
           <div class="toast-message">{{ errorMessage }}</div>
@@ -89,7 +89,7 @@
           <p>There are no projects available for the {{ currentUser.division_name }} department yet.</p>
           <button class="create-project-btn" @click="navigateToCreateProject">Create First Project</button>
         </div>
-        <ProjectList v-else :projects="filteredProjects" :users="users" @edit-project="handleEditProject"
+        <ProjectList v-else :projects="processedProjects" :users="users" @edit-project="handleEditProject"
           @view-task="handleViewTask" @add-task="handleAddTask" />
       </div>
     </div>
@@ -156,6 +156,13 @@ export default {
         return this.projects;
       }
       return this.projects.filter(project => project.collaborators && project.collaborators.length > 0);
+    },
+    
+    // NEW: Process projects to add auto-collaborators
+    processedProjects() {
+      return this.filteredProjects.map(project => {
+        return this.addAutoCollaborators(project);
+      });
     }
   },
   async created() {
@@ -189,6 +196,186 @@ export default {
     }
   },
   methods: {
+    // NEW: Method to automatically add collaborators from tasks
+    addAutoCollaborators(project) {
+      // Create a deep copy of the project to avoid mutating the original
+      const processedProject = JSON.parse(JSON.stringify(project));
+      
+      // console.log(`=== PROCESSING PROJECT: ${processedProject.proj_name} ===`);
+      // console.log('Project data:', {
+      //   id: processedProject.id,
+      //   name: processedProject.proj_name,
+      //   tasksCount: processedProject.tasks ? processedProject.tasks.length : 0,
+      //   existingCollaborators: processedProject.collaborators
+      // });
+      
+      // Get existing collaborator IDs (if any)
+      const existingCollaboratorIds = new Set();
+      if (processedProject.collaborators && Array.isArray(processedProject.collaborators)) {
+        processedProject.collaborators.forEach(collab => {
+          if (typeof collab === 'object' && collab.id) {
+            existingCollaboratorIds.add(collab.id);
+            // console.log(`Existing collaborator (object): ID ${collab.id}, Name: ${collab.name || collab.username}`);
+          } else if (typeof collab === 'number') {
+            existingCollaboratorIds.add(collab);
+            // console.log(`Existing collaborator (ID only): ${collab}`);
+          } else if (typeof collab === 'string') {
+            existingCollaboratorIds.add(collab);
+            // console.log(`Existing collaborator (string): ${collab}`);
+          }
+        });
+      }
+      
+      // Collect unique user IDs from tasks
+      const taskUserIds = new Set();
+      const taskUserNames = new Set(); // Also collect by name in case it's stored as string
+      
+      if (processedProject.tasks && Array.isArray(processedProject.tasks)) {
+        processedProject.tasks.forEach((task, index) => {
+          console.log(`Task ${index + 1}:`, {
+            name: task.task_name,
+            created_by: task.created_by,
+            assigned_to: task.assigned_to,
+            assignee_id: task.assignee_id,
+            allFields: Object.keys(task)
+          });
+          
+          // Add created_by user (could be ID or name)
+          if (task.created_by) {
+            // Check if it looks like an ID (long string) or a name
+            if (typeof task.created_by === 'string' && task.created_by.length > 15) {
+              // Looks like an ID
+              taskUserIds.add(task.created_by);
+              // console.log(`Added created_by ID: ${task.created_by}`);
+            } else if (typeof task.created_by === 'string') {
+              // Looks like a name
+              taskUserNames.add(task.created_by);
+              // console.log(`Added created_by name: ${task.created_by}`);
+            } else {
+              // It's a number ID
+              taskUserIds.add(task.created_by);
+              // console.log(`Added created_by ID: ${task.created_by}`);
+            }
+          }
+          
+          // Add assigned users
+          if (task.assigned_to) {
+            if (Array.isArray(task.assigned_to)) {
+              task.assigned_to.forEach(userId => {
+                if (typeof userId === 'string' && userId.length > 15) {
+                  // Looks like an ID
+                  taskUserIds.add(userId);
+                  // console.log(`Added assigned_to ID: ${userId}`);
+                } else if (typeof userId === 'string') {
+                  // Looks like a name
+                  taskUserNames.add(userId);
+                  // console.log(`Added assigned_to name: ${userId}`);
+                } else {
+                  // It's a number ID
+                  taskUserIds.add(userId);
+                  // console.log(`Added assigned_to ID: ${userId}`);
+                }
+              });
+            } else {
+              if (typeof task.assigned_to === 'string' && task.assigned_to.length > 15) {
+                // Looks like an ID
+                taskUserIds.add(task.assigned_to);
+                console.log(`Added assigned_to ID: ${task.assigned_to}`);
+              } else if (typeof task.assigned_to === 'string') {
+                // Looks like a name
+                taskUserNames.add(task.assigned_to);
+                console.log(`Added assigned_to name: ${task.assigned_to}`);
+              } else {
+                // It's a number ID
+                taskUserIds.add(task.assigned_to);
+                console.log(`Added assigned_to ID: ${task.assigned_to}`);
+              }
+            }
+          }
+          
+          // Also check for assignee_id field
+          if (task.assignee_id) {
+            if (typeof task.assignee_id === 'string' && task.assignee_id.length > 15) {
+              // Looks like an ID
+              taskUserIds.add(task.assignee_id);
+              console.log(`Added assignee_id ID: ${task.assignee_id}`);
+            } else if (typeof task.assignee_id === 'string') {
+              // Looks like a name
+              taskUserNames.add(task.assignee_id);
+              console.log(`Added assignee_id name: ${task.assignee_id}`);
+            } else {
+              // It's a number ID
+              taskUserIds.add(task.assignee_id);
+              console.log(`Added assignee_id ID: ${task.assignee_id}`);
+            }
+          }
+        });
+      }
+      
+      // console.log('Collected user IDs:', Array.from(taskUserIds));
+      // console.log('Collected user names:', Array.from(taskUserNames));
+      // console.log('Available users detailed:', this.users.map(u => ({ 
+      //   id: u.id, 
+      //   name: `"${u.name}"`, 
+      //   username: `"${u.username}"`,
+      //   nameType: typeof u.name,
+      //   usernameType: typeof u.username
+      // })));
+      
+      // Find user IDs for the collected IDs and names
+      const newCollaboratorIds = [];
+      
+      // Match by ID
+      taskUserIds.forEach(userId => {
+        if (!existingCollaboratorIds.has(userId)) {
+          const user = this.users.find(u => u.id === userId);
+          if (user) {
+            newCollaboratorIds.push(user.id);
+          //   console.log(`✅ Auto-adding collaborator by ID: ${user.name || user.username} (ID: ${user.id})`);
+          // } else {
+          //   console.log(`❌ Could not find user with ID: ${userId}`);
+          }
+        }
+      });
+      
+      // Match by name/username (case insensitive and flexible)
+      taskUserNames.forEach(userName => {
+        if (!existingCollaboratorIds.has(userName)) {
+          const user = this.users.find(u => {
+            const nameMatch = u.name && u.name.toLowerCase().trim() === userName.toLowerCase().trim();
+            const usernameMatch = u.username && u.username.toLowerCase().trim() === userName.toLowerCase().trim();
+            const emailMatch = u.email && u.email.toLowerCase().trim() === userName.toLowerCase().trim();
+            
+            return nameMatch || usernameMatch || emailMatch;
+          });
+          
+          if (user && !newCollaboratorIds.includes(user.id)) {
+            newCollaboratorIds.push(user.id);
+            console.log(`✅ Auto-adding collaborator by name: ${user.name || user.username} (matched: ${userName})`);
+          } else if (!user) {
+            console.log(`❌ Could not find user with name/username: ${userName}`);
+            console.log(`Available user names: ${this.users.map(u => u.name).join(', ')}`);
+          }
+        }
+      });
+      
+      // Merge existing and new collaborator IDs
+      if (!processedProject.collaborators) {
+        processedProject.collaborators = [];
+      }
+      
+      processedProject.collaborators = [...processedProject.collaborators, ...newCollaboratorIds];
+      
+      // console.log(`Final result for "${processedProject.proj_name}":`, {
+      //   totalCollaborators: processedProject.collaborators.length,
+      //   addedCount: newCollaboratorIds.length,
+      //   collaboratorIds: processedProject.collaborators
+      // });
+      // console.log('=== END PROCESSING ===\n');
+      
+      return processedProject;
+    },
+
     async fetchProjects() {
       if (!this.currentUser || !this.currentUser.division_name) {
         this.error = 'User division information not available';
@@ -200,7 +387,7 @@ export default {
         this.loading = true;
         this.error = null;
         
-        console.log(`Fetching projects for division: ${this.currentUser.division_name}`);
+        // console.log(`Fetching projects for division: ${this.currentUser.division_name}`);
         
         // Use the new filtered endpoint with user ID
         this.projects = await projectAPI.getFilteredProjectsByDivision(this.currentUser.division_name, this.currentUser.id);
@@ -232,8 +419,8 @@ export default {
         // Load all users to ensure we have all assignees
         this.users = await userAPI.getAllUsers();
         
-        console.log('Fetched all users:', this.users);
-        console.log(`Found ${this.users.length} users total`);
+        // console.log('Fetched all users:', this.users);
+        // console.log(`Found ${this.users.length} users total`);
         
       } catch (error) {
         console.error('Error fetching users:', error);
@@ -305,7 +492,7 @@ export default {
 
       // Method 1: Find by task's proj_ID field (most reliable)
       if (task.proj_ID) {
-        parentProject = this.projects.find(project => String(project.id) === String(task.proj_ID));
+        parentProject = this.processedProjects.find(project => String(project.id) === String(task.proj_ID));
         console.log('Method 1 (by task.proj_ID):', {
           searchingFor: task.proj_ID,
           found: parentProject ? parentProject.proj_name : 'NOT FOUND'
@@ -314,7 +501,7 @@ export default {
 
       // Method 2: If not found, search through all project tasks (fallback)
       if (!parentProject) {
-        parentProject = this.projects.find(project =>
+        parentProject = this.processedProjects.find(project =>
           project.tasks && project.tasks.some(t =>
             String(t.id) === String(task.id) ||
             String(t.task_ID) === String(task.task_ID) ||
@@ -329,7 +516,7 @@ export default {
 
       if (!parentProject) {
         console.error('Could not find parent project for task:', task);
-        console.error('Available projects:', this.projects.map(p => ({
+        console.error('Available projects:', this.processedProjects.map(p => ({
           id: p.id,
           name: p.proj_name,
           taskCount: p.tasks ? p.tasks.length : 0
