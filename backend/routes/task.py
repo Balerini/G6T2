@@ -5,6 +5,7 @@ from datetime import datetime
 import traceback
 import pytz
 
+
 tasks_bp = Blueprint('tasks', __name__)
 
 # =============== CREATE TASK ===============
