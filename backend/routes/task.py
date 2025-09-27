@@ -139,7 +139,6 @@ def get_tasks():
         if user_id:
             query = tasks_ref.where("assigned_to", "array_contains", user_id)
             results = query.stream()
-            print("query user id")
         else:
             results = tasks_ref.stream()
 
@@ -147,12 +146,8 @@ def get_tasks():
         for doc in results:
             task = doc.to_dict()
             task["id"] = doc.id
-            
-            # Only include tasks that don't have a project (proj_ID is null or empty)
-            if not task.get('proj_ID') or task.get('proj_ID') == '':
-                tasks.append(task)
-            else:
-                print(f"Excluding task {doc.id} from My Tasks - it belongs to project {task.get('proj_ID')}")
+            tasks.append(task)
+            print(task)
 
         return jsonify(tasks), 200
 

@@ -18,6 +18,17 @@
             {{ status }}
           </button>
         </div>
+        <!-- Sort Filter Tabs -->
+        <div class="action-tabs mb-4 flex space-x-2">
+          <button
+            v-for="order in sortOrders"
+            :key="order.value"
+            @click="sortOrder = order.value"
+            :class="['tab-btn', {active: sortOrder === order.value}]"
+          >
+            {{ order.label }}
+          </button>
+        </div>
       </div>
     </div>
     <!-- Tasks -->
@@ -98,7 +109,12 @@ export default {
       loading: true,
       error: null,
       filter: "All",
-      statuses: ["All", "To Do", "In Progress", "On Hold", "Completed"]
+      statuses: ["All", "Not Started", "In Progress", "On Hold", "Completed"],
+      sortOrder: "asc",
+      sortOrders: [
+        { value: "asc", label: "Earliest" },
+        { value: "desc", label: "Latest" }
+      ]
     };
   },
   created() {
@@ -116,17 +132,15 @@ export default {
         this.error = null;
 
         // Replace with however you store logged-in user
-        // const currentUserId = localStorage.getItem("userId");
-        // const currentUserId = "user_001"; 
         const userString = sessionStorage.getItem('user');
         const userData = JSON.parse(userString);
         const currentUserId = userData.id;
-        // console.log("user = ", userData);
-        // console.log("id = ", currentUserId);
+        console.log("user = ", userData);
+        console.log("id = ", currentUserId);
 
         // Fetch tasks for this user
         this.tasks = await ownTasksService.getTasks(currentUserId);
-        // console.log("pulled tasks", this.tasks);
+        console.log("pulled tasks", this.tasks);
         if (!this.tasks.length) {
           this.error = `No tasks found for user ${currentUserId}`;
         }
@@ -188,15 +202,31 @@ export default {
         // If task has no project, go to standalone task view
         this.$router.push(`/tasks/${taskId}`);
       }
+    },
+    toggleSortOrder() {
+      this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
     }
   },
   computed: {
     filteredTasks() {
-      if (this.filter === "All") {
-        return this.tasks;
+      let result = this.tasks;
+
+      // Filter by status
+      if (this.filter !== "All") {
+        result = result.filter(t => t.task_status === this.filter);
       }
-      console.log("call filter", this.filter);
-      return this.tasks.filter((t) => t.task_status === this.filter);
+
+      // Sort by end date
+      result = result.slice().sort((a, b) => {
+        const dateA = new Date(a.end_date);
+        const dateB = new Date(b.end_date);
+
+        return this.sortOrder === "asc"
+          ? dateA - dateB
+          : dateB - dateA;
+      });
+
+      return result;
     }
   }
 };
