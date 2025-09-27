@@ -58,7 +58,7 @@ class FileUploadService {
       console.log('Generated filename:', fileName);
       
       // Create storage reference for subtask files
-      const storageRef = ref(storage, `subtasks/${fileName}`);
+      const storageRef = ref(storage, `subtask/${subtaskId}/attachments/${fileName}`);
       console.log('Storage reference created:', storageRef.fullPath);
       
       // Upload file
