@@ -111,4 +111,13 @@ export const taskService = {
       throw new Error(error.response?.data?.error || 'Failed to fetch projects');
     }
   },
+
+  async createSubtask(subtaskData) {
+    try {
+      const response = await api.post('/api/subtasks', subtaskData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to create subtask');
+    }
+  },
 };

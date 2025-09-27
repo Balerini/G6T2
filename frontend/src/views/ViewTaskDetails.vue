@@ -1,5 +1,19 @@
 <template>
   <div class="view-task-page">
+    <!-- Toast Notifications -->
+    <div v-if="successMessage" style="position: fixed; top: 20px; right: 20px; background: #10b981; color: white; padding: 16px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); min-width: 300px;">
+      {{ successMessage }}
+    </div>
+    
+    <div v-if="uploadProgressMessage" style="position: fixed; top: 20px; right: 20px; background: #3b82f6; color: white; padding: 16px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); min-width: 300px;">
+      {{ uploadProgressMessage }}
+    </div>
+    
+    <div v-if="errorMessage" style="position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; padding: 16px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); min-width: 300px;">
+      {{ errorMessage }}
+    </div>
+    
+    
     <!-- Header -->
     <header class="page-header">
       <div class="header-container">
@@ -178,7 +192,12 @@
     <div v-if="showSubtaskModal" class="modal-overlay" @click="closeSubtaskModal">
       <div class="modal-content" @click.stop>
         <SubtaskForm :parentTaskId="task.id" :parentProjectId="task.proj_ID"
-          :availableCollaborators="getTaskCollaborators()" @subtask-created="handleSubtaskCreated"
+          :availableCollaborators="getProjectCollaborators()" 
+          @subtask-created="handleSubtaskCreated"
+          @upload-progress="handleUploadProgress"
+          @upload-success="handleUploadSuccess"
+          @upload-error="handleUploadError"
+          @subtask-error="handleSubtaskError"
           @cancel="closeSubtaskModal" />
       </div>
     </div>
@@ -204,7 +223,10 @@ export default {
       parentProject: null,
       loading: true,
       error: null,
-      showSubtaskModal: false
+      showSubtaskModal: false,
+      successMessage: '',
+      errorMessage: '',
+      uploadProgressMessage: ''
     }
   },
   created() {
@@ -225,6 +247,12 @@ export default {
         const taskId = this.$route.params.taskId;
 
         console.log('Route params:', { projectId, taskId });
+        
+        // Validate route parameters
+        if (!projectId || !taskId) {
+          this.error = `Invalid route parameters. Project ID: ${projectId}, Task ID: ${taskId}`;
+          return;
+        }
 
         // Load users first
         try {
@@ -235,6 +263,11 @@ export default {
 
         // Load all projects to diagnose the issue
         const allProjects = await projectService.getAllProjects();
+        
+        if (!allProjects || allProjects.length === 0) {
+          this.error = 'No projects found. Please check your connection and try again.';
+          return;
+        }
 
         // Find which project actually contains the task we're looking for
         let actualParentProject = null;
@@ -263,11 +296,41 @@ export default {
           this.task = foundTask;
         } else {
           // Task genuinely not found anywhere
+          console.error('Task not found in any project');
+          console.log('Searching for taskId:', taskId);
+          console.log('Searching for projectId:', projectId);
+          
           allProjects.forEach(proj => {
             if (proj.tasks && proj.tasks.length > 0) {
               console.log(`${proj.proj_name}:`, proj.tasks.map(t => `${t.id} (${t.task_name})`));
             }
           });
+          
+          // Try to load the task directly from the backend as a fallback
+          console.log('Attempting to load task directly from backend...');
+          try {
+            const directTask = await projectService.getTask(taskId);
+            if (directTask) {
+              // Find the parent project by the task's proj_ID
+              const parentProject = allProjects.find(proj => 
+                String(proj.id) === String(directTask.proj_ID)
+              );
+              
+              if (parentProject) {
+                this.task = directTask;
+                this.parentProject = parentProject;
+                console.log('Task loaded directly from backend successfully');
+                return;
+              } else {
+                this.error = `Task found but parent project not found. Task proj_ID: ${directTask.proj_ID}`;
+                return;
+              }
+            }
+          } catch (directLoadError) {
+            console.error('Failed to load task directly:', directLoadError);
+          }
+          
+          this.error = `Task not found. Task ID: ${taskId}, Project ID: ${projectId}`;
           return;
         }
 
@@ -406,14 +469,63 @@ export default {
       this.showSubtaskModal = true;
     },
 
+
     closeSubtaskModal() {
       this.showSubtaskModal = false;
     },
 
     handleSubtaskCreated() {
       this.closeSubtaskModal();
+      this.successMessage = '✅ Subtask created successfully!';
+      this.errorMessage = '';
+      this.uploadProgressMessage = '';
+      
+      // Clear success message after delay
+      setTimeout(() => {
+        this.successMessage = '';
+      }, 4000);
+      
       // Optionally refresh task data
       // this.loadTaskData();
+    },
+
+    handleUploadProgress(message) {
+      this.uploadProgressMessage = message;
+      this.successMessage = '';
+      this.errorMessage = '';
+    },
+
+    handleUploadSuccess(message) {
+      this.successMessage = message;
+      this.uploadProgressMessage = '';
+      this.errorMessage = '';
+      
+      // Clear success message after delay
+      setTimeout(() => {
+        this.successMessage = '';
+      }, 3000);
+    },
+
+    handleUploadError(message) {
+      this.errorMessage = message;
+      this.uploadProgressMessage = '';
+      this.successMessage = '';
+      
+      // Clear error message after delay
+      setTimeout(() => {
+        this.errorMessage = '';
+      }, 5000);
+    },
+
+    handleSubtaskError(message) {
+      this.errorMessage = `❌ ${message}`;
+      this.successMessage = '';
+      this.uploadProgressMessage = '';
+      
+      // Clear error message after delay
+      setTimeout(() => {
+        this.errorMessage = '';
+      }, 5000);
     },
 
     getTaskCollaborators() {
@@ -430,6 +542,23 @@ export default {
           department: user.department || 'Unknown'
         } : null;
       }).filter(user => user !== null);
+    },
+
+    getProjectCollaborators() {
+      if (!this.parentProject || !this.parentProject.collaborators || !Array.isArray(this.parentProject.collaborators)) {
+        return [];
+      }
+
+      return this.parentProject.collaborators.map(userId => {
+        const user = this.users.find(u => String(u.id) === String(userId));
+        return user ? {
+          id: user.id,
+          name: user.name,
+          email: user.email || '',
+          department: user.division_name || 'Unknown',
+          rank: user.role_num || 3
+        } : null;
+      }).filter(user => user !== null);
     }
   }
 }
@@ -440,6 +569,51 @@ export default {
   min-height: 100vh;
   background-color: #f8fafc;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Toast Notifications */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  min-width: 300px;
+  max-width: 500px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  padding: 16px;
+  font-weight: 500;
+  animation: slideInRight 0.3s ease;
+}
+
+.toast-success {
+  border-left: 4px solid #10b981;
+  background-color: #f0fdf4;
+  color: #166534;
+}
+
+.toast-info {
+  border-left: 4px solid #3b82f6;
+  background-color: #eff6ff;
+  color: #1e40af;
+}
+
+.toast-error {
+  border-left: 4px solid #ef4444;
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 /* Header Styles */
@@ -930,7 +1104,7 @@ export default {
 .modal-content {
   background: white;
   border-radius: 12px;
-  max-width: 500px;
+  max-width: 800px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;

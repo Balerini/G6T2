@@ -13,8 +13,8 @@ class FileUploadService {
       const fileName = `${timestamp}_${userId}_${sanitizedFileName}`;
       console.log('Generated filename:', fileName);
       
-      // Create storage reference with better organization
-      const storageRef = ref(storage, `tasks/${taskId}/attachments/${fileName}`);
+      // Create storage reference with simpler organization
+      const storageRef = ref(storage, `tasks/${fileName}`);
       console.log('Storage reference created:', storageRef.fullPath);
       
       // Upload file
@@ -47,6 +47,50 @@ class FileUploadService {
     }
   }
 
+  async uploadSubtaskFile(file, subtaskId, userId) {
+    try {
+      console.log('Starting subtask file upload:', { fileName: file.name, subtaskId, userId });
+      
+      // Create a unique filename with timestamp and user info
+      const timestamp = Date.now();
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const fileName = `${timestamp}_${userId}_${sanitizedFileName}`;
+      console.log('Generated filename:', fileName);
+      
+      // Create storage reference for subtask files
+      const storageRef = ref(storage, `subtasks/${fileName}`);
+      console.log('Storage reference created:', storageRef.fullPath);
+      
+      // Upload file
+      console.log('Starting upload...');
+      const snapshot = await uploadBytes(storageRef, file);
+      console.log('Upload completed, getting download URL...');
+      
+      // Get download URL
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      console.log('Download URL obtained:', downloadURL);
+      
+      const result = {
+        id: `${subtaskId}_${timestamp}`, // Unique ID for the attachment
+        name: file.name,
+        originalName: file.name,
+        size: file.size,
+        type: file.type,
+        downloadURL: downloadURL,
+        storagePath: snapshot.ref.fullPath,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: userId,
+        subtaskId: subtaskId
+      };
+      
+      console.log('Subtask file upload result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error uploading subtask file:', error);
+      throw new Error(`Failed to upload subtask file: ${error.message}`);
+    }
+  }
+
  
   async uploadMultipleFiles(files, taskId, userId) {
     try {
@@ -61,6 +105,22 @@ class FileUploadService {
     } catch (error) {
       console.error('Error uploading multiple files:', error);
       throw new Error(`Failed to upload files: ${error.message}`);
+    }
+  }
+
+  async uploadMultipleSubtaskFiles(files, subtaskId, userId) {
+    try {
+      console.log('Starting multiple subtask file upload:', { fileCount: files.length, subtaskId, userId });
+      const uploadPromises = files.map((file, index) => {
+        console.log(`Uploading subtask file ${index + 1}/${files.length}:`, file.name);
+        return this.uploadSubtaskFile(file, subtaskId, userId);
+      });
+      const uploadedFiles = await Promise.all(uploadPromises);
+      console.log('All subtask files uploaded successfully:', uploadedFiles);
+      return uploadedFiles;
+    } catch (error) {
+      console.error('Error uploading multiple subtask files:', error);
+      throw new Error(`Failed to upload subtask files: ${error.message}`);
     }
   }
 
