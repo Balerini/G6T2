@@ -175,28 +175,31 @@
         type="date"
         class="form-input"
         :class="{ 'error': validationErrors.start_date }"
-        :min="getCurrentDate()"
-        @change="validateDates; validateField('start_date', formData.start_date)"
+        :min="getTaskMinStartDate()"
+        :max="getTaskMaxEndDate()"
+        @change="validateDates(); validateField('start_date', formData.start_date)"
         @blur="validateField('start_date', formData.start_date)"
       />
       <span v-if="validationErrors.start_date" class="error-message">
         {{ validationErrors.start_date }}
       </span>
+      <div v-if="getSelectedProjectInfo().startDate" class="date-constraint-info">
+        Project dates: {{ formatDateRange(getSelectedProjectInfo().startDate, getSelectedProjectInfo().endDate) }}
+      </div>
     </div>
 
     <!-- End Date -->
     <div class="form-group">
-      <label class="form-label" for="endDate">
-        End Date *
-      </label>
+      <label class="form-label" for="endDate">End Date *</label>
       <input
         id="endDate"
         v-model="formData.end_date"
         type="date"
         class="form-input"
         :class="{ 'error': validationErrors.end_date }"
-        :min="formData.start_date || getCurrentDate()"
-        @change="validateDates; validateField('end_date', formData.end_date)"
+        :min="formData.start_date || getTaskMinStartDate()"
+        :max="getTaskMaxEndDate()"
+        @change="validateDates(); validateField('end_date', formData.end_date)"
         @blur="validateField('end_date', formData.end_date)"
       />
       <span v-if="validationErrors.end_date || dateValidationError" class="error-message">
@@ -719,7 +722,68 @@ export default {
       }
     };
 
+    const getSelectedProjectInfo = () => {
+      // Check if we have a pre-selected project (Add Task)
+      if (props.selectedProject) {
+        return {
+          startDate: props.selectedProject.start_date,
+          endDate: props.selectedProject.end_date,
+          name: props.selectedProject.proj_name
+        }
+      }
+      
+      // Check if user selected a project from dropdown (New Task)
+      if (selectedProjectRef.value) {
+        return {
+          startDate: selectedProjectRef.value.start_date,
+          endDate: selectedProjectRef.value.end_date,
+          name: selectedProjectRef.value.proj_name
+        }
+      }
+      
+      return { startDate: null, endDate: null, name: null }
+    }
 
+    const getTaskMinStartDate = () => {
+      const projectInfo = getSelectedProjectInfo()
+      const today = getCurrentDate()
+      
+      if (projectInfo.startDate) {
+        // Use the later of today or project start date
+        const projectStartDate = new Date(projectInfo.startDate).toISOString().split('T')[0]
+        return projectStartDate > today ? projectStartDate : today
+      }
+      
+      return today
+    }
+
+    const getTaskMaxEndDate = () => {
+      const projectInfo = getSelectedProjectInfo()
+      
+      if (projectInfo.endDate) {
+        return new Date(projectInfo.endDate).toISOString().split('T')[0]
+      }
+      
+      return null // No constraint if no project selected
+    }
+
+    const formatDateRange = (startDate, endDate) => {
+      if (!startDate || !endDate) return ''
+      
+      const start = new Date(startDate).toLocaleDateString('en-SG', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      })
+      
+      const end = new Date(endDate).toLocaleDateString('en-SG', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      })
+      
+      return `${start} - ${end}`
+    }
 
     const filteredUsers = computed(() => {
       let filtered = users.value.filter(user => {
@@ -986,35 +1050,93 @@ export default {
 
     const validateStartDate = (value) => {
       if (!value) {
-        return 'Start date is required';
+        return 'Start date is required'
       }
-      const startDate = new Date(value);
-      // Get current date in Singapore timezone
-      const today = new Date();
-      const sgToday = new Date(today.toLocaleString("en-US", {timeZone: "Asia/Singapore"}));
-      sgToday.setHours(0, 0, 0, 0);
       
+      const startDate = new Date(value)
+      const today = new Date()
+      const sgToday = new Date(today.toLocaleString("en-US", {timeZone: "Asia/Singapore"}))
+      sgToday.setHours(0, 0, 0, 0)
+      
+      // Check if date is in the past
       if (startDate < sgToday) {
-        return 'Start date cannot be in the past';
+        return 'Start date cannot be in the past'
       }
-      return '';
-    };
+      
+      // Check project constraints
+      const projectInfo = getSelectedProjectInfo()
+      if (projectInfo.startDate) {
+        const projectStartDate = new Date(projectInfo.startDate)
+        if (startDate < projectStartDate) {
+          const formattedDate = new Date(projectInfo.startDate).toLocaleDateString('en-SG', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          })
+          return `Start date cannot be before project start date (${formattedDate})`
+        }
+      }
+      
+      if (projectInfo.endDate) {
+        const projectEndDate = new Date(projectInfo.endDate)
+        if (startDate > projectEndDate) {
+          const formattedDate = new Date(projectInfo.endDate).toLocaleDateString('en-SG', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          })
+          return `Start date cannot be after project end date (${formattedDate})`
+        }
+      }
+      
+      return ''
+    }
 
     const validateEndDate = (value, startDate) => {
       if (!value) {
-        return 'End date is required';
+        return 'End date is required'
       }
-      if (!startDate) {
-        return '';
-      }
-      const start = new Date(startDate);
-      const end = new Date(value);
       
-      if (end <= start) {
-        return 'End date must be after start date';
+      if (!startDate) {
+        return ''
       }
-      return '';
-    };
+      
+      const start = new Date(startDate)
+      const end = new Date(value)
+      
+      // Basic validation - end must be after start
+      if (end <= start) {
+        return 'End date must be after start date'
+      }
+      
+      // Check project constraints
+      const projectInfo = getSelectedProjectInfo()
+      if (projectInfo.endDate) {
+        const projectEndDate = new Date(projectInfo.endDate)
+        if (end > projectEndDate) {
+          const formattedDate = new Date(projectInfo.endDate).toLocaleDateString('en-SG', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          })
+          return `End date cannot be after project end date (${formattedDate})`
+        }
+      }
+      
+      if (projectInfo.startDate) {
+        const projectStartDate = new Date(projectInfo.startDate)
+        if (end < projectStartDate) {
+          const formattedDate = new Date(projectInfo.startDate).toLocaleDateString('en-SG', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          })
+          return `End date cannot be before project start date (${formattedDate})`
+        }
+      }
+      
+      return ''
+    }
 
     const validateTaskStatus = (value) => {
       if (!value || !value.trim()) {
@@ -1447,6 +1569,10 @@ export default {
 
       projects,
       isLoadingProjects,
+      getSelectedProjectInfo,
+      getTaskMinStartDate,
+      getTaskMaxEndDate,
+      formatDateRange,
       clearProjectSelection,
       
       // Project dropdown methods
@@ -2009,5 +2135,12 @@ export default {
 .clear-selection-btn:hover {
   background-color: #f0f0f0;
   color: #333;
+}
+
+.date-constraint-info {
+  font-size: 12px;
+  color: #666666;
+  margin-top: 4px;
+  font-style: italic;
 }
 </style>
