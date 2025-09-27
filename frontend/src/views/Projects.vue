@@ -111,12 +111,20 @@
         </div>
       </div>
     </div>
+
+    <!-- Add this modal/form section -->
+    <CreateProjectForm 
+      v-if="showCreateProjectForm"
+      @close="closeCreateProjectForm"
+      @project-created="handleProjectCreated"
+    />
   </div>
 </template>
 
 <script>
 import ProjectList from '../components/Projects/ProjectList.vue'
 import CreateTaskForm from '../components/CreateTaskForm.vue'
+import CreateProjectForm from '../components/CreateProjectForm.vue'
 import AuthService from '../services/auth.js'
 import { projectAPI, userAPI } from '../services/api.js'
 
@@ -124,7 +132,8 @@ export default {
   name: 'CRMProjectManager',
   components: {
     ProjectList,
-    CreateTaskForm
+    CreateTaskForm,
+    CreateProjectForm
   },
   data() {
     return {
@@ -133,6 +142,7 @@ export default {
       users: [],
       currentUser: null,
       showCreateTaskForm: false,
+      showCreateProjectForm: false,
       selectedProject: null,
       loading: true,
       error: null,
@@ -238,7 +248,35 @@ export default {
     },
 
     navigateToCreateProject() {
-      this.$router.push('/createproject');
+      console.log('Showing create project form...')
+      this.showCreateProjectForm = true  
+    },
+
+    closeCreateProjectForm() {
+      this.showCreateProjectForm = false
+    },
+
+    handleProjectCreated(newProject) {
+      console.log('Project created successfully:', newProject)
+      
+      // Close the form
+      this.showCreateProjectForm = false
+      
+      // Refresh the projects list
+      this.fetchProjects() // Note: you have fetchProjects, not loadProjects
+      
+      // Show success message
+      const projectName = newProject?.proj_name || newProject?.project?.proj_name || 'Project'
+      this.successMessage = `✅ Project "${projectName}" created successfully!`
+      this.errorMessage = ''
+      
+      // Scroll to top to show the toast
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      
+      // Clear success message after delay
+      setTimeout(() => {
+        this.clearSuccessMessage()
+      }, 4000)
     },
 
     navigateToCreateTask() {

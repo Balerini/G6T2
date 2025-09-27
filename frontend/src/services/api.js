@@ -106,6 +106,41 @@ export const projectAPI = {
     } catch (error) {
       throw error.response?.data || { error: 'Failed to fetch project task' }
     }
+  },
+
+  createProject: async (projectData) => {
+    try {
+      const response = await api.post('/api/projects', projectData)
+      console.log('Project created successfully:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error creating project:', error)
+      throw error.response?.data || { error: 'Failed to create project' }
+    }
+  },
+
+  // Update existing project
+  updateProject: async (projectId, projectData) => {
+    try {
+      const response = await api.put(`/api/projects/${projectId}`, projectData)
+      console.log('Project updated successfully:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error updating project:', error)
+      throw error.response?.data || { error: 'Failed to update project' }
+    }
+  },
+
+  // Delete project
+  deleteProject: async (projectId) => {
+    try {
+      const response = await api.delete(`/api/projects/${projectId}`)
+      console.log('Project deleted successfully:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Error deleting project:', error)
+      throw error.response?.data || { error: 'Failed to delete project' }
+    }
   }
 }
 

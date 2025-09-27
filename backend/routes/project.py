@@ -405,3 +405,238 @@ def get_all_users():
         print(f"Error fetching users: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+# =============== CREATE PROJECT ===============
+@projects_bp.route('/api/projects', methods=['POST'])
+def create_project():
+    """Create a new project"""
+    try:
+        db = get_firestore_client()
+        
+        # Get request data
+        project_data = request.get_json()
+        
+        if not project_data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Validate required fields
+        required_fields = ['proj_name', 'start_date', 'end_date', 'created_by', 'division_name']
+        for field in required_fields:
+            if field not in project_data or not project_data[field]:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Validate project name
+        if len(project_data['proj_name'].strip()) < 3:
+            return jsonify({'error': 'Project name must be at least 3 characters'}), 400
+        
+        # Validate dates
+        try:
+            start_date = datetime.fromisoformat(project_data['start_date'].replace('Z', '+00:00'))
+            end_date = datetime.fromisoformat(project_data['end_date'].replace('Z', '+00:00'))
+            
+            # Check if start date is not in the past (allow today)
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            if start_date.replace(tzinfo=None) < today:
+                return jsonify({'error': 'Start date cannot be in the past'}), 400
+            
+            # Check if end date is after start date
+            if end_date <= start_date:
+                return jsonify({'error': 'End date must be after start date'}), 400
+                
+        except ValueError as e:
+            return jsonify({'error': f'Invalid date format: {str(e)}'}), 400
+        
+        # Get creator ID
+        creator_id = project_data['created_by']
+        
+        # Ensure collaborators includes the creator
+        collaborators = project_data.get('collaborators', [])
+        if creator_id not in collaborators:
+            collaborators.append(creator_id)
+        
+        # Prepare project data for Firestore
+        firestore_data = {
+            'proj_name': project_data['proj_name'].strip(),
+            'proj_desc': project_data.get('proj_desc', '').strip(),
+            'start_date': start_date,
+            'end_date': end_date,
+            'proj_status': 'Not Started',  # Default status for new projects
+            'created_by': creator_id,
+            'division_name': project_data['division_name'],
+            'collaborators': collaborators,  # 👈 INCLUDES CREATOR
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        
+        print(f"Creating project: {firestore_data['proj_name']} with collaborators: {collaborators}")
+        
+        # Add project to Firestore
+        doc_ref = db.collection('Projects').add(firestore_data)
+        project_id = doc_ref[1].id
+        
+        # Get the created project back with the ID
+        created_project = doc_ref[1].get().to_dict()
+        created_project['id'] = project_id
+        
+        # Convert timestamps back to ISO format for response
+        if 'start_date' in created_project and created_project['start_date']:
+            created_project['start_date'] = created_project['start_date'].isoformat()
+        if 'end_date' in created_project and created_project['end_date']:
+            created_project['end_date'] = created_project['end_date'].isoformat()
+        if 'createdAt' in created_project and created_project['createdAt']:
+            created_project['createdAt'] = created_project['createdAt'].isoformat()
+        if 'updatedAt' in created_project and created_project['updatedAt']:
+            created_project['updatedAt'] = created_project['updatedAt'].isoformat()
+        
+        print(f"Project created successfully with ID: {project_id}")
+        
+        return jsonify({
+            'message': 'Project created successfully',
+            'project': created_project
+        }), 201
+        
+    except Exception as e:
+        print(f"Error creating project: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+# =============== UPDATE PROJECT ===============
+@projects_bp.route('/api/projects/<project_id>', methods=['PUT'])
+def update_project(project_id):
+    """Update an existing project"""
+    try:
+        db = get_firestore_client()
+        
+        # Check if project exists
+        doc_ref = db.collection('Projects').document(project_id)
+        doc = doc_ref.get()
+        
+        if not doc.exists:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        # Get request data
+        update_data = request.get_json()
+        
+        if not update_data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Prepare update data
+        firestore_update = {
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        
+        # Update project name if provided
+        if 'proj_name' in update_data:
+            if len(update_data['proj_name'].strip()) < 3:
+                return jsonify({'error': 'Project name must be at least 3 characters'}), 400
+            firestore_update['proj_name'] = update_data['proj_name'].strip()
+        
+        # Update description if provided
+        if 'proj_desc' in update_data:
+            firestore_update['proj_desc'] = update_data['proj_desc'].strip()
+        
+        # Update dates if provided
+        if 'start_date' in update_data or 'end_date' in update_data:
+            existing_data = doc.to_dict()
+            
+            try:
+                start_date = None
+                end_date = None
+                
+                if 'start_date' in update_data:
+                    start_date = datetime.fromisoformat(update_data['start_date'].replace('Z', '+00:00'))
+                    firestore_update['start_date'] = start_date
+                else:
+                    start_date = existing_data.get('start_date')
+                
+                if 'end_date' in update_data:
+                    end_date = datetime.fromisoformat(update_data['end_date'].replace('Z', '+00:00'))
+                    firestore_update['end_date'] = end_date
+                else:
+                    end_date = existing_data.get('end_date')
+                
+                # Validate dates
+                if start_date and end_date and end_date <= start_date:
+                    return jsonify({'error': 'End date must be after start date'}), 400
+                    
+            except ValueError as e:
+                return jsonify({'error': f'Invalid date format: {str(e)}'}), 400
+        
+        # Update status if provided
+        if 'proj_status' in update_data:
+            valid_statuses = ['Not Started', 'In Progress', 'Completed', 'On Hold']
+            if update_data['proj_status'] in valid_statuses:
+                firestore_update['proj_status'] = update_data['proj_status']
+        
+        # Update the document
+        doc_ref.update(firestore_update)
+        
+        # Get updated project
+        updated_doc = doc_ref.get()
+        updated_project = updated_doc.to_dict()
+        updated_project['id'] = project_id
+        
+        # Convert timestamps for response
+        if 'start_date' in updated_project and updated_project['start_date']:
+            updated_project['start_date'] = updated_project['start_date'].isoformat()
+        if 'end_date' in updated_project and updated_project['end_date']:
+            updated_project['end_date'] = updated_project['end_date'].isoformat()
+        if 'createdAt' in updated_project and updated_project['createdAt']:
+            updated_project['createdAt'] = updated_project['createdAt'].isoformat()
+        if 'updatedAt' in updated_project and updated_project['updatedAt']:
+            updated_project['updatedAt'] = updated_project['updatedAt'].isoformat()
+        
+        print(f"Project {project_id} updated successfully")
+        
+        return jsonify({
+            'message': 'Project updated successfully',
+            'project': updated_project
+        }), 200
+        
+    except Exception as e:
+        print(f"Error updating project: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+# =============== DELETE PROJECT ===============
+@projects_bp.route('/api/projects/<project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    """Delete a project and all its associated tasks"""
+    try:
+        db = get_firestore_client()
+        
+        # Check if project exists
+        project_ref = db.collection('Projects').document(project_id)
+        project_doc = project_ref.get()
+        
+        if not project_doc.exists:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        project_data = project_doc.to_dict()
+        project_name = project_data.get('proj_name', 'Unknown')
+        
+        # Get all tasks associated with this project
+        tasks_ref = db.collection('Tasks')
+        tasks_query = tasks_ref.where('proj_ID', '==', project_id)
+        tasks = tasks_query.stream()
+        
+        # Delete all associated tasks
+        deleted_task_count = 0
+        for task in tasks:
+            task.reference.delete()
+            deleted_task_count += 1
+        
+        # Delete the project
+        project_ref.delete()
+        
+        print(f"Project '{project_name}' and {deleted_task_count} associated tasks deleted successfully")
+        
+        return jsonify({
+            'message': f'Project "{project_name}" and {deleted_task_count} associated tasks deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        print(f"Error deleting project: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

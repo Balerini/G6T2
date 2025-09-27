@@ -5,6 +5,7 @@ import Login from '../views/Login.vue';
 import Home from '../views/Home.vue';
 import Projects from '../views/Projects.vue';
 import Createtask from '../views/CreateTask.vue'
+import CreateProject from '../views/CreateProject.vue'
 import ViewTaskDetails  from '../views/ViewTaskDetails.vue'
 import ViewOwnTasks from '../views/ViewOwnTasks.vue'
 
@@ -25,14 +26,19 @@ const routes = [
     path: '/projects',
     name: 'projects',
     component: Projects,
-    meta: { showNav: true,requiresAuth: true }
+    meta: { showNav: true, requiresAuth: true }
   },
-
+  {
+    path: '/createproject',
+    name: 'createproject',
+    component: CreateProject,
+    meta: { showNav: true, requiresAuth: true }
+  },
   {
     path: '/createtask',
     name: 'createtask',
     component: Createtask,
-    meta: { showNav: true,requiresAuth: true }
+    meta: { showNav: true, requiresAuth: true }
   },
   {
     path: '/projects/:projectId/tasks/:taskId',
