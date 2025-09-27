@@ -84,12 +84,47 @@
     <!-- Projects Section -->
     <div v-else class="projects-section">
       <div class="container">
+        <!-- Add Sort Controls -->
+        <div v-if="filteredProjects.length > 0" class="projects-header">
+          <div class="projects-info">
+            <h3 class="projects-count">{{ filteredProjects.length }} Projects</h3>
+          </div>
+          
+          <div class="sort-controls">
+            <span class="sort-label">Sort by:</span>
+            <div class="sort-toggle-group">
+              <button 
+                class="sort-toggle-btn"
+                :class="{ 'active': sortOrder === 'asc' }"
+                @click="setSortOrder('asc')"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M6 3L9 6H3L6 3Z" fill="currentColor"/>
+                </svg>
+                Earliest
+              </button>
+              <button 
+                class="sort-toggle-btn"
+                :class="{ 'active': sortOrder === 'desc' }"
+                @click="setSortOrder('desc')"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M6 9L3 6H9L6 9Z" fill="currentColor"/>
+                </svg>
+                Latest
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div v-if="filteredProjects.length === 0" class="no-projects">
           <h3>No Projects Found</h3>
           <p>There are no projects available for the {{ currentUser.division_name }} department yet.</p>
           <button class="create-project-btn" @click="navigateToCreateProject">Create First Project</button>
         </div>
-        <ProjectList v-else :projects="processedProjects" :users="users" @edit-project="handleEditProject"
+
+        <!-- UPDATE: Change from filteredProjects to sortedProjects -->
+        <ProjectList v-else :projects="sortedProjects" :users="users" @edit-project="handleEditProject"
           @view-task="handleViewTask" @add-task="handleAddTask" />
       </div>
     </div>
@@ -147,7 +182,8 @@ export default {
       loading: true,
       error: null,
       successMessage: '',
-      errorMessage: ''
+      errorMessage: '',
+      sortOrder: 'asc'
     }
   },
   computed: {
@@ -156,6 +192,30 @@ export default {
         return this.projects;
       }
       return this.projects.filter(project => project.collaborators && project.collaborators.length > 0);
+    },
+
+    sortedProjects() {
+      if (!this.filteredProjects || this.filteredProjects.length === 0) {
+        return [];
+      }
+
+      const sorted = [...this.filteredProjects].sort((a, b) => {
+        // Handle projects without start_date (put them at the end)
+        if (!a.start_date && !b.start_date) return 0;
+        if (!a.start_date) return 1;
+        if (!b.start_date) return -1;
+        
+        const dateA = new Date(a.start_date);
+        const dateB = new Date(b.start_date);
+        
+        if (this.sortOrder === 'asc') {
+          return dateA - dateB; // Earliest first
+        } else {
+          return dateB - dateA; // Latest first
+        }
+      });
+
+      return sorted;
     },
     
     // NEW: Process projects to add auto-collaborators
@@ -581,6 +641,11 @@ export default {
 
     clearErrorMessage() {
       this.errorMessage = '';
+    },
+
+    setSortOrder(order) {
+      console.log(`Setting sort order to: ${order}`);
+      this.sortOrder = order;
     }
   }
 }
@@ -1015,6 +1080,137 @@ export default {
 
   .modal-title {
     font-size: 1.25rem;
+  }
+}
+
+/* Modern Sort Controls */
+.projects-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.projects-info {
+  flex: 1;
+}
+
+.projects-count {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sort-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.sort-toggle-group {
+  display: flex;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 2px;
+  border: 1px solid #e5e7eb;
+}
+
+.sort-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.sort-toggle-btn:hover {
+  color: #374151;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.sort-toggle-btn.active {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
+}
+
+.sort-toggle-btn svg {
+  width: 12px;
+  height: 12px;
+  transition: all 0.2s ease;
+}
+
+.sort-toggle-btn.active svg {
+  color: #3b82f6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .projects-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .sort-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .projects-count {
+    font-size: 1.125rem;
+  }
+
+  .sort-toggle-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Match your existing theme colors */
+@media (prefers-color-scheme: dark) {
+  .projects-count {
+    color: #f9fafb;
+  }
+  
+  .sort-toggle-group {
+    background: #374151;
+    border-color: #4b5563;
+  }
+  
+  .sort-toggle-btn {
+    color: #d1d5db;
+  }
+  
+  .sort-toggle-btn:hover {
+    color: #f3f4f6;
+    background: rgba(75, 85, 99, 0.7);
+  }
+  
+  .sort-toggle-btn.active {
+    background: #4b5563;
+    color: #f9fafb;
   }
 }
 </style>
