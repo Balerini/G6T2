@@ -192,12 +192,7 @@
     <div v-if="showSubtaskModal" class="modal-overlay" @click="closeSubtaskModal">
       <div class="modal-content" @click.stop>
         <SubtaskForm :parentTaskId="task.id" :parentProjectId="task.proj_ID"
-          :availableCollaborators="getProjectCollaborators()" 
-          @subtask-created="handleSubtaskCreated"
-          @upload-progress="handleUploadProgress"
-          @upload-success="handleUploadSuccess"
-          @upload-error="handleUploadError"
-          @subtask-error="handleSubtaskError"
+          :availableCollaborators="getProjectCollaborators()" @subtask-created="handleSubtaskCreated"
           @cancel="closeSubtaskModal" />
       </div>
     </div>
