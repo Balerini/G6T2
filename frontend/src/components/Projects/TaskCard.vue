@@ -8,6 +8,14 @@
     </div>
 
     <div class="task-meta">
+      <!-- jh changes -->
+      <div class="meta-group">
+        <span class="meta-label">Priority:</span>
+        <span class="priority-badge" :class="getPriorityClass(task.priority_bucket)">
+          {{ formatPriority(task.priority_bucket) }}
+        </span>
+      </div>
+
       <div class="meta-group">
         <span class="meta-label">Status:</span>
         <span class="status-badge" :class="getTaskStatusClass(task.task_status)">
@@ -167,6 +175,20 @@ export default {
         name: this.task.task_name
       });
       this.$emit('view-task', this.task);
+    },
+    // jh changes
+    formatPriority(priority) {
+    if (!priority) return 'N/A';
+    const num = Number(priority);
+    if (num >= 8) return `High ${num}/10`;
+    if (num >= 4) return `Medium ${num}/10`;
+    return `Low ${num}/10`;
+    },
+    getPriorityClass(priority) {
+      if (!priority) return 'priority-default';
+      if (priority >= 8) return 'priority-high';
+      if (priority >= 4) return 'priority-medium';
+      return 'priority-low';
     }
   }
 }
@@ -311,5 +333,31 @@ export default {
   .task-meta {
     grid-template-columns: 1fr;
   }
+}
+/* jh changes */
+.priority-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  display: inline-block;
+  width: auto;             /* only as wide as content */
+  min-width: unset;        /* don't force extra width */
+}
+.priority-high {
+  background: #fee2e2; /* light red */
+  color: #991b1b;
+}
+.priority-medium {
+  background: #fef3c7; /* light yellow */
+  color: #92400e;
+}
+.priority-low {
+  background: #d1fae5; /* light green */
+  color: #065f46;
+}
+.priority-default {
+  background: #f3f4f6; /* neutral gray */
+  color: #374151;
 }
 </style>

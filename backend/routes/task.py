@@ -148,7 +148,7 @@ def get_tasks():
             task = doc.to_dict()
             task["id"] = doc.id
             tasks.append(task)
-            print(task)
+            print(doc.id)
 
         return jsonify(tasks), 200
 

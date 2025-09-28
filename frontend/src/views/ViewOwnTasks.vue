@@ -19,14 +19,16 @@
           </button>
         </div>
         <!-- Sort Filter Tabs -->
-        <div class="action-tabs mb-4 flex space-x-2">
+        <div class="action-tabs flex space-x-2">
           <button
-            v-for="order in sortOrders"
-            :key="order.value"
-            @click="sortOrder = order.value"
-            :class="['tab-btn', {active: sortOrder === order.value}]"
-          >
-            {{ order.label }}
+          v-for="option in sortOptions"
+          :key="option.value"
+          @click="sortBy = option.value"
+          :class="[
+            'tab-btn',
+            { active: sortBy === option.value }]"
+        >
+            {{ option.label }}
           </button>
         </div>
       </div>
@@ -109,11 +111,12 @@ export default {
       loading: true,
       error: null,
       filter: "All",
-      statuses: ["All", "Not Started", "In Progress", "On Hold", "Completed"],
-      sortOrder: "asc",
-      sortOrders: [
-        { value: "asc", label: "Earliest" },
-        { value: "desc", label: "Latest" }
+      statuses: ["All", "Not Started", "In Progress", "On Hold", "Completed", "Cancelled"],
+      sortBy: "endDateAsc",
+      sortOptions: [
+        { value: "endDateAsc", label: "Earliest" },
+        { value: "endDateDesc", label: "Latest" },
+        { value: "priority", label: "Priority" }
       ]
     };
   },
@@ -154,17 +157,6 @@ export default {
 
     goBack() {
       this.$router.push("/projects");
-    },
-
-    getTaskStatusClass(status) {
-      if (!status) return "status-not-started";
-      const statusClasses = {
-        "in-progress": "status-progress",
-        "to-do": "status-todo",
-        completed: "status-completed",
-        pending: "status-pending"
-      };
-      return statusClasses[status] || "status-default";
     },
 
     formatDate(date) {
@@ -218,12 +210,16 @@ export default {
 
       // Sort by end date
       result = result.slice().sort((a, b) => {
-        const dateA = new Date(a.end_date);
-        const dateB = new Date(b.end_date);
-
-        return this.sortOrder === "asc"
-          ? dateA - dateB
-          : dateB - dateA;
+        if (this.sortBy === "priority") {
+          return (b.priority_bucket || 0) - (a.priority_bucket || 0); // high → low
+        }
+        if (this.sortBy === "endDateAsc") {
+          return new Date(a.end_date) - new Date(b.end_date);
+        }
+        if (this.sortBy === "endDateDesc") {
+          return new Date(b.end_date) - new Date(a.end_date);
+        }
+        return 0;
       });
 
       return result;
