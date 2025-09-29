@@ -84,7 +84,7 @@
       <!-- Assigned To -->
       <div class="form-group">
         <label class="form-label" for="assignedTo">
-          Collaborators (Optional - Max 10)
+          Collaborators (Optional)
         </label>
         
         
@@ -191,10 +191,6 @@
         </div>
         
         <!-- Status messages -->
-        <div v-if="selectedCollaborators.length >= 10" class="status-message warning">
-          Maximum number of collaborators reached (10)
-        </div>
-        
         <div v-if="selectedCollaborators.length > 0" class="status-message info">
           {{ selectedCollaborators.length }} collaborator{{ selectedCollaborators.length !== 1 ? 's' : '' }} selected
         </div>
@@ -442,7 +438,7 @@ const filteredUsers = computed(() => {
 });
 
 const isAtLimit = computed(() => {
-  return selectedCollaborators.value.length >= 10;
+  return false // No limit for collaborators
 });
 
 const getSubtaskMinStartDate = () => {
@@ -1081,9 +1077,9 @@ const validateForm = () => {
     errors.value.status = 'Status is required'
   }
 
-  // Validate max 10 collaborators   
-  if (selectedCollaborators.value.length > 10) {
-    errors.value.collaborators = 'Maximum 10 collaborators allowed'
+  // Validate collaborators based on status    
+  if (form.value.status !== 'Unassigned' && selectedCollaborators.value.length === 0) {
+  errors.value.collaborators = 'At least one collaborator is required when status is not "Unassigned"'
   }
 
   // Validate max 3 attachments
