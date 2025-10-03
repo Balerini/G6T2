@@ -5,97 +5,58 @@
       <label class="form-label" for="projId">
         Project
       </label>
-      
+
       <!-- Project dropdown -->
       <div class="search-dropdown-container" :class="{ 'dropdown-open': showProjectDropdown }">
-        <input
-          v-if="!selectedProject"
-          id="projId"
-          v-model="displayValue"
-          type="text"
-          class="form-input"
+        <input v-if="!selectedProject" id="projId" v-model="displayValue" type="text" class="form-input"
           :class="{ 'error': validationErrors.proj_name }"
           :placeholder="isLoadingProjects ? 'Loading projects...' : 'Search and select project...'"
-          @focus="handleProjectInputFocus"
-          @blur="handleProjectInputBlur"
-          @input="handleProjectSearchInput"
-          @keydown.enter.prevent="selectFirstProjectMatch"
-          @keydown.escape="closeProjectDropdown"
-          @keydown.arrow-down.prevent="navigateProjectDown"
-          @keydown.arrow-up.prevent="navigateProjectUp"
-          :disabled="isLoadingProjects"
-        />
-        
+          @focus="handleProjectInputFocus" @blur="handleProjectInputBlur" @input="handleProjectSearchInput"
+          @keydown.enter.prevent="selectFirstProjectMatch" @keydown.escape="closeProjectDropdown"
+          @keydown.arrow-down.prevent="navigateProjectDown" @keydown.arrow-up.prevent="navigateProjectUp"
+          :disabled="isLoadingProjects" />
+
         <!-- Locked input for Add Task (project pre-selected) -->
-        <div
-          v-else
-          class="form-input locked"
-          :class="{ 'error': validationErrors.proj_name }"
-        >
+        <div v-else class="form-input locked" :class="{ 'error': validationErrors.proj_name }">
           {{ selectedProject.proj_name }}
         </div>
-        
+
         <!-- Dropdown icon and clear button - only show for New Task (not Add Task) -->
         <div class="input-actions" v-if="!selectedProject">
-          <div 
-            v-if="selectedProjectRef" 
-            class="clear-selection-btn" 
-            @click="clearProjectSelection"
-            title="Clear project selection"
-          >
+          <div v-if="selectedProjectRef" class="clear-selection-btn" @click="clearProjectSelection"
+            title="Clear project selection">
             ×
           </div>
-          <div 
-            class="dropdown-toggle-icon" 
-            :class="{ 'rotated': showProjectDropdown }"
-            @click="toggleProjectDropdown"
-            title="Select project"
-          >
+          <div class="dropdown-toggle-icon" :class="{ 'rotated': showProjectDropdown }" @click="toggleProjectDropdown"
+            title="Select project">
             ▼
           </div>
         </div>
-        
-        
+
+
         <!-- Dropdown options list -->
-        <div 
-          v-if="showProjectDropdown && !selectedProject" 
-          class="dropdown-list"
-          @mousedown.prevent
-          @click.prevent
-        >
+        <div v-if="showProjectDropdown && !selectedProject" class="dropdown-list" @mousedown.prevent @click.prevent>
           <!-- Loading state -->
           <div v-if="isLoadingProjects" class="dropdown-item loading">
             Loading projects...
           </div>
-          
+
           <!-- No results found -->
-          <div 
-            v-else-if="filteredProjects.length === 0 && projectSearch" 
-            class="dropdown-item no-results"
-          >
+          <div v-else-if="filteredProjects.length === 0 && projectSearch" class="dropdown-item no-results">
             No projects found matching "{{ projectSearch }}"
           </div>
-          
+
           <!-- Show all projects when no search -->
-          <div 
-            v-else-if="filteredProjects.length === 0 && !projectSearch" 
-            class="dropdown-item no-results"
-          >
+          <div v-else-if="filteredProjects.length === 0 && !projectSearch" class="dropdown-item no-results">
             No projects available
           </div>
-          
+
           <!-- Project options -->
-          <div 
-            v-for="(project, index) in filteredProjects" 
-            :key="`project-${index}-${project.id || project.proj_name || 'unknown'}`"
-            class="dropdown-item"
-            :class="{ 
+          <div v-for="(project, index) in filteredProjects"
+            :key="`project-${index}-${project.id || project.proj_name || 'unknown'}`" class="dropdown-item" :class="{
               'highlighted': index === projectHighlightedIndex,
               'selected': isProjectSelected(project)
-            }"
-            @mousedown.prevent="selectProject(project)"
-            @mouseenter="projectHighlightedIndex = index"
-          >
+            }" @mousedown.prevent="selectProject(project)" @mouseenter="projectHighlightedIndex = index">
             <div class="project-info">
               <span class="project-name">{{ project.proj_name }}</span>
               <span v-if="project.proj_desc" class="project-description">{{ project.proj_desc }}</span>
@@ -104,7 +65,7 @@
           </div>
         </div>
       </div>
-      
+
       <!-- Project validation error -->
       <span v-if="validationErrors.proj_name" class="error-message">
         {{ validationErrors.proj_name }}
@@ -114,16 +75,10 @@
     <!-- Task Name -->
     <div class="form-group">
       <label class="form-label" for="taskName">Task Name *</label>
-      <input
-        id="taskName"
-        v-model="formData.task_name"
-        type="text"
-        class="form-input"
-        :class="{ 'error': validationErrors.task_name }"
-        placeholder="Enter task name"
+      <input id="taskName" v-model="formData.task_name" type="text" class="form-input"
+        :class="{ 'error': validationErrors.task_name }" placeholder="Enter task name"
         @input="validateField('task_name', $event.target.value)"
-        @blur="validateField('task_name', formData.task_name)"
-      />
+        @blur="validateField('task_name', formData.task_name)" />
       <span v-if="validationErrors.task_name" class="error-message">
         {{ validationErrors.task_name }}
       </span>
@@ -132,16 +87,10 @@
     <!-- Task Description -->
     <div class="form-group">
       <label class="form-label" for="taskDesc">Task Description</label>
-      <textarea
-        id="taskDesc"
-        v-model="formData.task_desc"
-        class="form-textarea"
-        :class="{ 'error': validationErrors.task_desc }"
-        placeholder="Enter task description (max 500 characters)"
-        rows="4"
-        @input="validateField('task_desc', $event.target.value)"
-        @blur="validateField('task_desc', formData.task_desc)"
-      ></textarea>
+      <textarea id="taskDesc" v-model="formData.task_desc" class="form-textarea"
+        :class="{ 'error': validationErrors.task_desc }" placeholder="Enter task description (max 500 characters)"
+        rows="4" @input="validateField('task_desc', $event.target.value)"
+        @blur="validateField('task_desc', formData.task_desc)"></textarea>
       <div class="char-count">
         {{ formData.task_desc.length }}/500 characters
       </div>
@@ -153,14 +102,9 @@
     <!-- Subtasks Checkbox -->
     <div class="form-group checkbox-group">
       <label class="checkbox-container">
-        <input 
-          type="checkbox" 
-          class="checkbox-input"
-          v-model="formData.hasSubtasks"
-          @change="onSubtasksChange"
-        />
+        <input type="checkbox" class="checkbox-input" v-model="formData.hasSubtasks" @change="onSubtasksChange" />
         <span class="checkbox-checkmark"></span>
-        <span class="checkbox-label">  Subtasks will have respective inputs</span>
+        <span class="checkbox-label"> Subtasks will have respective inputs</span>
       </label>
     </div>
 
@@ -169,17 +113,10 @@
     <!-- Start Date -->
     <div class="form-group">
       <label class="form-label" for="startDate">Start Date *</label>
-      <input
-        id="startDate"
-        v-model="formData.start_date"
-        type="date"
-        class="form-input"
-        :class="{ 'error': validationErrors.start_date }"
-        :min="getTaskMinStartDate()"
-        :max="getTaskMaxEndDate()"
+      <input id="startDate" v-model="formData.start_date" type="date" class="form-input"
+        :class="{ 'error': validationErrors.start_date }" :min="getTaskMinStartDate()" :max="getTaskMaxEndDate()"
         @change="validateDates(); validateField('start_date', formData.start_date)"
-        @blur="validateField('start_date', formData.start_date)"
-      />
+        @blur="validateField('start_date', formData.start_date)" />
       <span v-if="validationErrors.start_date" class="error-message">
         {{ validationErrors.start_date }}
       </span>
@@ -191,17 +128,10 @@
     <!-- End Date -->
     <div class="form-group">
       <label class="form-label" for="endDate">End Date *</label>
-      <input
-        id="endDate"
-        v-model="formData.end_date"
-        type="date"
-        class="form-input"
-        :class="{ 'error': validationErrors.end_date }"
-        :min="formData.start_date || getTaskMinStartDate()"
-        :max="getTaskMaxEndDate()"
-        @change="validateDates(); validateField('end_date', formData.end_date)"
-        @blur="validateField('end_date', formData.end_date)"
-      />
+      <input id="endDate" v-model="formData.end_date" type="date" class="form-input"
+        :class="{ 'error': validationErrors.end_date }" :min="formData.start_date || getTaskMinStartDate()"
+        :max="getTaskMaxEndDate()" @change="validateDates(); validateField('end_date', formData.end_date)"
+        @blur="validateField('end_date', formData.end_date)" />
       <span v-if="validationErrors.end_date || dateValidationError" class="error-message">
         {{ validationErrors.end_date || dateValidationError }}
       </span>
@@ -210,132 +140,88 @@
     <!-- Created By (Auto-populated, read-only) -->
     <div class="form-group">
       <label class="form-label" for="createdBy">Created By</label>
-      <input
-        id="createdBy"
-        v-model="formData.created_by"
-        type="text"
-        class="form-input readonly-input"
-        readonly
-        placeholder="Auto-populated from current user"
-      />
+      <input id="createdBy" v-model="formData.created_by" type="text" class="form-input readonly-input" readonly
+        placeholder="Auto-populated from current user" />
     </div>
 
     <!-- Assigned To -->
     <div class="form-group">
-    <label class="form-label" for="assignedTo">
-      Collaborators * ({{ formData.hasSubtasks ? '1-5' : '1-10' }} required)
-    </label>
-    
-    <!-- Combined search input with dropdown -->
-    <div class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown }">
-      <input
-        id="assignedTo"
-        v-model="userSearch"
-        type="text"
-        class="form-input"
-        :class="{ 'error': validationErrors.collaborators }"
-        :placeholder="isLoadingUsers ? 'Loading users...' : 'Search and select collaborators...'"
-        @focus="handleInputFocus; validateField('collaborators', formData.assigned_to)"
-        @blur="handleInputBlur"
-        @input="handleSearchInput"
-        @keydown.enter.prevent="selectFirstMatch"
-        @keydown.escape="closeDropdown"
-        @keydown.arrow-down.prevent="navigateDown"
-        @keydown.arrow-up.prevent="navigateUp"
-        :disabled="isAtLimit || isLoadingUsers"
-      />
-      
-      <!-- Dropdown icon -->
-      <div 
-        class="dropdown-toggle-icon" 
-        @click="toggleDropdown"
-        :class="{ 'rotated': showDropdown }"
-      >
-        ▼
-      </div>
-      
-      <!-- Dropdown options list -->
-      <div 
-        v-if="showDropdown" 
-        class="dropdown-list"
-        @mousedown.prevent
-        @click.prevent
-      >
-        <!-- Loading state -->
-        <div v-if="isLoadingUsers" class="dropdown-item loading">
-          Loading users...
+      <label class="form-label" for="assignedTo">
+        Collaborators * ({{ formData.hasSubtasks ? '1-5' : '1-10' }} required)
+      </label>
+
+      <!-- Combined search input with dropdown -->
+      <div class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown }">
+        <input id="assignedTo" v-model="userSearch" type="text" class="form-input"
+          :class="{ 'error': validationErrors.collaborators }"
+          :placeholder="isLoadingUsers ? 'Loading users...' : 'Search and select collaborators...'"
+          @focus="handleInputFocus; validateField('collaborators', formData.assigned_to)" @blur="handleInputBlur"
+          @input="handleSearchInput" @keydown.enter.prevent="selectFirstMatch" @keydown.escape="closeDropdown"
+          @keydown.arrow-down.prevent="navigateDown" @keydown.arrow-up.prevent="navigateUp"
+          :disabled="isAtLimit || isLoadingUsers" />
+
+        <!-- Dropdown icon -->
+        <div class="dropdown-toggle-icon" @click="toggleDropdown" :class="{ 'rotated': showDropdown }">
+          ▼
         </div>
-        
-        <!-- No results found -->
-        <div 
-          v-else-if="filteredUsers.length === 0 && userSearch" 
-          class="dropdown-item no-results"
-        >
-          No users found matching "{{ userSearch }}"
-        </div>
-        
-        <!-- Show all users when no search -->
-        <div 
-          v-else-if="filteredUsers.length === 0 && !userSearch" 
-          class="dropdown-item no-results"
-        >
-          No more users available
-        </div>
-        
-        <!-- User options -->
-        <div 
-          v-for="(user, index) in filteredUsers" 
-          :key="`user-${index}-${user.id || user.name || 'unknown'}`"
-          class="dropdown-item"
-          :class="{ 
-            'highlighted': index === highlightedIndex,
-            'selected': isUserSelected(user)
-          }"
-          @mousedown.prevent="selectUser(user)"
-          @mouseenter="highlightedIndex = index"
-        >
-          <div class="user-info">
-            <span class="user-name">{{ user.name }}</span>
-            <span v-if="user.email" class="user-email">{{ user.email }}</span>
+
+        <!-- Dropdown options list -->
+        <div v-if="showDropdown" class="dropdown-list" @mousedown.prevent @click.prevent>
+          <!-- Loading state -->
+          <div v-if="isLoadingUsers" class="dropdown-item loading">
+            Loading users...
           </div>
-          <span v-if="isUserSelected(user)" class="selected-indicator">✓</span>
+
+          <!-- No results found -->
+          <div v-else-if="filteredUsers.length === 0 && userSearch" class="dropdown-item no-results">
+            No users found matching "{{ userSearch }}"
+          </div>
+
+          <!-- Show all users when no search -->
+          <div v-else-if="filteredUsers.length === 0 && !userSearch" class="dropdown-item no-results">
+            No more users available
+          </div>
+
+          <!-- User options -->
+          <div v-for="(user, index) in filteredUsers" :key="`user-${index}-${user.id || user.name || 'unknown'}`"
+            class="dropdown-item" :class="{
+              'highlighted': index === highlightedIndex,
+              'selected': isUserSelected(user)
+            }" @mousedown.prevent="selectUser(user)" @mouseenter="highlightedIndex = index">
+            <div class="user-info">
+              <span class="user-name">{{ user.name }}</span>
+              <span v-if="user.email" class="user-email">{{ user.email }}</span>
+            </div>
+            <span v-if="isUserSelected(user)" class="selected-indicator">✓</span>
+          </div>
         </div>
       </div>
-    </div>
-    
-    <!-- Selected collaborators tags -->
-    <div class="assignee-tags" v-if="formData.assigned_to.length > 0">
-      <span 
-        v-for="(assignee, index) in formData.assigned_to" 
-        :key="`assignee-${index}-${assignee.id || assignee.name || 'unknown'}`"
-        class="assignee-tag"
-      >
-        {{ assignee.name }}
-        <button 
-          type="button" 
-          class="remove-tag" 
-          @click="removeAssignee(index)"
-          :title="`Remove ${assignee.name}`"
-        >
-          ×
-        </button>
+
+      <!-- Selected collaborators tags -->
+      <div class="assignee-tags" v-if="formData.assigned_to.length > 0">
+        <span v-for="(assignee, index) in formData.assigned_to"
+          :key="`assignee-${index}-${assignee.id || assignee.name || 'unknown'}`" class="assignee-tag">
+          {{ assignee.name }}
+          <button type="button" class="remove-tag" @click="removeAssignee(index)" :title="`Remove ${assignee.name}`">
+            ×
+          </button>
+        </span>
+      </div>
+
+      <!-- Status messages -->
+      <div v-if="isAtLimit" class="status-message warning">
+        Maximum number of collaborators reached ({{ formData.hasSubtasks ? '5' : '10' }})
+      </div>
+
+      <div v-if="formData.assigned_to.length > 0" class="status-message info">
+        {{ formData.assigned_to.length }} collaborator{{ formData.assigned_to.length !== 1 ? 's' : '' }} selected
+      </div>
+
+      <!-- Collaborators validation error -->
+      <span v-if="validationErrors.collaborators" class="error-message">
+        {{ validationErrors.collaborators }}
       </span>
     </div>
-    
-    <!-- Status messages -->
-    <div v-if="isAtLimit" class="status-message warning">
-      Maximum number of collaborators reached ({{ formData.hasSubtasks ? '5' : '10' }})
-    </div>
-    
-    <div v-if="formData.assigned_to.length > 0" class="status-message info">
-      {{ formData.assigned_to.length }} collaborator{{ formData.assigned_to.length !== 1 ? 's' : '' }} selected
-    </div>
-    
-    <!-- Collaborators validation error -->
-    <span v-if="validationErrors.collaborators" class="error-message">
-      {{ validationErrors.collaborators }}
-    </span>
-  </div>
 
 
 
@@ -343,15 +229,8 @@
     <div class="form-group">
       <label class="form-label" for="attachments">Attachments (0-3 max)</label>
       <div class="file-upload-container">
-        <input
-          id="attachments"
-          type="file"
-          class="file-input"
-          multiple
-          accept=".pdf,.doc,.docx,.jpg,.png,.txt"
-          @change="handleFileUpload"
-          ref="fileInput"
-        />
+        <input id="attachments" type="file" class="file-input" multiple accept=".pdf,.doc,.docx,.jpg,.png,.txt"
+          @change="handleFileUpload" ref="fileInput" />
         <label for="attachments" class="file-upload-label">
           Choose Files
         </label>
@@ -359,15 +238,11 @@
           {{ formData.attachments.length > 0 ? `${formData.attachments.length} file(s) selected` : 'No file chosen' }}
         </span>
       </div>
-      
+
       <!-- File Preview List -->
       <div class="file-preview-container" v-if="formData.attachments.length > 0">
-        <div 
-          v-for="(file, index) in formData.attachments" 
-          :key="`file-${index}-${file.name || 'unknown'}`"
-          class="file-preview-item"
-          :style="{ borderLeftColor: getFileTypeColor(file.type) }"
-        >
+        <div v-for="(file, index) in formData.attachments" :key="`file-${index}-${file.name || 'unknown'}`"
+          class="file-preview-item" :style="{ borderLeftColor: getFileTypeColor(file.type) }">
           <div class="file-icon">
             {{ getFileIcon(file.type) }}
           </div>
@@ -375,17 +250,12 @@
             <span class="file-name">{{ file.name }}</span>
             <span class="file-size">{{ formatFileSize(file.size) }}</span>
           </div>
-          <button 
-            type="button" 
-            class="remove-file-btn" 
-            @click="removeFile(index)"
-            title="Remove file"
-          >
+          <button type="button" class="remove-file-btn" @click="removeFile(index)" title="Remove file">
             ×
           </button>
         </div>
       </div>
-      
+
       <!-- Attachment validation error -->
       <span v-if="validationErrors.attachments" class="error-message">
         {{ validationErrors.attachments }}
@@ -397,14 +267,9 @@
       <label class="form-label" for="taskStatus">
         Task Status *
       </label>
-      <select 
-        id="taskStatus" 
-        v-model="formData.task_status" 
-        class="form-select"
-        :class="{ 'error': validationErrors.task_status }"
-        @change="validateField('task_status', formData.task_status)"
-        @blur="validateField('task_status', formData.task_status)"
-      >
+      <select id="taskStatus" v-model="formData.task_status" class="form-select"
+        :class="{ 'error': validationErrors.task_status }" @change="validateField('task_status', formData.task_status)"
+        @blur="validateField('task_status', formData.task_status)">
         <option value="" disabled>Select status</option>
         <option value="Not Started">Not Started</option>
         <option value="In Progress">In Progress</option>
@@ -449,7 +314,7 @@ export default {
     const assignedToInput = ref('');
     const fileInput = ref(null);
     const dateValidationError = ref('');
-    
+
     // Helper function to get current user
     const getCurrentUser = () => {
       try {
@@ -464,7 +329,7 @@ export default {
         return null;
       }
     };
-    
+
     // Enhanced validation state
     const validationErrors = reactive({
       task_ID: '',
@@ -500,9 +365,9 @@ export default {
     const dropdownCloseTimeout = ref(null);
 
     const projects = ref([]);
-    const isLoadingProjects = ref(false); 
+    const isLoadingProjects = ref(false);
     const currentUserId = ref(null);
-    
+
     // Project dropdown state
     const projectSearch = ref('');
     const showProjectDropdown = ref(false);
@@ -529,11 +394,11 @@ export default {
       isLoadingProjects.value = true;
       try {
         console.log('Loading projects...');
-        
+
         // Get current user info for filtering
         const currentUser = getCurrentUser();
         let projectsData;
-        
+
         if (currentUser && currentUser.id && currentUser.division_name) {
           console.log('Loading projects for user:', currentUser.id, 'division:', currentUser.division_name);
           projectsData = await taskService.getProjects(currentUser.id, currentUser.division_name);
@@ -541,16 +406,16 @@ export default {
           console.log('No user info available, loading all projects');
           projectsData = await taskService.getProjects();
         }
-        
+
         console.log('Projects loaded:', projectsData);
-        
+
         // Check for duplicate IDs
         const ids = projectsData.map(p => p.id);
         const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
         if (duplicateIds.length > 0) {
           console.warn('Duplicate project IDs found:', duplicateIds);
         }
-        
+
         projects.value = projectsData;
       } catch (error) {
         console.error('Error loading projects:', error);
@@ -576,7 +441,7 @@ export default {
         if (props.selectedProject) {
           return props.selectedProject.proj_name;
         }
-        
+
         // For New Task (no project pre-selected), handle dropdown logic
         if (showProjectDropdown.value) {
           return projectSearch.value;
@@ -588,7 +453,7 @@ export default {
         if (props.selectedProject) {
           return;
         }
-        
+
         projectSearch.value = value;
         // Clear selected project when user starts typing
         if (value && selectedProjectRef.value) {
@@ -603,19 +468,19 @@ export default {
       if (!projectSearch.value) {
         return projects.value;
       }
-      const filtered = projects.value.filter(project => 
+      const filtered = projects.value.filter(project =>
         project.proj_name.toLowerCase().includes(projectSearch.value.toLowerCase()) ||
         (project.proj_desc && project.proj_desc.toLowerCase().includes(projectSearch.value.toLowerCase()))
       );
       console.log('Filtered projects:', filtered);
-      
+
       // Check for duplicates in filtered results
       const filteredIds = filtered.map(p => p.id);
       const duplicateFilteredIds = filteredIds.filter((id, index) => filteredIds.indexOf(id) !== index);
       if (duplicateFilteredIds.length > 0) {
         console.warn('Duplicate IDs in filtered projects:', duplicateFilteredIds);
       }
-      
+
       return filtered;
     });
 
@@ -637,7 +502,7 @@ export default {
       if (props.selectedProject) {
         return;
       }
-      
+
       if (!isLoadingProjects.value) {
         showProjectDropdown.value = true;
         projectHighlightedIndex.value = -1;
@@ -652,14 +517,14 @@ export default {
       if (projectDropdownCloseTimeout.value) {
         clearTimeout(projectDropdownCloseTimeout.value);
       }
-      
+
       const relatedTarget = event.relatedTarget;
       const dropdownContainer = document.querySelector('.search-dropdown-container');
-      
+
       if (relatedTarget && dropdownContainer && dropdownContainer.contains(relatedTarget)) {
         return;
       }
-      
+
       projectDropdownCloseTimeout.value = setTimeout(() => {
         closeProjectDropdown();
       }, 500);
@@ -677,12 +542,12 @@ export default {
       if (props.selectedProject) {
         return;
       }
-      
+
       if (projectDropdownCloseTimeout.value) {
         clearTimeout(projectDropdownCloseTimeout.value);
         projectDropdownCloseTimeout.value = null;
       }
-      
+
       showProjectDropdown.value = !showProjectDropdown.value;
       if (showProjectDropdown.value) {
         nextTick(() => {
@@ -710,7 +575,7 @@ export default {
         showProjectDropdown.value = true;
         return;
       }
-      
+
       if (projectHighlightedIndex.value < filteredProjects.value.length - 1) {
         projectHighlightedIndex.value++;
       }
@@ -731,7 +596,7 @@ export default {
           name: props.selectedProject.proj_name
         }
       }
-      
+
       // Check if user selected a project from dropdown (New Task)
       if (selectedProjectRef.value) {
         return {
@@ -740,48 +605,48 @@ export default {
           name: selectedProjectRef.value.proj_name
         }
       }
-      
+
       return { startDate: null, endDate: null, name: null }
     }
 
     const getTaskMinStartDate = () => {
       const projectInfo = getSelectedProjectInfo()
       const today = getCurrentDate()
-      
+
       if (projectInfo.startDate) {
         // Use the later of today or project start date
         const projectStartDate = new Date(projectInfo.startDate).toISOString().split('T')[0]
         return projectStartDate > today ? projectStartDate : today
       }
-      
+
       return today
     }
 
     const getTaskMaxEndDate = () => {
       const projectInfo = getSelectedProjectInfo()
-      
+
       if (projectInfo.endDate) {
         return new Date(projectInfo.endDate).toISOString().split('T')[0]
       }
-      
+
       return null // No constraint if no project selected
     }
 
     const formatDateRange = (startDate, endDate) => {
       if (!startDate || !endDate) return ''
-      
+
       const start = new Date(startDate).toLocaleDateString('en-SG', {
         day: '2-digit',
         month: 'short',
         year: 'numeric'
       })
-      
+
       const end = new Date(endDate).toLocaleDateString('en-SG', {
         day: '2-digit',
         month: 'short',
         year: 'numeric'
       })
-      
+
       return `${start} - ${end}`
     }
 
@@ -789,18 +654,40 @@ export default {
       let filtered = users.value.filter(user => {
         // Filter out already selected users
         const isAlreadySelected = formData.assigned_to.some(assignee => assignee.id === user.id);
-        
+
         return !isAlreadySelected;
       });
-      
+
+      // NEW: Filter to only show users who are in the selected project
+      const projectInfo = getSelectedProjectInfo();
+      if (projectInfo.name) {
+        // Find the full project object to get its collaborators
+        let selectedProjectData = null;
+
+        if (props.selectedProject) {
+          selectedProjectData = props.selectedProject;
+        } else if (selectedProjectRef.value) {
+          selectedProjectData = selectedProjectRef.value;
+        }
+
+        // If we have a project with collaborators, filter users
+        if (selectedProjectData && selectedProjectData.collaborators && Array.isArray(selectedProjectData.collaborators)) {
+          const projectCollaboratorIds = selectedProjectData.collaborators.map(collab =>
+            typeof collab === 'string' ? collab : collab.id
+          );
+
+          filtered = filtered.filter(user => projectCollaboratorIds.includes(user.id));
+        }
+      }
+
       if (userSearch.value.trim()) {
         const searchTerm = userSearch.value.toLowerCase().trim();
-        filtered = filtered.filter(user => 
+        filtered = filtered.filter(user =>
           user.name.toLowerCase().includes(searchTerm) ||
           (user.email && user.email.toLowerCase().includes(searchTerm))
         );
       }
-      
+
       return filtered.slice(0, 20);
     });
 
@@ -843,16 +730,16 @@ export default {
       if (dropdownCloseTimeout.value) {
         clearTimeout(dropdownCloseTimeout.value);
       }
-      
+
       // Check if the blur is because user clicked on a dropdown item
       const relatedTarget = event.relatedTarget;
       const dropdownContainer = document.querySelector('.search-dropdown-container');
-      
+
       if (relatedTarget && dropdownContainer && dropdownContainer.contains(relatedTarget)) {
         // Don't close if clicking within dropdown
         return;
       }
-      
+
       // Use a longer delay to prevent bouncing
       dropdownCloseTimeout.value = setTimeout(() => {
         closeDropdown();
@@ -868,13 +755,13 @@ export default {
 
     const toggleDropdown = () => {
       if (isAtLimit.value || isLoadingUsers.value) return;
-      
+
       // Clear any pending close timeout when manually toggling
       if (dropdownCloseTimeout.value) {
         clearTimeout(dropdownCloseTimeout.value);
         dropdownCloseTimeout.value = null;
       }
-      
+
       showDropdown.value = !showDropdown.value;
       if (showDropdown.value) {
         nextTick(() => {
@@ -899,26 +786,26 @@ export default {
 
     const selectUser = (user) => {
       if (isAtLimit.value || isUserSelected(user)) return;
-      
+
       // Clear any pending close timeout
       if (dropdownCloseTimeout.value) {
         clearTimeout(dropdownCloseTimeout.value);
         dropdownCloseTimeout.value = null;
       }
-      
+
       // Add user to selected collaborators
       formData.assigned_to.push({
         id: user.id,
         name: user.name,
         email: user.email
       });
-      
+
       // Validate collaborators after adding (don't mark as touched automatically)
       validateField('collaborators', formData.assigned_to, false);
-      
+
       // Reset search but DON'T close dropdown
       userSearch.value = '';
-      
+
       // Keep dropdown open if not at limit and re-focus input
       if (!isAtLimit.value) {
         nextTick(() => {
@@ -950,7 +837,7 @@ export default {
         showDropdown.value = true;
         return;
       }
-      
+
       if (highlightedIndex.value < filteredUsers.value.length - 1) {
         highlightedIndex.value++;
       }
@@ -966,7 +853,7 @@ export default {
     const getCurrentDate = () => {
       // Get current date in Singapore timezone
       const today = new Date();
-      const sgTime = new Date(today.toLocaleString("en-US", {timeZone: "Asia/Singapore"}));
+      const sgTime = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Singapore" }));
       return sgTime.toISOString().split('T')[0];
     };
 
@@ -986,12 +873,12 @@ export default {
 
     const handleFileUpload = (event) => {
       const files = Array.from(event.target.files);
-      
+
       if (formData.attachments.length + files.length > 3) {
         validationErrors.attachments = 'Maximum 3 files allowed';
         return;
       }
-      
+
       // Validate each file
       for (let file of files) {
         const validation = fileUploadService.validateFile(file);
@@ -1000,7 +887,7 @@ export default {
           return;
         }
       }
-      
+
       // Add files to form data (will be uploaded when form is submitted)
       formData.attachments = [...formData.attachments, ...files];
       validationErrors.attachments = ''; // Clear error if successful
@@ -1008,7 +895,7 @@ export default {
 
     const removeFile = (index) => {
       formData.attachments.splice(index, 1);
-      
+
       if (formData.attachments.length === 0 && fileInput.value) {
         fileInput.value.value = '';
       }
@@ -1052,17 +939,17 @@ export default {
       if (!value) {
         return 'Start date is required'
       }
-      
+
       const startDate = new Date(value)
       const today = new Date()
-      const sgToday = new Date(today.toLocaleString("en-US", {timeZone: "Asia/Singapore"}))
+      const sgToday = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Singapore" }))
       sgToday.setHours(0, 0, 0, 0)
-      
+
       // Check if date is in the past
       if (startDate < sgToday) {
         return 'Start date cannot be in the past'
       }
-      
+
       // Check project constraints
       const projectInfo = getSelectedProjectInfo()
       if (projectInfo.startDate) {
@@ -1076,7 +963,7 @@ export default {
           return `Start date cannot be before project start date (${formattedDate})`
         }
       }
-      
+
       if (projectInfo.endDate) {
         const projectEndDate = new Date(projectInfo.endDate)
         if (startDate > projectEndDate) {
@@ -1088,7 +975,7 @@ export default {
           return `Start date cannot be after project end date (${formattedDate})`
         }
       }
-      
+
       return ''
     }
 
@@ -1096,19 +983,19 @@ export default {
       if (!value) {
         return 'End date is required'
       }
-      
+
       if (!startDate) {
         return ''
       }
-      
+
       const start = new Date(startDate)
       const end = new Date(value)
-      
+
       // Basic validation - end must be after start
       if (end <= start) {
         return 'End date must be after start date'
       }
-      
+
       // Check project constraints
       const projectInfo = getSelectedProjectInfo()
       if (projectInfo.endDate) {
@@ -1122,7 +1009,7 @@ export default {
           return `End date cannot be after project end date (${formattedDate})`
         }
       }
-      
+
       if (projectInfo.startDate) {
         const projectStartDate = new Date(projectInfo.startDate)
         if (end < projectStartDate) {
@@ -1134,7 +1021,7 @@ export default {
           return `End date cannot be before project start date (${formattedDate})`
         }
       }
-      
+
       return ''
     }
 
@@ -1149,7 +1036,7 @@ export default {
       if (files.length > 3) {
         return 'Maximum 3 files allowed';
       }
-      
+
       const maxFileSize = 10 * 1024 * 1024; // 10MB
       for (let file of files) {
         if (file.size > maxFileSize) {
@@ -1168,11 +1055,11 @@ export default {
 
     const validateDates = () => {
       dateValidationError.value = '';
-      
+
       if (formData.start_date && formData.end_date) {
         const startDate = new Date(formData.start_date);
         const endDate = new Date(formData.end_date);
-        
+
         if (endDate <= startDate) {
           dateValidationError.value = 'End date must be after start date';
           return false;
@@ -1186,7 +1073,7 @@ export default {
       if (markAsTouched) {
         touchedFields[fieldName] = true;
       }
-      
+
       switch (fieldName) {
         case 'task_name':
           validationErrors.task_name = touchedFields.task_name ? validateTaskName(value) : '';
@@ -1224,14 +1111,14 @@ export default {
     const isFormValid = computed(() => {
       const hasValidationErrors = Object.values(validationErrors).some(error => error !== '');
       const hasDateError = dateValidationError.value;
-      
+
       console.log('=== FORM VALIDATION CHECK ===');
       console.log('Validation errors:', validationErrors);
       console.log('Date error:', dateValidationError.value);
       console.log('Has validation errors:', hasValidationErrors);
       console.log('Has date error:', hasDateError);
       console.log('Form valid:', !hasValidationErrors && !hasDateError);
-      
+
       return !hasValidationErrors && !hasDateError;
     });
 
@@ -1254,15 +1141,15 @@ export default {
       if (currentUser) {
         formData.created_by = currentUser.name;
         // Store current user for filtering
-        currentUserId.value = currentUser.id; 
+        currentUserId.value = currentUser.id;
       } else {
         formData.created_by = 'Not Logged In';
       }
-      
+
       loadUsers();
       loadProjects();
       document.addEventListener('click', handleOutsideClick);
-      
+
       // Test Firebase Storage connection
       fileUploadService.testStorageConnection().then(success => {
         if (success) {
@@ -1287,17 +1174,17 @@ export default {
         task_status: '',
         hasSubtasks: false
       });
-      
+
       if (fileInput.value) {
         fileInput.value.value = '';
       }
-      
+
       assignedToInput.value = '';
       dateValidationError.value = '';
       userSearch.value = '';
-      closeDropdown(); 
+      closeDropdown();
       formData.created_by = 'Current User';
-      
+
       // Clear validation errors and touched fields
       Object.keys(validationErrors).forEach(key => {
         validationErrors[key] = '';
@@ -1325,12 +1212,12 @@ export default {
       console.log('Validation errors:', validationErrors);
       console.log('Date validation error:', dateValidationError.value);
       console.log('=== HANDLE SUBMIT FUNCTION CALLED ===');
-      
+
       if (isSubmitting.value) {
         console.log('Already submitting, returning early');
         return;
       }
-      
+
       // Trigger validation for all fields
       console.log('=== TRIGGERING ALL FIELD VALIDATIONS ===');
       validateField('proj_name', formData.proj_name, true);
@@ -1340,7 +1227,7 @@ export default {
       validateField('end_date', formData.end_date, true);
       validateField('task_status', formData.task_status, true);
       validateField('collaborators', formData.assigned_to, true);
-      
+
       // Check if form is actually valid
       if (!isFormValid.value) {
         console.log('Form is not valid, not submitting');
@@ -1349,30 +1236,30 @@ export default {
         console.log('Form data:', formData);
         return;
       }
-      
+
       // Function to scroll to and focus a field
       const scrollToField = (fieldId) => {
         const field = document.getElementById(fieldId);
         if (field) {
-          field.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center' 
+          field.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
           });
           setTimeout(() => {
             field.focus();
           }, 300);
         }
       };
-      
+
       // Mark all fields as touched to show validation errors
       Object.keys(touchedFields).forEach(key => {
         touchedFields[key] = true;
       });
-      
+
       // Validate all fields and show errors
       let hasErrors = false;
       let firstErrorField = null;
-      
+
       // Validate required fields (project is optional)
       validationErrors.task_name = validateTaskName(formData.task_name);
       validationErrors.start_date = validateStartDate(formData.start_date);
@@ -1380,7 +1267,7 @@ export default {
       validationErrors.task_status = validateTaskStatus(formData.task_status);
       validationErrors.attachments = validateAttachments(formData.attachments);
       validationErrors.collaborators = validateCollaborators(formData.assigned_to);
-      
+
       // Check for any validation errors (skip project validation)
       if (validationErrors.task_name) {
         hasErrors = true;
@@ -1406,7 +1293,7 @@ export default {
         hasErrors = true;
         if (!firstErrorField) firstErrorField = 'assignedTo';
       }
-      
+
       // If there are errors, scroll to the first one and return
       if (hasErrors) {
         console.log('=== VALIDATION ERRORS PREVENTING SUBMISSION ===');
@@ -1421,11 +1308,11 @@ export default {
 
       // If we get here, all validation passed
       isSubmitting.value = true;
-      
+
       try {
         // Prepare task data for API call
         const taskData = prepareFormDataForSubmission();
-        
+
         // Upload files to Firebase Storage first
         let uploadedAttachments = [];
         if (formData.attachments.length > 0) {
@@ -1436,15 +1323,15 @@ export default {
           const userId = currentUser.id || 'anonymous';
           console.log('Current user:', currentUser);
           console.log('User ID:', userId);
-          
+
           // Generate a temporary task ID for file organization
           const tempTaskId = `temp_${Date.now()}`;
           console.log('Temporary task ID:', tempTaskId);
-          
+
           try {
             uploadedAttachments = await fileUploadService.uploadMultipleFiles(
-              formData.attachments, 
-              tempTaskId, 
+              formData.attachments,
+              tempTaskId,
               userId
             );
             console.log('Files uploaded successfully:', uploadedAttachments);
@@ -1457,7 +1344,7 @@ export default {
         } else {
           console.log('No files to upload');
         }
-        
+
         // Add other properties
         const finalTaskData = {
           ...taskData,
@@ -1482,17 +1369,17 @@ export default {
         console.log('=== CALLING BACKEND API ===');
         console.log('Final task data being sent:', finalTaskData);
         console.log('API endpoint: /api/tasks');
-        
+
         const response = await taskService.createTask(finalTaskData);
-        
+
         console.log('=== TASK CREATED SUCCESSFULLY ===');
         console.log('Task created successfully:', response);
         console.log('About to reset form...');
-        
+
         // Reset form first
         resetForm();
         console.log('Form reset completed');
-        
+
         // Emit success event
         console.log('=== EMITTING SUCCESS EVENT ===');
         console.log('Response to emit:', response);
@@ -1501,12 +1388,12 @@ export default {
         console.log('About to emit success event...');
         emit('success', response);
         console.log('Success event emitted successfully');
-        
+
         // Add a small delay to ensure the event is processed
         setTimeout(() => {
           console.log('Success event should have been processed by now');
         }, 100);
-        
+
       } catch (error) {
         console.error('=== ERROR CREATING TASK ===');
         console.error('Error details:', error);
@@ -1514,10 +1401,10 @@ export default {
         console.error('Error response:', error.response);
         console.error('Error status:', error.response?.status);
         console.error('Error data:', error.response?.data);
-        
+
         const errorMessage = error.message || 'An unexpected error occurred';
         emit('error', errorMessage);
-        
+
       } finally {
         isSubmitting.value = false;
         isUploadingFiles.value = false;
@@ -1547,7 +1434,7 @@ export default {
       handleSubmit,
       getCurrentDate,
       onSubtasksChange,
-      
+
       // NEW: Dropdown-related returns
       users,
       userSearch,
@@ -1574,7 +1461,7 @@ export default {
       getTaskMaxEndDate,
       formatDateRange,
       clearProjectSelection,
-      
+
       // Project dropdown methods
       projectSearch,
       displayValue,
@@ -1918,17 +1805,17 @@ export default {
   .form-actions {
     flex-direction: column;
   }
-  
+
   .btn {
     width: 100%;
   }
-  
+
   .file-preview-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
   }
-  
+
   .remove-file-btn {
     align-self: flex-end;
   }
@@ -1940,7 +1827,8 @@ export default {
 }
 
 .search-dropdown-container .form-input {
-  padding-right: 40px; /* Space for dropdown icon */
+  padding-right: 40px;
+  /* Space for dropdown icon */
 }
 
 .dropdown-toggle-icon {
@@ -1969,7 +1857,7 @@ export default {
   max-height: 250px;
   overflow-y: auto;
   z-index: 9999;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   margin-top: 2px;
 }
 
@@ -2112,7 +2000,8 @@ export default {
 }
 
 .project-dropdown-container .form-input {
-  padding-right: 40px; /* Space for dropdown icon */
+  padding-right: 40px;
+  /* Space for dropdown icon */
 }
 
 .clear-selection-btn {

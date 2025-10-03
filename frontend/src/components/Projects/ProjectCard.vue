@@ -175,12 +175,12 @@ export default {
       // Then, sort by date (existing sorting logic stays the same)
       const sorted = filtered.sort((a, b) => {
         // Handle tasks without start_date (put them at the end)
-        if (!a.start_date && !b.start_date) return 0;
-        if (!a.start_date) return 1;
-        if (!b.start_date) return -1;
+        if (!a.end_date  && !b.end_date ) return 0;
+        if (!a.end_date) return 1;
+        if (!b.end_date) return -1;
         
-        const dateA = new Date(a.start_date);
-        const dateB = new Date(b.start_date);
+        const dateA = new Date(a.end_date);
+        const dateB = new Date(b.end_date);
         
         // Check for invalid dates
         if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;

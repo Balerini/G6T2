@@ -155,7 +155,7 @@
               <div v-for="attachment in task.attachments" :key="attachment" class="attachment-item">
                 <div class="attachment-icon">📎</div>
                 <div class="attachment-info">
-                  <p class="attachment-name">{{ attachment }}</p>
+                  <p class="attachment-name">{{ attachment.name }}</p>
                   <p class="attachment-size">Click to download</p>
                 </div>
               </div>

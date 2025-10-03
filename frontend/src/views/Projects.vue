@@ -201,12 +201,12 @@ export default {
 
       const sorted = [...this.filteredProjects].sort((a, b) => {
         // Handle projects without start_date (put them at the end)
-        if (!a.start_date && !b.start_date) return 0;
-        if (!a.start_date) return 1;
-        if (!b.start_date) return -1;
+        if (!a.end_date && !b.end_date) return 0;
+        if (!a.end_date) return 1;
+        if (!b.end_date) return -1;
         
-        const dateA = new Date(a.start_date);
-        const dateB = new Date(b.start_date);
+        const dateA = new Date(a.end_date);
+        const dateB = new Date(b.end_date);
         
         if (this.sortOrder === 'asc') {
           return dateA - dateB; // Earliest first
