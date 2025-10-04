@@ -7,6 +7,7 @@ from firebase_utils import get_firebase_app, get_firestore_client
 from routes.project import projects_bp 
 from routes.task import tasks_bp 
 from routes.subtask import subtask_bp
+from routes.dashboard import dashboard_bp
 
 def create_app() -> Flask:
     
@@ -26,6 +27,9 @@ def create_app() -> Flask:
 
     # =============== Subtask routes ===============
     app.register_blueprint(subtask_bp, url_prefix='/api')
+
+    # =============== Dashboard routes ===============
+    app.register_blueprint(dashboard_bp)
 
     # Health routes
     @app.route("/health", methods=["GET"])
