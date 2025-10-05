@@ -139,7 +139,7 @@
 
     <!-- Created By (Auto-populated, read-only) -->
     <div class="form-group">
-      <label class="form-label" for="createdBy">Created By</label>
+      <label class="form-label" for="createdBy">Owner</label>
       <input id="createdBy" v-model="formData.created_by" type="text" class="form-input readonly-input" readonly
         placeholder="Auto-populated from current user" />
     </div>
@@ -147,7 +147,7 @@
     <!-- Assigned To -->
     <div class="form-group">
       <label class="form-label" for="assignedTo">
-        Collaborators * ({{ formData.hasSubtasks ? '1-5' : '1-10' }} required)
+        Collaborators
       </label>
 
       <!-- Combined search input with dropdown -->
@@ -158,7 +158,7 @@
           @focus="handleInputFocus; validateField('collaborators', formData.assigned_to)" @blur="handleInputBlur"
           @input="handleSearchInput" @keydown.enter.prevent="selectFirstMatch" @keydown.escape="closeDropdown"
           @keydown.arrow-down.prevent="navigateDown" @keydown.arrow-up.prevent="navigateUp"
-          :disabled="isAtLimit || isLoadingUsers" />
+          :disabled="isLoadingUsers" />
 
         <!-- Dropdown icon -->
         <div class="dropdown-toggle-icon" @click="toggleDropdown" :class="{ 'rotated': showDropdown }">
@@ -209,10 +209,6 @@
       </div>
 
       <!-- Status messages -->
-      <div v-if="isAtLimit" class="status-message warning">
-        Maximum number of collaborators reached ({{ formData.hasSubtasks ? '5' : '10' }})
-      </div>
-
       <div v-if="formData.assigned_to.length > 0" class="status-message info">
         {{ formData.assigned_to.length }} collaborator{{ formData.assigned_to.length !== 1 ? 's' : '' }} selected
       </div>
@@ -271,11 +267,10 @@
         :class="{ 'error': validationErrors.task_status }" @change="validateField('task_status', formData.task_status)"
         @blur="validateField('task_status', formData.task_status)">
         <option value="" disabled>Select status</option>
-        <option value="Not Started">Not Started</option>
-        <option value="In Progress">In Progress</option>
-        <option value="On Hold">On Hold</option>
+        <option value="Unassigned">Unassigned</option>
+        <option value="Ongoing">Ongoing</option>
+        <option value="Under Review">Under Review</option>
         <option value="Completed">Completed</option>
-        <option value="Cancelled">Cancelled</option>
       </select>
       <span v-if="validationErrors.task_status" class="error-message">
         {{ validationErrors.task_status }}
@@ -340,7 +335,6 @@ export default {
       end_date: '',
       task_status: '',
       attachments: '',
-      collaborators: ''
     });
 
     // Track which fields have been touched by the user
@@ -353,7 +347,6 @@ export default {
       end_date: false,
       task_status: false,
       attachments: false,
-      collaborators: false
     });
 
     // NEW: Dropdown-related reactive data
@@ -691,11 +684,6 @@ export default {
       return filtered.slice(0, 20);
     });
 
-    const isAtLimit = computed(() => {
-      const maxCollaborators = formData.hasSubtasks ? 5 : 10;
-      return formData.assigned_to.length >= maxCollaborators;
-    });
-
     // NEW: Cleanup on unmount
     onBeforeUnmount(() => {
       document.removeEventListener('click', handleOutsideClick);
@@ -719,7 +707,7 @@ export default {
 
     // NEW: Dropdown interaction methods
     const handleInputFocus = () => {
-      if (!isAtLimit.value && !isLoadingUsers.value) {
+      if (!isLoadingUsers.value) {
         showDropdown.value = true;
         highlightedIndex.value = -1;
       }
@@ -747,14 +735,14 @@ export default {
     };
 
     const handleSearchInput = () => {
-      if (!showDropdown.value && !isAtLimit.value) {
+      if (!showDropdown.value) {
         showDropdown.value = true;
       }
       highlightedIndex.value = -1;
     };
 
     const toggleDropdown = () => {
-      if (isAtLimit.value || isLoadingUsers.value) return;
+      if (isLoadingUsers.value) return;
 
       // Clear any pending close timeout when manually toggling
       if (dropdownCloseTimeout.value) {
@@ -785,7 +773,7 @@ export default {
     };
 
     const selectUser = (user) => {
-      if (isAtLimit.value || isUserSelected(user)) return;
+      if (isUserSelected(user)) return;
 
       // Clear any pending close timeout
       if (dropdownCloseTimeout.value) {
@@ -805,21 +793,6 @@ export default {
 
       // Reset search but DON'T close dropdown
       userSearch.value = '';
-
-      // Keep dropdown open if not at limit and re-focus input
-      if (!isAtLimit.value) {
-        nextTick(() => {
-          const input = document.getElementById('assignedTo');
-          if (input) {
-            input.focus(); // Re-focus the input
-          }
-          // Keep dropdown open for next selection
-          showDropdown.value = true;
-        });
-      } else {
-        // Only close if at limit
-        closeDropdown();
-      }
     };
 
     const isUserSelected = (user) => {
@@ -1046,13 +1019,6 @@ export default {
       return '';
     };
 
-    const validateCollaborators = (collaborators) => {
-      if (!collaborators || collaborators.length === 0) {
-        return 'At least 1 collaborator is required';
-      }
-      return '';
-    };
-
     const validateDates = () => {
       dateValidationError.value = '';
 
@@ -1100,9 +1066,6 @@ export default {
           break;
         case 'attachments':
           validationErrors.attachments = touchedFields.attachments ? validateAttachments(value) : '';
-          break;
-        case 'collaborators':
-          validationErrors.collaborators = touchedFields.collaborators ? validateCollaborators(value) : '';
           break;
       }
     };
@@ -1266,7 +1229,6 @@ export default {
       validationErrors.end_date = validateEndDate(formData.end_date, formData.start_date);
       validationErrors.task_status = validateTaskStatus(formData.task_status);
       validationErrors.attachments = validateAttachments(formData.attachments);
-      validationErrors.collaborators = validateCollaborators(formData.assigned_to);
 
       // Check for any validation errors (skip project validation)
       if (validationErrors.task_name) {
@@ -1288,10 +1250,6 @@ export default {
       if (validationErrors.attachments) {
         hasErrors = true;
         if (!firstErrorField) firstErrorField = 'attachments';
-      }
-      if (validationErrors.collaborators) {
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'assignedTo';
       }
 
       // If there are errors, scroll to the first one and return
@@ -1442,7 +1400,6 @@ export default {
       isLoadingUsers,
       highlightedIndex,
       filteredUsers,
-      isAtLimit,
       handleInputFocus,
       handleInputBlur,
       handleSearchInput,
