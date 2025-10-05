@@ -173,17 +173,17 @@
           </div>
 
           <!-- No results found -->
-          <div v-else-if="filteredUsers.length === 0 && userSearch" class="dropdown-item no-results">
+          <div v-else-if="roleFilteredUsers.length === 0 && userSearch" class="dropdown-item no-results">
             No users found matching "{{ userSearch }}"
           </div>
 
-          <!-- Show all users when no search -->
-          <div v-else-if="filteredUsers.length === 0 && !userSearch" class="dropdown-item no-results">
-            No more users available
+          <div v-else-if="roleFilteredUsers.length === 0 && !userSearch" class="dropdown-item no-results">
+            No available collaborators to select
           </div>
 
+
           <!-- User options -->
-          <div v-for="(user, index) in filteredUsers" :key="`user-${index}-${user.id || user.name || 'unknown'}`"
+          <div v-for="(user, index) in roleFilteredUsers" :key="`user-${index}-${user.id || user.name || 'unknown'}`"
             class="dropdown-item" :class="{
               'highlighted': index === highlightedIndex,
               'selected': isUserSelected(user)
@@ -684,6 +684,19 @@ export default {
       return filtered.slice(0, 20);
     });
 
+    const roleFilteredUsers = computed(() => {
+      const currentUser = getCurrentUser();
+      if (!currentUser || !currentUser.role_num) {
+        return filteredUsers.value; // No role info, allow all
+      }
+
+      return filteredUsers.value.filter(user => {
+        // Current user can assign to users with role_num >= their own role_num
+        // (Higher role_num = lower hierarchy, 4=staff, 1=CEO)
+        return user.role_num >= currentUser.role_num;
+      });
+    });
+
     // NEW: Cleanup on unmount
     onBeforeUnmount(() => {
       document.removeEventListener('click', handleOutsideClick);
@@ -800,8 +813,8 @@ export default {
     };
 
     const selectFirstMatch = () => {
-      if (filteredUsers.value.length > 0) {
-        selectUser(filteredUsers.value[0]);
+      if (roleFilteredUsers.value.length > 0) {
+        selectUser(roleFilteredUsers.value[0]);
       }
     };
 
@@ -811,7 +824,7 @@ export default {
         return;
       }
 
-      if (highlightedIndex.value < filteredUsers.value.length - 1) {
+      if (highlightedIndex.value < roleFilteredUsers.value.length - 1) {
         highlightedIndex.value++;
       }
     };
@@ -1400,6 +1413,7 @@ export default {
       isLoadingUsers,
       highlightedIndex,
       filteredUsers,
+      roleFilteredUsers,
       handleInputFocus,
       handleInputBlur,
       handleSearchInput,
