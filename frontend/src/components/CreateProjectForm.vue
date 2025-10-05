@@ -68,7 +68,7 @@
 
           <!-- Created By (Auto-populated, read-only) -->
           <div class="form-group">
-            <label class="form-label" for="createdBy">Created By</label>
+            <label class="form-label" for="createdBy">Owner</label>
             <input id="createdBy" v-model="displayCreatedBy" type="text" class="form-input readonly-input" readonly
               placeholder="Auto-populated from current user" />
           </div>
@@ -76,7 +76,7 @@
           <!-- Collaborators - MATCHING CREATETASKFORM EXACTLY -->
           <div class="form-group">
             <label class="form-label" for="collaborators">
-              Collaborators (1-10 required) *
+              Collaborators (minimum 1 required) *
             </label>
 
             <!-- Combined search input with dropdown -->
@@ -87,7 +87,7 @@
                 @focus="handleInputFocus(); validateField('collaborators', formData.assignedto)" @blur="handleInputBlur"
                 @input="handleSearchInput" @keydown.enter.prevent="selectFirstMatch" @keydown.escape="closeDropdown"
                 @keydown.arrow-down.prevent="navigateDown" @keydown.arrow-up.prevent="navigateUp"
-                :disabled="isAtLimit || isLoadingUsers" />
+                :disabled="isLoadingUsers" />
 
               <!-- Dropdown icon -->
               <div class="dropdown-toggle-icon" @click="toggleDropdown" :class="{ 'rotated': showDropdown }">
@@ -137,10 +137,6 @@
             </div>
 
             <!-- Status messages -->
-            <div v-if="isAtLimit" class="status-message warning">
-              Maximum number of collaborators reached (10)
-            </div>
-
             <div v-if="formData.assignedto.length > 0" class="status-message info">
               {{ formData.assignedto.length }} collaborator{{ formData.assignedto.length !== 1 ? 's' : '' }} selected
             </div>
@@ -269,10 +265,6 @@ export default {
 
       return filtered.slice(0, 20) // Limit results
     },
-
-    isAtLimit() {
-      return this.formData.assignedto.length >= 10
-    }
   },
 
   async created() {
@@ -335,7 +327,7 @@ export default {
 
     // Dropdown methods - matching CreateTaskForm exactly
     handleInputFocus() {
-      if (!this.isAtLimit && !this.isLoadingUsers) {
+      if (!this.isLoadingUsers) {
         this.showDropdown = true
         this.highlightedIndex = -1
       }
@@ -359,14 +351,14 @@ export default {
     },
 
     handleSearchInput() {
-      if (!this.showDropdown && !this.isAtLimit) {
+      if (!this.showDropdown) {
         this.showDropdown = true
       }
       this.highlightedIndex = -1
     },
 
     toggleDropdown() {
-      if (this.isAtLimit || this.isLoadingUsers) return
+      if (this.isLoadingUsers) return
 
       if (this.dropdownCloseTimeout) {
         clearTimeout(this.dropdownCloseTimeout)
@@ -389,7 +381,7 @@ export default {
     },
 
     selectUser(user) {
-      if (this.isAtLimit || this.isUserSelected(user)) return
+      if (this.isUserSelected(user)) return
 
       if (this.dropdownCloseTimeout) {
         clearTimeout(this.dropdownCloseTimeout)
@@ -408,16 +400,6 @@ export default {
 
       // Reset search but keep dropdown open if not at limit
       this.userSearch = ''
-
-      if (!this.isAtLimit) {
-        this.$nextTick(() => {
-          const input = document.getElementById('collaborators')
-          if (input) input.focus()
-        })
-        this.showDropdown = true
-      } else {
-        this.closeDropdown()
-      }
     },
 
     isUserSelected(user) {
