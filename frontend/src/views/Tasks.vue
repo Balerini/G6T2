@@ -21,11 +21,32 @@
     <!-- Tasks Section -->
     <div class="tasks-section">
       <div class="container">
+        <!-- Loading State -->
+        <div v-if="loading" class="loading-state">
+          <p>Loading tasks...</p>
+        </div>
+        
+        <!-- Error State -->
+        <div v-else-if="error" class="error-state">
+          <p class="error-message">{{ error }}</p>
+          <button class="retry-btn" @click="loadTasks">Retry</button>
+        </div>
+        
+        <!-- Tasks List -->
         <TaskList
+          v-else
           :tasks="filteredTasks"
-          @edit-task="handleEditTask"
-          @view-subtask="handleViewSubtask"
-          @add-subtask="handleAddSubtask"
+          :users="users"
+          @view-task="handleViewTask"
+        />
+        
+        <!-- Edit Task Modal -->
+        <EditTask
+          v-if="selectedTask"
+          :visible="showEdit"
+          :task="selectedTask"
+          @close="showEdit = false"
+          @saved="onTaskSaved"
         />
       </div>
     </div>
@@ -34,43 +55,76 @@
 
 <script>
 import TaskList from '../components/Projects/TaskList.vue'
-import { mockTasks } from '../dummyData/taskData.js'
+import EditTask from '../components/EditTask.vue'
+import { taskService } from '../services/taskService.js'
+import { projectService } from '../services/projectService.js'
 
 export default {
   name: 'CRMTaskManager',
   components: {
-    TaskList
+    TaskList,
+    EditTask
   },
   data() {
     return {
       activeTab: 'all',
-      tasks: mockTasks
+      tasks: [],
+      users: [],
+      showEdit: false,
+      selectedTask: null,
+      loading: true,
+      error: null
     }
+  },
+  async created() {
+    await this.loadTasks()
   },
   computed: {
     filteredTasks() {
       if (this.activeTab === 'all') {
         return this.tasks;
       }
-      return this.tasks.filter(task => task.collaborator && task.collaborator.length > 0);
+      return this.tasks.filter(task => task.assigned_to && task.assigned_to.length > 0);
     }
   },
   methods: {
+    async loadTasks() {
+      try {
+        this.loading = true
+        this.error = null
+        
+        // Load users first for name resolution
+        this.users = await projectService.getAllUsers()
+        
+        // Load all tasks
+        this.tasks = await taskService.getTasks()
+        
+      } catch (error) {
+        console.error('Error loading tasks:', error)
+        this.error = error.message || 'Failed to load tasks'
+      } finally {
+        this.loading = false
+      }
+    },
     navigateToCreateProject() {
       this.$router.push('/createtask');
     },
+    handleViewTask(task) {
+      // Navigate to task details view
+      this.$router.push(`/projects/${task.proj_ID}/tasks/${task.task_ID}`);
+    },
     handleEditTask(task) {
-      console.log('Edit task:', task);
-      // edit task logic here
+      this.selectedTask = task
+      this.showEdit = true
     },
-    handleViewSubtask(subtask) {
-      this.$router.push(`/tasks/${subtask.taskId}/subtask/${subtask.subTaskId}`);
-      console.log('View subtask:', subtask);
-      // view subtask logic here
-    },
-    handleAddSubtask(task) {
-      console.log('Add subtask to task:', task);
-      // subtask logic here
+    onTaskSaved(updated) {
+      this.showEdit = false
+      // Update task in local list
+      const id = updated.task_ID || updated.id
+      const idx = this.tasks.findIndex(t => (t.task_ID || t.id) === id)
+      if (idx !== -1) {
+        this.$set(this.tasks, idx, { ...this.tasks[idx], ...updated })
+      }
     }
   }
 }
@@ -146,6 +200,38 @@ export default {
 
 .tasks-section {
   padding: 2rem 0;
+}
+
+/* Loading and Error States */
+.loading-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+}
+
+.error-state {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.error-message {
+  color: #dc2626;
+  margin-bottom: 1rem;
+}
+
+.retry-btn {
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.retry-btn:hover {
+  background: #374151;
 }
 
 @media (max-width: 768px) {

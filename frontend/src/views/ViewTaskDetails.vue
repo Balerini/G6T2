@@ -22,9 +22,9 @@
             ← Back to Projects
           </button>
           <span class="breadcrumb-separator">/</span>
-          <span class="breadcrumb-current">{{ parentProject?.proj_name }}</span>
+          <span class="breadcrumb-current">{{ parentProject ? parentProject.proj_name : '' }}</span>
           <span class="breadcrumb-separator">/</span>
-          <span class="breadcrumb-current">{{ task?.task_name }}</span>
+          <span class="breadcrumb-current">{{ task ? task.task_name : '' }}</span>
         </div>
       </div>
     </header>
@@ -73,13 +73,17 @@
         <div class="task-details-card">
           <div class="card-header">
             <h2 class="task-title">{{ task.task_name }}</h2>
-            <div class="header-actions"></div>
-            <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
-              {{ formatStatus(task.task_status) || 'Not Started' }}
+            <div class="header-actions">
+              <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
+                {{ formatStatus(task.task_status) || 'Not Started' }}
+              </div>
+              <button @click="openEditModal" class="edit-task-btn" v-if="task">
+                ✏️ Edit Task
+              </button>
+              <button @click="openSubtaskModal" class="add-subtask-btn">
+                + Add Subtask
+              </button>
             </div>
-            <button @click="openSubtaskModal" class="add-subtask-btn">
-              + Add Subtask
-            </button>
           </div>
 
           <!-- Key Information Grid -->
@@ -196,6 +200,17 @@
           @cancel="closeSubtaskModal" />
       </div>
     </div>
+
+    <!-- Edit Task Modal -->
+    <EditTask
+      v-if="selectedTask"
+      :visible="showEdit"
+      :task="selectedTask"
+      :users="users"
+      @close="showEdit = false"
+      @saved="onTaskSaved"
+    />
+
   </div>
 </template>
 
@@ -203,11 +218,13 @@
 import { projectService } from '../services/projectService.js'
 // import { taskService } from '../services/taskService.js'
 import SubtaskForm from '../components/SubTaskForm.vue'
+import EditTask from '../components/EditTask.vue'
 
 export default {
   name: 'ViewIndivTask',
   components: {
-    SubtaskForm
+    SubtaskForm,
+    EditTask
   },
   data() {
     return {
@@ -221,7 +238,9 @@ export default {
       showSubtaskModal: false,
       successMessage: '',
       errorMessage: '',
-      uploadProgressMessage: ''
+      uploadProgressMessage: '',
+      showEdit: false,
+      selectedTask: null
     }
   },
   created() {
@@ -435,7 +454,6 @@ export default {
         .toUpperCase();
     },
 
-
     getUserName(userId) {
       // First try to find by document ID (from backend API)
       let user = this.users.find(u => String(u.id) === String(userId));
@@ -554,6 +572,16 @@ export default {
           rank: user.role_num || 3
         } : null;
       }).filter(user => user !== null);
+    },
+
+    openEditModal() {
+      this.selectedTask = this.task;
+      this.showEdit = true;
+    },
+
+    onTaskSaved(updated) {
+      this.showEdit = false;
+      this.task = { ...this.task, ...updated };
     }
   }
 }
@@ -1064,6 +1092,22 @@ export default {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.edit-task-btn {
+  background: #1f2937;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.edit-task-btn:hover {
+  background: #111827;
 }
 
 .add-subtask-btn {

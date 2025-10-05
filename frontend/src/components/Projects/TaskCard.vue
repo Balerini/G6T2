@@ -2,9 +2,9 @@
   <div class="task-item">
     <div class="task-title-row">
       <h3 class="task-title">{{ task.task_name }}</h3>
-      <button class="edit-btn" @click.stop="$emit('edit-task', task)" title="Edit Task" aria-label="Edit Task">
+      <!-- <button class="edit-btn" @click.stop="$emit('edit-task', task)" title="Edit Task" aria-label="Edit Task">
         ✏️
-      </button>
+      </button> -->
     </div>
 
     <div class="task-meta">
