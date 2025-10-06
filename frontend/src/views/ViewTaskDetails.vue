@@ -189,6 +189,149 @@
             </div>
           </div>
         </div>
+        
+        <!-- Subtasks Section with Accordion -->
+        <div class="subtasks-section-card" v-if="task">
+          <div class="subtasks-header">
+            <h3 class="section-title">Subtasks</h3>
+          </div>
+
+          <!-- Loading subtasks -->
+          <div v-if="loadingSubtasks" class="subtasks-loading">
+            <p>Loading subtasks...</p>
+          </div>
+
+          <!-- No subtasks -->
+          <div v-else-if="!subtasks || subtasks.length === 0" class="no-subtasks">
+            <div class="empty-state-icon">📋</div>
+            <p class="empty-state-text">No subtasks yet</p>
+            <p class="empty-state-subtext">Break down this task into smaller subtasks</p>
+          </div>
+
+          <!-- Subtasks accordion list -->
+          <div v-else class="subtasks-accordion">
+            <div 
+              v-for="(subtask, index) in subtasks" 
+              :key="subtask.id"
+              class="accordion-item"
+              :class="{ 'expanded': expandedSubtask === index }"
+            >
+              <!-- Accordion Header - Always Visible -->
+              <div 
+                class="accordion-header"
+                @click="toggleSubtask(index)"
+              >
+                <div class="subtask-status-indicator" :class="getSubtaskStatusClass(subtask.status)"></div>
+                
+                <div class="accordion-header-content">
+                  <div class="subtask-title-row">
+                    <h4 class="subtask-name">{{ subtask.name }}</h4>
+                    <div class="subtask-status-badge" :class="getSubtaskStatusClass(subtask.status)">
+                      {{ subtask.status || 'Unassigned' }}
+                    </div>
+                  </div>
+
+                  <div class="subtask-preview-info">
+                    <span class="preview-item">
+                      <span class="preview-icon">📅</span>
+                      {{ formatDateShort(subtask.start_date) }} - {{ formatDateShort(subtask.end_date) }}
+                    </span>
+                    <span class="preview-item" v-if="subtask.assigned_to && subtask.assigned_to.length > 0">
+                      <span class="preview-icon">👥</span>
+                      {{ subtask.assigned_to.length }} collaborator{{ subtask.assigned_to.length !== 1 ? 's' : '' }}
+                    </span>
+                    <span class="preview-item empty" v-else>
+                      <span class="preview-icon">👥</span>
+                      No collaborators
+                    </span>
+                  </div>
+                </div>
+
+                <div class="accordion-toggle">
+                  <span class="toggle-icon">{{ expandedSubtask === index ? '▼' : '▶' }}</span>
+                </div>
+              </div>
+
+              <!-- Accordion Body - Expandable Details -->
+              <div 
+                class="accordion-body"
+                v-show="expandedSubtask === index"
+              >
+                <div class="subtask-details-grid">
+                  <!-- Description -->
+                  <div class="detail-section full-width">
+                    <h5 class="detail-label">Description</h5>
+                    <p class="detail-value" v-if="subtask.description">
+                      {{ subtask.description }}
+                    </p>
+                    <p class="detail-value empty" v-else>
+                      No description provided
+                    </p>
+                  </div>
+
+                  <!-- Start Date -->
+                  <div class="detail-section">
+                    <h5 class="detail-label">Start Date</h5>
+                    <p class="detail-value">{{ formatDate(subtask.start_date) }}</p>
+                  </div>
+
+                  <!-- End Date -->
+                  <div class="detail-section">
+                    <h5 class="detail-label">End Date</h5>
+                    <p class="detail-value">{{ formatDate(subtask.end_date) }}</p>
+                    <p class="detail-meta" :class="getDueDateClass(subtask.end_date)">
+                      {{ getDueDateStatus(subtask.end_date) }}
+                    </p>
+                  </div>
+
+                  <!-- Collaborators -->
+                  <div class="detail-section full-width">
+                    <h5 class="detail-label">Collaborators</h5>
+                    <div v-if="subtask.assigned_to && subtask.assigned_to.length > 0" class="collaborators-list">
+                      <div v-for="userId in subtask.assigned_to" :key="userId" class="collaborator-item">
+                        <div class="collaborator-avatar">
+                          {{ getInitials(getUserName(userId)) }}
+                        </div>
+                        <span class="collaborator-name">{{ getUserName(userId) }}</span>
+                      </div>
+                    </div>
+                    <p class="detail-value empty" v-else>
+                      No collaborators assigned
+                    </p>
+                  </div>
+
+                  <!-- Attachments -->
+                  <div class="detail-section full-width">
+                    <h5 class="detail-label">Attachments</h5>
+                    <div v-if="subtask.attachments && subtask.attachments.length > 0" class="attachments-list">
+                      <a 
+                        v-for="(attachment, attachIndex) in subtask.attachments" 
+                        :key="attachIndex"
+                        :href="attachment.url" 
+                        target="_blank"
+                        class="attachment-link"
+                      >
+                        <span class="attachment-icon">{{ getFileIcon(attachment.name) }}</span>
+                        <span class="attachment-name">{{ attachment.name }}</span>
+                      </a>
+                    </div>
+                    <p class="detail-value empty" v-else>
+                      No attachments
+                    </p>
+                  </div>
+
+                  <!-- Status -->
+                  <div class="detail-section">
+                    <h5 class="detail-label">Status</h5>
+                    <div class="subtask-status-badge-large" :class="getSubtaskStatusClass(subtask.status)">
+                      {{ subtask.status || 'Unassigned' }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -216,7 +359,7 @@
 
 <script>
 import { projectService } from '../services/projectService.js'
-// import { taskService } from '../services/taskService.js'
+import { taskService } from '../services/taskService.js'
 import SubtaskForm from '../components/SubTaskForm.vue'
 import EditTask from '../components/EditTask.vue'
 
@@ -240,7 +383,10 @@ export default {
       errorMessage: '',
       uploadProgressMessage: '',
       showEdit: false,
-      selectedTask: null
+      selectedTask: null,
+      subtasks: [],          
+      loadingSubtasks: false, 
+      expandedSubtask: null   
     }
   },
   created() {
@@ -352,6 +498,10 @@ export default {
         if (!this.task || !this.parentProject) {
           this.error = `Failed to load task data. Task: ${this.task ? 'Found' : 'Missing'}, Project: ${this.parentProject ? 'Found' : 'Missing'}`;
           return;
+        }
+
+        if (this.task) {
+          await this.loadSubtasks();
         }
 
       } catch (error) {
@@ -498,8 +648,7 @@ export default {
         this.successMessage = '';
       }, 4000);
       
-      // Optionally refresh task data
-      // this.loadTaskData();
+      this.loadSubtasks();
     },
 
     handleUploadProgress(message) {
@@ -582,6 +731,60 @@ export default {
     onTaskSaved(updated) {
       this.showEdit = false;
       this.task = { ...this.task, ...updated };
+    },
+
+    async loadSubtasks() {
+      if (!this.task || !this.task.id) return;
+      
+      try {
+        this.loadingSubtasks = true;
+        this.subtasks = await taskService.getSubtasksByTask(this.task.id);
+        console.log('Subtasks loaded:', this.subtasks);
+      } catch (error) {
+        console.error('Error loading subtasks:', error);
+        this.subtasks = [];
+      } finally {
+        this.loadingSubtasks = false;
+      }
+    },
+
+    toggleSubtask(index) {
+      this.expandedSubtask = this.expandedSubtask === index ? null : index;
+    },
+
+    formatDateShort(date) {
+      if (!date) return 'No date';
+      return new Date(date).toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: 'short'
+      });
+    },
+
+    getSubtaskStatusClass(status) {
+      if (!status) return 'status-unassigned';
+      const statusMap = {
+        'Unassigned': 'status-unassigned',
+        'Ongoing': 'status-ongoing',
+        'Under Review': 'status-review',
+        'Completed': 'status-completed'
+      };
+      return statusMap[status] || 'status-default';
+    },
+
+    getFileIcon(fileName) {
+      if (!fileName) return '📄';
+      const ext = fileName.split('.').pop().toLowerCase();
+      const iconMap = {
+        'pdf': '📄',
+        'doc': '📝',
+        'docx': '📝',
+        'txt': '📄',
+        'jpg': '🖼️',
+        'jpeg': '🖼️',
+        'png': '🖼️',
+        'gif': '🖼️'
+      };
+      return iconMap[ext] || '📄';
     }
   }
 }
@@ -1182,5 +1385,356 @@ export default {
 
 .close-btn:hover {
   color: #374151;
+}
+
+/* Subtasks Section Styles */
+.subtasks-section-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.subtasks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 32px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.subtasks-loading {
+  padding: 40px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.no-subtasks {
+  padding: 60px 32px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 8px 0;
+}
+
+.empty-state-subtext {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Accordion Styles */
+.subtasks-accordion {
+  display: flex;
+  flex-direction: column;
+}
+
+.accordion-item {
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.2s;
+}
+
+.accordion-item:last-child {
+  border-bottom: none;
+}
+
+.accordion-item.expanded {
+  background-color: #f9fafb;
+}
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 32px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  user-select: none;
+}
+
+.accordion-header:hover {
+  background-color: #f9fafb;
+}
+
+.accordion-item.expanded .accordion-header {
+  background-color: transparent;
+}
+
+.subtask-status-indicator {
+  width: 4px;
+  height: 50px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.subtask-status-indicator.status-unassigned {
+  background: #9ca3af;
+}
+
+.subtask-status-indicator.status-ongoing {
+  background: #3b82f6;
+}
+
+.subtask-status-indicator.status-review {
+  background: #f59e0b;
+}
+
+.subtask-status-indicator.status-completed {
+  background: #10b981;
+}
+
+.accordion-header-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.subtask-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.subtask-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.subtask-status-badge {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.subtask-status-badge.status-unassigned {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.subtask-status-badge.status-ongoing {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.subtask-status-badge.status-review {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.subtask-status-badge.status-completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.subtask-preview-info {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.preview-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.preview-item.empty {
+  font-style: italic;
+}
+
+.preview-icon {
+  font-size: 14px;
+}
+
+.accordion-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.toggle-icon {
+  color: #6b7280;
+  font-size: 12px;
+  transition: transform 0.2s;
+}
+
+/* Accordion Body */
+.accordion-body {
+  padding: 0 32px 24px 64px;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.subtask-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-section.full-width {
+  grid-column: 1 / -1;
+}
+
+.detail-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.detail-value {
+  font-size: 15px;
+  color: #111827;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.detail-value.empty {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.detail-meta {
+  font-size: 12px;
+  font-weight: 500;
+  margin: 4px 0 0 0;
+}
+
+.collaborators-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.collaborator-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f3f4f6;
+  border-radius: 20px;
+}
+
+.collaborator-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #3730a3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.collaborator-name {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attachment-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #374151;
+  transition: all 0.2s;
+}
+
+.attachment-link:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.attachment-icon {
+  font-size: 18px;
+}
+
+.attachment-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.subtask-status-badge-large {
+  display: inline-block;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.subtask-status-badge-large.status-unassigned {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.subtask-status-badge-large.status-ongoing {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.subtask-status-badge-large.status-review {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.subtask-status-badge-large.status-completed {
+  background: #d1fae5;
+  color: #065f46;
 }
 </style>
