@@ -99,17 +99,6 @@
       </span>
     </div>
 
-    <!-- Subtasks Checkbox -->
-    <div class="form-group checkbox-group">
-      <label class="checkbox-container">
-        <input type="checkbox" class="checkbox-input" v-model="formData.hasSubtasks" @change="onSubtasksChange" />
-        <span class="checkbox-checkmark"></span>
-        <span class="checkbox-label"> Subtasks will have respective inputs</span>
-      </label>
-    </div>
-
-
-
     <!-- Start Date -->
     <div class="form-group">
       <label class="form-label" for="startDate">Start Date *</label>
@@ -379,7 +368,6 @@ export default {
       assigned_to: [], // This will now store user objects with id and name
       attachments: [],
       task_status: '',
-      hasSubtasks: false
     });
 
 
@@ -843,13 +831,6 @@ export default {
       return sgTime.toISOString().split('T')[0];
     };
 
-    const onSubtasksChange = () => {
-      if (formData.hasSubtasks && formData.assigned_to.length > 5) {
-        formData.assigned_to = formData.assigned_to.slice(0, 5);
-      }
-      dateValidationError.value = '';
-    };
-
     // UPDATED: Remove assignee method for dropdown (works with objects now)
     const removeAssignee = (index) => {
       formData.assigned_to.splice(index, 1);
@@ -1148,7 +1129,6 @@ export default {
         assigned_to: [],
         attachments: [],
         task_status: '',
-        hasSubtasks: false
       });
 
       if (fileInput.value) {
@@ -1326,7 +1306,6 @@ export default {
           created_by: taskData.created_by,
           attachments: uploadedAttachments, // Use uploaded file data instead of raw files
           task_status: taskData.task_status || null,
-          hasSubtasks: taskData.hasSubtasks
         };
 
         console.log('=== FINAL TASK DATA DEBUG ===');
@@ -1404,7 +1383,6 @@ export default {
       validateField,
       handleSubmit,
       getCurrentDate,
-      onSubtasksChange,
 
       // NEW: Dropdown-related returns
       users,
