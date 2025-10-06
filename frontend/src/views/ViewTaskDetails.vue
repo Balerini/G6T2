@@ -469,7 +469,7 @@ export default {
           // Try to load the task directly from the backend as a fallback
           console.log('Attempting to load task directly from backend...');
           try {
-            const directTask = await projectService.getTask(taskId);
+            const directTask = await taskService.getTask(taskId);
             if (directTask) {
               // Find the parent project by the task's proj_ID
               const parentProject = allProjects.find(proj => 
@@ -500,8 +500,35 @@ export default {
           return;
         }
 
-        if (this.task) {
-          await this.loadSubtasks();
+        // ACCESS CONTROL CHECK
+        if (this.task && this.parentProject) {
+          try {
+            const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+            const userId = currentUser.id;
+            
+            if (!userId) {
+              this.error = 'Unable to verify user identity. Please log in again.';
+              return;
+            }
+            
+            const isProjectCollaborator = this.parentProject.collaborators?.includes(userId);
+            const isTaskAssignee = this.task.assigned_to?.includes(userId);
+            const isTaskCreator = String(this.task.created_by) === String(userId);
+            
+            const hasAccess = isProjectCollaborator || isTaskAssignee || isTaskCreator;
+            
+            if (!hasAccess) {
+              this.error = 'Access denied. You do not have permission to view this task.';
+              return;
+            }
+            
+            await this.loadSubtasks();
+            
+          } catch (authError) {
+            console.error('Error checking user access:', authError);
+            this.error = 'Unable to verify access permissions. Please try again.';
+            return;
+          }
         }
 
       } catch (error) {
@@ -1736,5 +1763,33 @@ export default {
 .subtask-status-badge-large.status-completed {
   background: #d1fae5;
   color: #065f46;
+}
+
+/* Error State */
+.error-state {
+  text-align: center;
+  padding: 48px;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+
+.retry-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.retry-btn:hover {
+  background: #2563eb;
 }
 </style>
