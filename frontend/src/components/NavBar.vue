@@ -6,8 +6,8 @@
         </router-link>
         
         <div class="navbar-right">
-          <router-link to="/" class="navbar-link">Home</router-link>
-          <router-link to="/projects" class="navbar-link">All Projects</router-link>
+          <router-link to="/" class="navbar-link">Dashboard</router-link>
+          <router-link to="/projects" class="navbar-link">Projects</router-link>
           <router-link to="/owntasks" class="navbar-link">Tasks</router-link>
           <router-link to="" class="navbar-link">My Schedule</router-link>
           <button @click="logout" class="logout-btn">Logout</button>
