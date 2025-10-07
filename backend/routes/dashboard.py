@@ -468,6 +468,7 @@ def get_manager_pending_tasks_by_age(user_id):
                     'assigned_to_name': staff_info[staff_id]['name'],
                     'assigned_to_role': staff_info[staff_id]['role_name'],
                     'proj_name': task_data.get('proj_name', ''),
+                    'proj_id': task_data.get('proj_ID'),
                     'end_date': end_date.isoformat() if end_date else None,
                     'days_until_due': days_diff
                 }
