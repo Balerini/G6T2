@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import authService from '../services/auth';
 
 import Login from '../views/Login.vue';
+import Register from '../views/Register.vue';
 import Home from '../views/Home.vue';
 import Projects from '../views/Projects.vue';
 import Createtask from '../views/CreateTask.vue'
@@ -20,6 +21,12 @@ const routes = [
     path: '/login',
     name: 'login',
     component: Login,
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: Register,
     meta: { requiresAuth: false }
   },
   {
@@ -74,8 +81,8 @@ router.beforeEach((to, from, next) => {
   if (requiresAuth && !isLoggedIn) {
     // Redirect to login if trying to access protected route without being logged in
     next('/login');
-  } else if (to.path === '/login' && isLoggedIn) {
-    // Redirect to home if trying to access login page while already logged in
+  } else if ((to.path === '/login' || to.path === '/register') && isLoggedIn) {
+    // Redirect to home if trying to access login/register page while already logged in
     next('/');
   } else {
     // Allow navigation

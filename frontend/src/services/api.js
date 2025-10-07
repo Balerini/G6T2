@@ -35,6 +35,18 @@ export const authAPI = {
     }
   },
 
+  // Register user
+  register: async (userData) => {
+    try {
+      const response = await api.post('/register', userData)
+      console.log('API response:', response);
+      return response.data
+    } catch (error) {
+      console.error('API error:', error);
+      throw error.response?.data || { error: 'Registration failed' }
+    }
+  },
+
   // Logout user
   logout: () => {
     localStorage.removeItem('user')
