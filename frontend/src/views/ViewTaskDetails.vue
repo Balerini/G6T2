@@ -156,12 +156,13 @@
           <div class="attachments-section" v-if="task.attachments && task.attachments.length > 0">
             <h3 class="section-title">Attachments</h3>
             <div class="attachments-grid">
-              <div v-for="attachment in task.attachments" :key="attachment" class="attachment-item">
-                <div class="attachment-icon">📎</div>
+              <div v-for="attachment in task.attachments" :key="attachment" class="attachment-item" @click="downloadAttachment(attachment, $event)">
+                <div class="attachment-icon">{{ getFileIcon(attachment.name) }}</div>
                 <div class="attachment-info">
                   <p class="attachment-name">{{ attachment.name }}</p>
                   <p class="attachment-size">Click to download</p>
                 </div>
+                <div class="download-icon">⬇️</div>
               </div>
             </div>
           </div>
@@ -362,6 +363,8 @@ import { projectService } from '../services/projectService.js'
 import { taskService } from '../services/taskService.js'
 import SubtaskForm from '../components/SubTaskForm.vue'
 import EditTask from '../components/EditTask.vue'
+import { storage } from '../firebase.js'
+import { ref as storageRef, getBlob } from 'firebase/storage'
 
 export default {
   name: 'ViewIndivTask',
@@ -812,6 +815,179 @@ export default {
         'gif': '🖼️'
       };
       return iconMap[ext] || '📄';
+    },
+
+    debugAttachments() {
+      console.log('=== ATTACHMENT DEBUG ===');
+      console.log('Task attachments:', this.task.attachments);
+      if (this.task.attachments && this.task.attachments.length > 0) {
+        this.task.attachments.forEach((attachment, index) => {
+          console.log(`Attachment ${index}:`, attachment);
+          console.log(`  - Type:`, typeof attachment);
+          console.log(`  - Keys:`, Object.keys(attachment));
+          console.log(`  - downloadURL:`, attachment.downloadURL);
+          console.log(`  - url:`, attachment.url);
+          console.log(`  - name:`, attachment.name);
+          console.log(`  - storagePath:`, attachment.storagePath);
+        });
+      } else {
+        console.log('No attachments found');
+      }
+      console.log('=== END DEBUG ===');
+    },
+
+    async downloadAttachment(attachment, event) {
+      try {
+        // Prevent any default behavior that might cause redirecting
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        
+        console.log('Downloading attachment:', attachment);
+        
+        // Show success message
+        this.successMessage = `Downloading ${attachment.name}...`;
+        
+        // Get the file URL - try different possible properties
+        const fileUrl = attachment.downloadURL || attachment.url || attachment.storagePath;
+        console.log('File URL:', fileUrl);
+        
+        if (!fileUrl) {
+          throw new Error('No download URL found for attachment');
+        }
+        
+        // Check if it's a Firebase Storage URL (which has CORS restrictions)
+        const isFirebaseUrl = fileUrl.includes('firebasestorage.googleapis.com');
+        
+        if (isFirebaseUrl) {
+          console.log('Firebase Storage URL detected, downloading using Firebase SDK');
+          
+          try {
+            // Extract the storage path from the URL
+            // URL format: https://firebasestorage.googleapis.com/v0/b/bucket/o/path?...
+            const urlParts = fileUrl.split('/o/')[1];
+            const storagePath = decodeURIComponent(urlParts.split('?')[0]);
+            
+            console.log('Storage path:', storagePath);
+            
+            // Get reference to the file in Firebase Storage
+            const fileRef = storageRef(storage, storagePath);
+            
+            // Download the file as a blob using Firebase SDK (no CORS issues)
+            const blob = await getBlob(fileRef);
+            console.log('Blob downloaded:', blob);
+            
+            // Create a download link from the blob
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = attachment.name;
+            link.style.display = 'none';
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up
+            window.URL.revokeObjectURL(blobUrl);
+            
+            console.log('File downloaded successfully to computer');
+            this.successMessage = `Downloaded ${attachment.name}`;
+            setTimeout(() => {
+              this.successMessage = '';
+            }, 2000);
+            
+          } catch (firebaseError) {
+            console.error('Firebase SDK download error:', firebaseError);
+            
+            // Fallback: open in new tab
+            console.log('Falling back to new tab method');
+            window.open(fileUrl, '_blank');
+            
+            this.successMessage = `Opening download for ${attachment.name}`;
+            setTimeout(() => {
+              this.successMessage = '';
+            }, 2000);
+          }
+          
+        } else {
+          // For other URLs, try fetch first, then fallback to direct download
+          try {
+            const response = await fetch(fileUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': '*/*',
+              },
+            });
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const blob = await response.blob();
+            console.log('Blob created:', blob);
+            
+            // Create a blob URL
+            const blobUrl = window.URL.createObjectURL(blob);
+            
+            // Create a temporary anchor element to trigger download
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = attachment.name;
+            link.style.display = 'none';
+            
+            // Append to body, click, and remove
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up the blob URL
+            setTimeout(() => {
+              window.URL.revokeObjectURL(blobUrl);
+            }, 1000);
+            
+          } catch (fetchError) {
+            console.log('Fetch failed, trying direct download:', fetchError);
+            
+            // Fallback: Direct download link (no redirects)
+            const link = document.createElement('a');
+            link.href = fileUrl;
+            link.download = attachment.name;
+            link.style.display = 'none';
+            
+            // Force download behavior - no redirects
+            link.setAttribute('download', attachment.name);
+            link.setAttribute('target', '_self');
+            link.setAttribute('rel', 'noopener noreferrer');
+            
+            document.body.appendChild(link);
+            link.click();
+            
+            // Remove immediately
+            setTimeout(() => {
+              if (document.body.contains(link)) {
+                document.body.removeChild(link);
+              }
+            }, 100);
+          }
+        }
+        
+        // Clear success message after 2 seconds
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 2000);
+        
+      } catch (error) {
+        console.error('Error downloading attachment:', error);
+        this.errorMessage = `Failed to download ${attachment.name}: ${error.message}`;
+        
+        // Clear error message after 5 seconds
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
+      }
     }
   }
 }
@@ -1192,11 +1368,24 @@ export default {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .attachment-item:hover {
   background: #f3f4f6;
-  border-color: #d1d5db;
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.download-icon {
+  font-size: 16px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.attachment-item:hover .download-icon {
+  opacity: 1;
 }
 
 .attachment-icon {
