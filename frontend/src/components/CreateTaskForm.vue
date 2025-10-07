@@ -247,6 +247,27 @@
       </span>
     </div>
 
+    <!-- Priority Level -->
+    <div class="form-group">
+      <label class="form-label" for="priorityLevel">
+        Priority Level *
+      </label>
+      <select id="priorityLevel" v-model="formData.priority_level" class="form-select"
+        :class="{ 'error': validationErrors.priority_level }" 
+        @change="validateField('priority_level', formData.priority_level)"
+        @blur="validateField('priority_level', formData.priority_level)">
+        <option value="" disabled>Select priority level</option>
+        <option value="Highest">Highest</option>
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+        <option value="Lowest">Lowest</option>
+      </select>
+      <span v-if="validationErrors.priority_level" class="error-message">
+        {{ validationErrors.priority_level }}
+      </span>
+    </div>
+
     <!-- Task Status -->
     <div class="form-group">
       <label class="form-label" for="taskStatus">
@@ -323,6 +344,7 @@ export default {
       start_date: '',
       end_date: '',
       task_status: '',
+      priority_level: '',
       attachments: '',
     });
 
@@ -335,6 +357,7 @@ export default {
       start_date: false,
       end_date: false,
       task_status: false,
+      priority_level: false,
       attachments: false,
     });
 
@@ -368,6 +391,7 @@ export default {
       assigned_to: [], // This will now store user objects with id and name
       attachments: [],
       task_status: '',
+      priority_level: '',
     });
 
 
@@ -992,6 +1016,17 @@ export default {
       return ''
     }
 
+    const validatePriorityLevel = (value) => {
+      if (!value || !value.trim()) {
+        return 'Priority level is required';
+      }
+      const validPriorities = ['Highest', 'High', 'Medium', 'Low', 'Lowest'];
+      if (!validPriorities.includes(value)) {
+        return 'Invalid priority level selected';
+      }
+      return '';
+    };
+
     const validateTaskStatus = (value) => {
       if (!value || !value.trim()) {
         return 'Task status is required';
@@ -1061,6 +1096,9 @@ export default {
         case 'attachments':
           validationErrors.attachments = touchedFields.attachments ? validateAttachments(value) : '';
           break;
+        case 'priority_level':
+          validationErrors.priority_level = touchedFields.priority_level ? validatePriorityLevel(value) : '';
+          break;
       }
     };
 
@@ -1129,6 +1167,7 @@ export default {
         assigned_to: [],
         attachments: [],
         task_status: '',
+        priority_level: '',
       });
 
       if (fileInput.value) {
@@ -1183,6 +1222,7 @@ export default {
       validateField('end_date', formData.end_date, true);
       validateField('task_status', formData.task_status, true);
       validateField('collaborators', formData.assigned_to, true);
+      validateField('prioritylevel', formData.prioritylevel, true);
 
       // Check if form is actually valid
       if (!isFormValid.value) {
@@ -1222,6 +1262,7 @@ export default {
       validationErrors.end_date = validateEndDate(formData.end_date, formData.start_date);
       validationErrors.task_status = validateTaskStatus(formData.task_status);
       validationErrors.attachments = validateAttachments(formData.attachments);
+      validationErrors.priority_level = validatePriorityLevel(formData.priority_level);
 
       // Check for any validation errors (skip project validation)
       if (validationErrors.task_name) {
@@ -1243,6 +1284,10 @@ export default {
       if (validationErrors.attachments) {
         hasErrors = true;
         if (!firstErrorField) firstErrorField = 'attachments';
+      }
+      if (validationErrors.priority_level) {
+        hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'priorityLevel';
       }
 
       // If there are errors, scroll to the first one and return
@@ -1306,14 +1351,16 @@ export default {
           created_by: taskData.created_by,
           attachments: uploadedAttachments, // Use uploaded file data instead of raw files
           task_status: taskData.task_status || null,
+          prioritylevel: taskData.priority_level || null,
         };
 
         console.log('=== FINAL TASK DATA DEBUG ===');
         console.log('Project name being sent:', finalTaskData.proj_name);
         console.log('Project name type:', typeof finalTaskData.proj_name);
         console.log('Project name length:', finalTaskData.proj_name ? finalTaskData.proj_name.length : 'null/undefined');
-
         console.log('Submitting task data to API:', finalTaskData);
+        console.log('Priority level being sent:', finalTaskData.prioritylevel);
+        console.log('Original form priority level:', formData.prioritylevel);
 
         // Call backend API
         console.log('=== CALLING BACKEND API ===');

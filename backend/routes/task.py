@@ -15,6 +15,7 @@ def create_task():
         task_data = request.get_json()
         print(f"=== BACKEND TASK CREATION DEBUG ===")
         print(f"Received task data: {task_data}")
+        print(f"Priority level received: {task_data.get('priority_level')}")
         print(f"Task data keys: {list(task_data.keys()) if task_data else 'No data'}")
         
         # Validate required fields
@@ -71,6 +72,7 @@ def create_task():
             'assigned_to': task_data.get('assigned_to', []),
             'attachments': task_data.get('attachments', []),
             'task_status': task_data.get('task_status'),
+            'priority_level': task_data.get('priority_level'),  # ADD THIS LINE
             'hasSubtasks': task_data.get('hasSubtasks', False),
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
