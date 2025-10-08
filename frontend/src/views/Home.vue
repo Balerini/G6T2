@@ -45,7 +45,62 @@
 
                 <!-- My Tasks View -->
                 <div v-if="activeView === 'my'">
-                    <p class="coming-soon">Teehee</p>
+                    <!-- <p class="coming-soon">Teehee</p> -->
+                    <div class="crm-container">
+                        <div class="header-section">
+                        <div class="container"> 
+                            <!-- Status Filter Tabs -->
+                            <div class="action-tabs mb-4">
+                            <button
+                                v-for="status in statuses"
+                                :key="status"
+                                @click="filter = status"
+                                :class="['tab-btn', { active: filter === status }]"
+                            >
+                                {{ status }}
+                            </button>
+                            </div>
+                            <!-- Sort Filter Tabs -->
+                            <div class="action-tabs flex space-x-2">
+                            <button
+                            v-for="option in sortOptions"
+                            :key="option.value"
+                            @click="sortBy = option.value"
+                            :class="[
+                                'tab-btn',
+                                { active: sortBy === option.value }]"
+                            >
+                                {{ option.label }}
+                            </button>
+                            </div>
+                        </div>
+                        </div>
+                        <!-- Tasks -->
+                        <div class="tasks-section">
+                            <div class="container">
+                                <div v-if="loading" class="loading-section">
+                                    <div class="container">
+                                        <div class="loading-spinner">Loading Tasks...</div>
+                                    </div>
+                                </div>
+                                <div v-else>
+                                    <div v-if="filteredTasks.length">
+                                        <div
+                                        v-for="(task, index) in this.filteredTasks"
+                                        :key="index"
+                                        class="task-card"
+                                        >
+                                        <task-card :task="task" class="mb-0"
+                                        @view-task="handleViewTask"/>
+                                        </div>
+                                    </div>
+                                    <div v-else class="nofound-section">
+                                        No tasks of this status found.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Calendar View -->
@@ -65,6 +120,8 @@ import TasksByPriority from '@/components/Dashboard/TasksByPriority.vue';
 import TaskTimeline from '@/components/Dashboard/TaskTimeline.vue';
 import TaskCalendar from '@/components/Dashboard/TaskCalendar.vue';
 import AuthService from '@/services/auth.js';
+import TaskCard from '@/components/Projects/TaskCard.vue';
+import { ownTasksService } from '../services/myTaskService.js'
 // import PendingTasksByAge from '@/components/Dashboard/PendingTasksByAge.vue';
 
 export default {
@@ -77,11 +134,24 @@ export default {
         // PendingTasksByAge,
         TaskTimeline,
         TaskCalendar,
+        TaskCard
     },
     data() {
         return {
             currentUser: null,
             activeView: 'team',
+            tasks: [],
+            users: [],
+            loading: true,
+            error: null,
+            filter: "All",
+            statuses: ["All", "Not Started", "In Progress", "On Hold", "Completed", "Cancelled"],
+            sortBy: "endDateAsc",
+            sortOptions: [
+            { value: "endDateAsc", label: "Earliest" },
+            { value: "endDateDesc", label: "Latest" },
+            { value: "priority", label: "Priority" }
+            ]
         };
     },
     mounted() {
@@ -90,7 +160,112 @@ export default {
         if (AuthService.checkAuthStatus()) {
             this.currentUser = AuthService.getCurrentUser();
         }
+    },
+    created() {
+    this.loadTaskData();
+  },
+  watch: {
+    $route() {
+      this.loadTaskData();
     }
+  },
+  methods: {
+    async loadTaskData() {
+      try {
+        this.loading = true;
+        this.error = null;
+
+        // Replace with however you store logged-in user
+        const userString = sessionStorage.getItem('user');
+        const userData = JSON.parse(userString);
+        const currentUserId = userData.id;
+        console.log("user = ", userData);
+        console.log("id = ", currentUserId);
+
+        // Fetch tasks for this user
+        this.tasks = await ownTasksService.getTasks(currentUserId);
+        console.log("pulled tasks", this.tasks);
+        if (!this.tasks.length) {
+          this.error = `No tasks found for user ${currentUserId}`;
+        }
+      } catch (error) {
+        console.error("Error loading tasks:", error);
+        this.error = error.message;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    goBack() {
+      this.$router.push("/projects");
+    },
+
+    formatDate(date) {
+      if (!date) return "No date set";
+      return new Date(date).toLocaleDateString("en-US", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+      });
+    },
+
+    formatDateRange(startDate, endDate) {
+      if (!startDate || !endDate) return "No dates set";
+      const start = new Date(startDate).toLocaleDateString("en-US", {
+        day: "2-digit",
+        month: "short"
+      });
+      const end = new Date(endDate).toLocaleDateString("en-US", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
+      return `${start} - ${end}`;
+    },
+    handleViewTask(task) {
+      const projectId = task.proj_ID || task.projectId; 
+      const taskId = task.id || task.task_ID || task.taskId; 
+      console.log('Viewing task:', { projectId, taskId, task });
+      
+      // If task has a project, go to project task view
+      if (projectId) {
+        this.$router.push(`/projects/${projectId}/tasks/${taskId}`);
+      } else {
+        // If task has no project, go to standalone task view
+        this.$router.push(`/tasks/${taskId}`);
+      }
+    },
+    toggleSortOrder() {
+      this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
+    }
+  },
+  computed: {
+    filteredTasks() {
+      let result = this.tasks;
+
+      // Filter by status
+      if (this.filter !== "All") {
+        result = result.filter(t => t.task_status === this.filter);
+      }
+
+      // Sort by end date
+      result = result.slice().sort((a, b) => {
+        if (this.sortBy === "priority") {
+          return (b.priority_bucket || 0) - (a.priority_bucket || 0); // high → low
+        }
+        if (this.sortBy === "endDateAsc") {
+          return new Date(a.end_date) - new Date(b.end_date);
+        }
+        if (this.sortBy === "endDateDesc") {
+          return new Date(b.end_date) - new Date(a.end_date);
+        }
+        return 0;
+      });
+
+      return result;
+    }
+  }
 }
 </script>
 
