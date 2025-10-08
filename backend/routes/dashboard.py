@@ -430,7 +430,8 @@ def get_manager_pending_tasks_by_age(user_id):
             'due_in_3_days': [],
             'due_in_a_week': [],
             'due_in_2_weeks': [],
-            'due_in_a_month': []
+            'due_in_a_month': [],
+            'due_later': [],
         }
         
         current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -444,9 +445,9 @@ def get_manager_pending_tasks_by_age(user_id):
                 task_data = task.to_dict()
                 status = task_data.get('task_status', '')
                 
-                # Only count pending tasks (Not Started or In Progress)
-                if status not in ['Not Started', 'In Progress']:
-                    continue
+                # # Only count pending tasks (Not Started or In Progress)
+                # if status not in ['Not Started', 'In Progress']:
+                #     continue
                 
                 end_date = task_data.get('end_date')
                 if not end_date:
@@ -488,6 +489,8 @@ def get_manager_pending_tasks_by_age(user_id):
                     age_categories['due_in_2_weeks'].append(task_detail)
                 elif days_diff <= 30:
                     age_categories['due_in_a_month'].append(task_detail)
+                elif days_diff > 30: 
+                    age_categories['due_later'].append(task_detail)
         
         # Sort tasks within each category by due date (earliest first)
         for category in age_categories:
@@ -501,7 +504,8 @@ def get_manager_pending_tasks_by_age(user_id):
             'due_in_3_days': len(age_categories['due_in_3_days']),
             'due_in_a_week': len(age_categories['due_in_a_week']),
             'due_in_2_weeks': len(age_categories['due_in_2_weeks']),
-            'due_in_a_month': len(age_categories['due_in_a_month'])
+            'due_in_a_month': len(age_categories['due_in_a_month']),
+            'due_later': len(age_categories['due_later']),
         }
         
         return jsonify({

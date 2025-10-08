@@ -172,6 +172,30 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Due More Than 1 Month Later -->
+            <div class="timeline-card due-later" @click="toggleCategory('due_later')">
+                <div class="card-header">
+                    <h4 class="category-title">DUE MUCH LATER ({{ getCategoryCount('due_later') }})</h4>
+                    <span class="expand-icon">{{ expandedCategories['due_later'] ? '▼' : '▶' }}</span>
+                </div>
+                <div v-if="expandedCategories['due_later'] && data.pending_tasks_by_age.due_later.length > 0"
+                    class="task-list">
+                    <div v-for="task in data.pending_tasks_by_age.due_later" :key="task.task_id" class="task-item">
+                        <div class="task-header">
+                            <div class="task-name">{{ task.task_name }}</div>
+                            <span class="task-status" :class="task.task_status.toLowerCase().replace(' ', '-')">
+                                {{ task.task_status }}
+                            </span>
+                        </div>
+                        <div class="task-meta">
+                            <span class="meta-item">👤 {{ task.assigned_to_name }}</span>
+                            <span class="meta-item">🎯 {{ task.task_priority }}</span>
+                            <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -191,7 +215,8 @@ export default {
                     due_in_3_days: [],
                     due_in_a_week: [],
                     due_in_2_weeks: [],
-                    due_in_a_month: []
+                    due_in_a_month: [],
+                    due_later: []
                 }
             },
             loading: true,
@@ -203,7 +228,8 @@ export default {
                 due_in_3_days: false,
                 due_in_a_week: false,
                 due_in_2_weeks: false,
-                due_in_a_month: false
+                due_in_a_month: false,
+                due_later: false
             }
         };
     },
@@ -304,6 +330,10 @@ export default {
 
 .due-month .category-title {
     color: #6b7280;
+}
+
+.due-later .category-title {
+    color: #9ca3af;
 }
 
 .card-header {
