@@ -27,6 +27,9 @@ def create_task():
         # Get Firestore client
         db = get_firestore_client()
 
+        # Get creator ID early so we can use it throughout
+        creator_id = task_data.get('created_by', '')
+
         # Convert date strings to datetime objects with Singapore timezone
         sg_tz = pytz.timezone('Asia/Singapore')
         
@@ -60,6 +63,11 @@ def create_task():
         else:
             print("No project name provided in task data")
 
+        # Ensure assigned_to includes the creator if creator is provided
+        assigned_to = task_data.get('assigned_to', [])
+        if creator_id and creator_id not in assigned_to:
+            assigned_to.append(creator_id)
+
         # Prepare task data for Firestore
         firestore_task_data = {
             'proj_name': task_data.get('proj_name', ''),
@@ -68,11 +76,11 @@ def create_task():
             'task_desc': task_data.get('task_desc', ''),
             'start_date': start_date,
             'end_date': end_date,
-            'created_by': task_data.get('created_by', ''),
-            'assigned_to': task_data.get('assigned_to', []),
+            'created_by': creator_id,
+            'assigned_to': assigned_to,  # 👈 INCLUDES CREATOR
             'attachments': task_data.get('attachments', []),
             'task_status': task_data.get('task_status'),
-            'priority_level': task_data.get('priority_level'),  # ADD THIS LINE
+            'priority_level': task_data.get('priority_level'),
             'hasSubtasks': task_data.get('hasSubtasks', False),
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
@@ -80,6 +88,7 @@ def create_task():
 
         # Add document to Firestore
         print(f"Adding task to Firestore: {firestore_task_data}")
+        print(f"Creating task: {firestore_task_data['task_name']} with assigned_to: {assigned_to}")
         doc_ref = db.collection('Tasks').add(firestore_task_data)
         task_id = doc_ref[1].id
         print(f"Task created successfully with ID: {task_id}")
@@ -93,6 +102,45 @@ def create_task():
         response_data['createdAt'] = datetime.now(sg_tz).isoformat()
         response_data['updatedAt'] = datetime.now(sg_tz).isoformat()
         response_data['proj_ID'] = proj_id  # Include project ID in response
+
+        # ================== SEND EMAILS TO ASSIGNED USERS ==================
+        try:
+            from email_service import email_service  # import the singleton instance
+
+            # Get creator's info (for the "Created by" field)
+            creator_name = 'Unknown User'
+            if creator_id:
+                creator_doc = db.collection('Users').document(creator_id).get()
+                creator_name = creator_doc.to_dict().get('name', 'Unknown User') if creator_doc.exists else 'Unknown User'
+
+            # Send emails to each assigned user (except creator)
+            for user_id in assigned_to:
+                if user_id == creator_id:
+                    continue
+
+                user_doc = db.collection('Users').document(user_id).get()
+                if user_doc.exists:
+                    user_data = user_doc.to_dict()
+                    to_email = user_data.get('email')
+                    user_name = user_data.get('name', 'User')
+
+                    if to_email:
+                        email_service.send_task_assignment_email(
+                            to_email=to_email,
+                            user_name=user_name,
+                            task_name=firestore_task_data['task_name'],
+                            task_desc=firestore_task_data.get('task_desc', ''),
+                            project_name=firestore_task_data.get('proj_name', ''),
+                            creator_name=creator_name,
+                            start_date=str(firestore_task_data['start_date'].date()),
+                            end_date=str(firestore_task_data['end_date'].date()) if firestore_task_data.get('end_date') else None,
+                            priority_level=firestore_task_data.get('priority_level', '')
+                        )
+                    else:
+                        print(f"⚠️ No email found for user {user_id}")
+        except Exception as e:
+            print(f"❌ Failed to send email notifications: {e}")
+        # ================================================================
 
         return jsonify(response_data), 201
 

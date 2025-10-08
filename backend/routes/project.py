@@ -489,6 +489,41 @@ def create_project():
             created_project['updatedAt'] = created_project['updatedAt'].isoformat()
         
         print(f"Project created successfully with ID: {project_id}")
+
+        # ================== SEND EMAILS TO COLLABORATORS ==================
+        try:
+            from email_service import email_service  # import the singleton instance
+
+            # Get creator's info (for the "Created by" field)
+            creator_doc = db.collection('Users').document(creator_id).get()
+            creator_name = creator_doc.to_dict().get('name', 'Unknown User') if creator_doc.exists else 'Unknown User'
+
+            # Send emails to each collaborator (except creator)
+            for collab_id in collaborators:
+                if collab_id == creator_id:
+                    continue
+
+                user_doc = db.collection('Users').document(collab_id).get()
+                if user_doc.exists:
+                    user_data = user_doc.to_dict()
+                    to_email = user_data.get('email')
+                    user_name = user_data.get('name', 'User')
+
+                    if to_email:
+                        email_service.send_project_assignment_email(
+                            to_email=to_email,
+                            user_name=user_name,
+                            project_name=firestore_data['proj_name'],
+                            project_desc=firestore_data.get('proj_desc', ''),
+                            creator_name=creator_name,
+                            start_date=str(firestore_data['start_date'].date()),
+                            end_date=str(firestore_data['end_date'].date())
+                        )
+                    else:
+                        print(f"⚠️ No email found for user {collab_id}")
+        except Exception as e:
+            print(f"❌ Failed to send email notifications: {e}")
+        # ================================================================
         
         return jsonify({
             'message': 'Project created successfully',
