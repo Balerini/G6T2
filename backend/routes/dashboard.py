@@ -464,7 +464,7 @@ def get_manager_pending_tasks_by_age(user_id):
                     'task_id': task.id,
                     'task_name': task_data.get('task_name', 'Untitled'),
                     'task_status': status,
-                    'task_priority': task_data.get('task_priority', 'N/A'),
+                    'priority_level': task_data.get('priority_level', 'N/A'),
                     'assigned_to_id': staff_id,
                     'assigned_to_name': staff_info[staff_id]['name'],
                     'assigned_to_role': staff_info[staff_id]['role_name'],

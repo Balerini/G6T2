@@ -105,10 +105,10 @@ export default {
     methods: {
         getStatusColor(status) {
             const colorMap = {
-                'Not Started': '#f87171',
-                'In Progress': '#fbbf24',
+                'Unassigned': '#f87171',
+                'Ongoing': '#fbbf24',
                 'Completed': '#34d399',
-                'Pending': '#fb923c'
+                'Under Review': '#fb923c'
             };
             return colorMap[status] || '#9ca3af';
         },

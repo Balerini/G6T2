@@ -559,10 +559,10 @@ export default {
     getTaskStatusClass(status) {
       if (!status) return 'status-not-started';
       const statusClasses = {
-        'in-progress': 'status-progress',
-        'to-do': 'status-todo',
-        'completed': 'status-completed',
-        'pending': 'status-pending'
+        'Unassigned': 'status-unassigned',
+        'Ongoing': 'status-ongoing',
+        'Under Review': 'status-review',
+        'Completed': 'status-completed'
       };
       return statusClasses[status] || 'status-default';
     },

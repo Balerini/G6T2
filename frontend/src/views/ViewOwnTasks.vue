@@ -111,7 +111,7 @@ export default {
       loading: true,
       error: null,
       filter: "All",
-      statuses: ["All", "Not Started", "In Progress", "On Hold", "Completed", "Cancelled"],
+      statuses: ["All", "Unassigned", "Ongoing", "Under Review", "Completed", "Cancelled"],
       sortBy: "endDateAsc",
       sortOptions: [
         { value: "endDateAsc", label: "Earliest" },
