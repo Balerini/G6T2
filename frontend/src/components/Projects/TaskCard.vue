@@ -12,7 +12,8 @@
       <div class="meta-group">
         <span class="meta-label">Priority:</span>
         <span class="priority-badge" :class="getPriorityClass(task.priority_bucket)">
-          {{ formatPriority(task.priority_bucket) }}
+          {{ formatPriority(task.priority_level) }}
+          <!-- {{ formatPriority(task.priority_bucket) }} -->
         </span>
       </div>
 
@@ -74,9 +75,9 @@ export default {
   methods: {
     getTaskStatusClass(status) {
       const statusClasses = {
-        'Not Started': 'status-todo',
-        'In Progress': 'status-progress',
-        'On Hold': 'status-pending',
+        'Unassigned': 'status-todo',
+        'Ongoing': 'status-progress',
+        'Under Review': 'status-pending',
         'Completed': 'status-completed',
         'Cancelled': 'status-pending'
       };

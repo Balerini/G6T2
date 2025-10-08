@@ -21,7 +21,7 @@
                         </div>
                         <div class="task-meta">
                             <span class="meta-item">👤 {{ task.assigned_to_name }}</span>
-                            <span class="meta-item">🎯 {{ task.task_priority }}</span>
+                            <span class="meta-item">🎯 {{ task.priority_level }}</span>
                             <span class="meta-item overdue-badge">⏰ Overdue by {{ Math.abs(task.days_until_due) }} day{{
                                 Math.abs(task.days_until_due) !== 1 ? 's' : '' }}</span>
                         </div>
@@ -46,7 +46,7 @@
                         </div>
                         <div class="task-meta">
                             <span class="meta-item">👤 {{ task.assigned_to_name }}</span>
-                            <span class="meta-item">🎯 {{ task.task_priority }}</span>
+                            <span class="meta-item">🎯 {{ task.priority_level }}</span>
                             <span class="meta-item">⏰ Due today</span>
                         </div>
                     </div>
@@ -70,7 +70,7 @@
                         </div>
                         <div class="task-meta">
                             <span class="meta-item">👤 {{ task.assigned_to_name }}</span>
-                            <span class="meta-item">🎯 {{ task.task_priority }}</span>
+                            <span class="meta-item">🎯 {{ task.priority_level }}</span>
                             <span class="meta-item">⏰ Due in 1 day</span>
                         </div>
                     </div>
@@ -94,7 +94,7 @@
                         </div>
                         <div class="task-meta">
                             <span class="meta-item">👤 {{ task.assigned_to_name }}</span>
-                            <span class="meta-item">🎯 {{ task.task_priority }}</span>
+                            <span class="meta-item">🎯 {{ task.priority_level }}</span>
                             <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
                         </div>
                     </div>
@@ -118,7 +118,7 @@
                         </div>
                         <div class="task-meta">
                             <span class="meta-item">👤 {{ task.assigned_to_name }}</span>
-                            <span class="meta-item">🎯 {{ task.task_priority }}</span>
+                            <span class="meta-item">🎯 {{ task.priority_level }}</span>
                             <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
                         </div>
                     </div>
@@ -142,7 +142,7 @@
                         </div>
                         <div class="task-meta">
                             <span class="meta-item">👤 {{ task.assigned_to_name }}</span>
-                            <span class="meta-item">🎯 {{ task.task_priority }}</span>
+                            <span class="meta-item">🎯 {{ task.priority_level }}</span>
                             <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
                         </div>
                     </div>
@@ -166,7 +166,7 @@
                         </div>
                         <div class="task-meta">
                             <span class="meta-item">👤 {{ task.assigned_to_name }}</span>
-                            <span class="meta-item">🎯 {{ task.task_priority }}</span>
+                            <span class="meta-item">🎯 {{ task.priority_level }}</span>
                             <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
                         </div>
                     </div>
@@ -190,7 +190,7 @@
                         </div>
                         <div class="task-meta">
                             <span class="meta-item">👤 {{ task.assigned_to_name }}</span>
-                            <span class="meta-item">🎯 {{ task.task_priority }}</span>
+                            <span class="meta-item">🎯 {{ task.priority_level }}</span>
                             <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
                         </div>
                     </div>

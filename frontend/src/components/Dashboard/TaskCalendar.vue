@@ -106,7 +106,7 @@ export default {
                         borderColor: color,
                         extendedProps: {
                             assignee: task.assigned_to_name,
-                            priority: task.task_priority,
+                            priority: task.priority_level,
                             status: task.task_status,
                             daysUntilDue: task.days_until_due,
                             proj_id: task.proj_id,
