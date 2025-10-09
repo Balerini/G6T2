@@ -1,19 +1,22 @@
 <template>
   <div class="view-task-page">
     <!-- Toast Notifications -->
-    <div v-if="successMessage" style="position: fixed; top: 20px; right: 20px; background: #10b981; color: white; padding: 16px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); min-width: 300px;">
+    <div v-if="successMessage"
+      style="position: fixed; top: 20px; right: 20px; background: #10b981; color: white; padding: 16px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); min-width: 300px;">
       {{ successMessage }}
     </div>
-    
-    <div v-if="uploadProgressMessage" style="position: fixed; top: 20px; right: 20px; background: #3b82f6; color: white; padding: 16px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); min-width: 300px;">
+
+    <div v-if="uploadProgressMessage"
+      style="position: fixed; top: 20px; right: 20px; background: #3b82f6; color: white; padding: 16px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); min-width: 300px;">
       {{ uploadProgressMessage }}
     </div>
-    
-    <div v-if="errorMessage" style="position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; padding: 16px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); min-width: 300px;">
+
+    <div v-if="errorMessage"
+      style="position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; padding: 16px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); min-width: 300px;">
       {{ errorMessage }}
     </div>
-    
-    
+
+
     <!-- Header -->
     <header class="page-header">
       <div class="header-container">
@@ -142,6 +145,14 @@
                 <p v-else class="info-value empty">No assignees</p>
               </div>
             </div>
+
+            <div class="info-card">
+              <div class="info-icon">🎯</div>
+              <div class="info-content">
+                <h3 class="info-title">Priority Level</h3>
+                <p class="info-value">{{ formatPriority(task.priority_level) }}</p>
+              </div>
+            </div>
           </div>
 
           <!-- Description Section -->
@@ -156,7 +167,8 @@
           <div class="attachments-section" v-if="task.attachments && task.attachments.length > 0">
             <h3 class="section-title">Attachments</h3>
             <div class="attachments-grid">
-              <div v-for="attachment in task.attachments" :key="attachment" class="attachment-item" @click="downloadAttachment(attachment, $event)">
+              <div v-for="attachment in task.attachments" :key="attachment" class="attachment-item"
+                @click="downloadAttachment(attachment, $event)">
                 <div class="attachment-icon">{{ getFileIcon(attachment.name) }}</div>
                 <div class="attachment-info">
                   <p class="attachment-name">{{ attachment.name }}</p>
@@ -190,7 +202,7 @@
             </div>
           </div>
         </div>
-        
+
         <!-- Subtasks Section with Accordion -->
         <div class="subtasks-section-card" v-if="task">
           <div class="subtasks-header">
@@ -211,19 +223,12 @@
 
           <!-- Subtasks accordion list -->
           <div v-else class="subtasks-accordion">
-            <div 
-              v-for="(subtask, index) in subtasks" 
-              :key="subtask.id"
-              class="accordion-item"
-              :class="{ 'expanded': expandedSubtask === index }"
-            >
+            <div v-for="(subtask, index) in subtasks" :key="subtask.id" class="accordion-item"
+              :class="{ 'expanded': expandedSubtask === index }">
               <!-- Accordion Header - Always Visible -->
-              <div 
-                class="accordion-header"
-                @click="toggleSubtask(index)"
-              >
+              <div class="accordion-header" @click="toggleSubtask(index)">
                 <div class="subtask-status-indicator" :class="getSubtaskStatusClass(subtask.status)"></div>
-                
+
                 <div class="accordion-header-content">
                   <div class="subtask-title-row">
                     <h4 class="subtask-name">{{ subtask.name }}</h4>
@@ -254,10 +259,7 @@
               </div>
 
               <!-- Accordion Body - Expandable Details -->
-              <div 
-                class="accordion-body"
-                v-show="expandedSubtask === index"
-              >
+              <div class="accordion-body" v-show="expandedSubtask === index">
                 <div class="subtask-details-grid">
                   <!-- Description -->
                   <div class="detail-section full-width">
@@ -305,13 +307,8 @@
                   <div class="detail-section full-width">
                     <h5 class="detail-label">Attachments</h5>
                     <div v-if="subtask.attachments && subtask.attachments.length > 0" class="attachments-list">
-                      <a 
-                        v-for="(attachment, attachIndex) in subtask.attachments" 
-                        :key="attachIndex"
-                        :href="attachment.url" 
-                        target="_blank"
-                        class="attachment-link"
-                      >
+                      <a v-for="(attachment, attachIndex) in subtask.attachments" :key="attachIndex"
+                        :href="attachment.url" target="_blank" class="attachment-link">
                         <span class="attachment-icon">{{ getFileIcon(attachment.name) }}</span>
                         <span class="attachment-name">{{ attachment.name }}</span>
                       </a>
@@ -346,14 +343,8 @@
     </div>
 
     <!-- Edit Task Modal -->
-    <EditTask
-      v-if="selectedTask"
-      :visible="showEdit"
-      :task="selectedTask"
-      :users="users"
-      @close="showEdit = false"
-      @saved="onTaskSaved"
-    />
+    <EditTask v-if="selectedTask" :visible="showEdit" :task="selectedTask" :users="users" @close="showEdit = false"
+      @saved="onTaskSaved" />
 
   </div>
 </template>
@@ -387,9 +378,9 @@ export default {
       uploadProgressMessage: '',
       showEdit: false,
       selectedTask: null,
-      subtasks: [],          
-      loadingSubtasks: false, 
-      expandedSubtask: null   
+      subtasks: [],
+      loadingSubtasks: false,
+      expandedSubtask: null
     }
   },
   created() {
@@ -410,7 +401,7 @@ export default {
         const taskId = this.$route.params.taskId;
 
         console.log('Route params:', { projectId, taskId });
-        
+
         // Validate route parameters
         if (!projectId || !taskId) {
           this.error = `Invalid route parameters. Project ID: ${projectId}, Task ID: ${taskId}`;
@@ -426,7 +417,7 @@ export default {
 
         // Load all projects to diagnose the issue
         const allProjects = await projectService.getAllProjects();
-        
+
         if (!allProjects || allProjects.length === 0) {
           this.error = 'No projects found. Please check your connection and try again.';
           return;
@@ -462,23 +453,23 @@ export default {
           console.error('Task not found in any project');
           console.log('Searching for taskId:', taskId);
           console.log('Searching for projectId:', projectId);
-          
+
           allProjects.forEach(proj => {
             if (proj.tasks && proj.tasks.length > 0) {
               console.log(`${proj.proj_name}:`, proj.tasks.map(t => `${t.id} (${t.task_name})`));
             }
           });
-          
+
           // Try to load the task directly from the backend as a fallback
           console.log('Attempting to load task directly from backend...');
           try {
             const directTask = await taskService.getTask(taskId);
             if (directTask) {
               // Find the parent project by the task's proj_ID
-              const parentProject = allProjects.find(proj => 
+              const parentProject = allProjects.find(proj =>
                 String(proj.id) === String(directTask.proj_ID)
               );
-              
+
               if (parentProject) {
                 this.task = directTask;
                 this.parentProject = parentProject;
@@ -492,7 +483,7 @@ export default {
           } catch (directLoadError) {
             console.error('Failed to load task directly:', directLoadError);
           }
-          
+
           this.error = `Task not found. Task ID: ${taskId}, Project ID: ${projectId}`;
           return;
         }
@@ -508,25 +499,25 @@ export default {
           try {
             const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
             const userId = currentUser.id;
-            
+
             if (!userId) {
               this.error = 'Unable to verify user identity. Please log in again.';
               return;
             }
-            
+
             const isProjectCollaborator = this.parentProject.collaborators?.includes(userId);
             const isTaskAssignee = this.task.assigned_to?.includes(userId);
             const isTaskCreator = String(this.task.created_by) === String(userId);
-            
+
             const hasAccess = isProjectCollaborator || isTaskAssignee || isTaskCreator;
-            
+
             if (!hasAccess) {
               this.error = 'Access denied. You do not have permission to view this task.';
               return;
             }
-            
+
             await this.loadSubtasks();
-            
+
           } catch (authError) {
             console.error('Error checking user access:', authError);
             this.error = 'Unable to verify access permissions. Please try again.';
@@ -672,12 +663,12 @@ export default {
       this.successMessage = '✅ Subtask created successfully!';
       this.errorMessage = '';
       this.uploadProgressMessage = '';
-      
+
       // Clear success message after delay
       setTimeout(() => {
         this.successMessage = '';
       }, 4000);
-      
+
       this.loadSubtasks();
     },
 
@@ -691,7 +682,7 @@ export default {
       this.successMessage = message;
       this.uploadProgressMessage = '';
       this.errorMessage = '';
-      
+
       // Clear success message after delay
       setTimeout(() => {
         this.successMessage = '';
@@ -702,7 +693,7 @@ export default {
       this.errorMessage = message;
       this.uploadProgressMessage = '';
       this.successMessage = '';
-      
+
       // Clear error message after delay
       setTimeout(() => {
         this.errorMessage = '';
@@ -713,7 +704,7 @@ export default {
       this.errorMessage = `❌ ${message}`;
       this.successMessage = '';
       this.uploadProgressMessage = '';
-      
+
       // Clear error message after delay
       setTimeout(() => {
         this.errorMessage = '';
@@ -765,7 +756,7 @@ export default {
 
     async loadSubtasks() {
       if (!this.task || !this.task.id) return;
-      
+
       try {
         this.loadingSubtasks = true;
         this.subtasks = await taskService.getSubtasksByTask(this.task.id);
@@ -836,6 +827,20 @@ export default {
       console.log('=== END DEBUG ===');
     },
 
+    formatPriority(priority) {
+      if (!priority) return 'N/A';
+      const num = Number(priority);
+      if (num >= 8) return `High ${num}/10`;
+      if (num >= 4) return `Medium ${num}/10`;
+      return `Low ${num}/10`;
+    },
+    getPriorityClass(priority) {
+      if (!priority) return 'priority-default';
+      if (priority >= 8) return 'priority-high';
+      if (priority >= 4) return 'priority-medium';
+      return 'priority-low';
+    },
+
     async downloadAttachment(attachment, event) {
       try {
         // Prevent any default behavior that might cause redirecting
@@ -843,75 +848,75 @@ export default {
           event.preventDefault();
           event.stopPropagation();
         }
-        
+
         console.log('Downloading attachment:', attachment);
-        
+
         // Show success message
         this.successMessage = `Downloading ${attachment.name}...`;
-        
+
         // Get the file URL - try different possible properties
         const fileUrl = attachment.downloadURL || attachment.url || attachment.storagePath;
         console.log('File URL:', fileUrl);
-        
+
         if (!fileUrl) {
           throw new Error('No download URL found for attachment');
         }
-        
+
         // Check if it's a Firebase Storage URL (which has CORS restrictions)
         const isFirebaseUrl = fileUrl.includes('firebasestorage.googleapis.com');
-        
+
         if (isFirebaseUrl) {
           console.log('Firebase Storage URL detected, downloading using Firebase SDK');
-          
+
           try {
             // Extract the storage path from the URL
             // URL format: https://firebasestorage.googleapis.com/v0/b/bucket/o/path?...
             const urlParts = fileUrl.split('/o/')[1];
             const storagePath = decodeURIComponent(urlParts.split('?')[0]);
-            
+
             console.log('Storage path:', storagePath);
-            
+
             // Get reference to the file in Firebase Storage
             const fileRef = storageRef(storage, storagePath);
-            
+
             // Download the file as a blob using Firebase SDK (no CORS issues)
             const blob = await getBlob(fileRef);
             console.log('Blob downloaded:', blob);
-            
+
             // Create a download link from the blob
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
             link.download = attachment.name;
             link.style.display = 'none';
-            
+
             // Trigger download
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
+
             // Clean up
             window.URL.revokeObjectURL(blobUrl);
-            
+
             console.log('File downloaded successfully to computer');
             this.successMessage = `Downloaded ${attachment.name}`;
             setTimeout(() => {
               this.successMessage = '';
             }, 2000);
-            
+
           } catch (firebaseError) {
             console.error('Firebase SDK download error:', firebaseError);
-            
+
             // Fallback: open in new tab
             console.log('Falling back to new tab method');
             window.open(fileUrl, '_blank');
-            
+
             this.successMessage = `Opening download for ${attachment.name}`;
             setTimeout(() => {
               this.successMessage = '';
             }, 2000);
           }
-          
+
         } else {
           // For other URLs, try fetch first, then fallback to direct download
           try {
@@ -921,50 +926,50 @@ export default {
                 'Accept': '*/*',
               },
             });
-            
+
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
             const blob = await response.blob();
             console.log('Blob created:', blob);
-            
+
             // Create a blob URL
             const blobUrl = window.URL.createObjectURL(blob);
-            
+
             // Create a temporary anchor element to trigger download
             const link = document.createElement('a');
             link.href = blobUrl;
             link.download = attachment.name;
             link.style.display = 'none';
-            
+
             // Append to body, click, and remove
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
+
             // Clean up the blob URL
             setTimeout(() => {
               window.URL.revokeObjectURL(blobUrl);
             }, 1000);
-            
+
           } catch (fetchError) {
             console.log('Fetch failed, trying direct download:', fetchError);
-            
+
             // Fallback: Direct download link (no redirects)
             const link = document.createElement('a');
             link.href = fileUrl;
             link.download = attachment.name;
             link.style.display = 'none';
-            
+
             // Force download behavior - no redirects
             link.setAttribute('download', attachment.name);
             link.setAttribute('target', '_self');
             link.setAttribute('rel', 'noopener noreferrer');
-            
+
             document.body.appendChild(link);
             link.click();
-            
+
             // Remove immediately
             setTimeout(() => {
               if (document.body.contains(link)) {
@@ -973,16 +978,16 @@ export default {
             }, 100);
           }
         }
-        
+
         // Clear success message after 2 seconds
         setTimeout(() => {
           this.successMessage = '';
         }, 2000);
-        
+
       } catch (error) {
         console.error('Error downloading attachment:', error);
         this.errorMessage = `Failed to download ${attachment.name}: ${error.message}`;
-        
+
         // Clear error message after 5 seconds
         setTimeout(() => {
           this.errorMessage = '';
@@ -1039,6 +1044,7 @@ export default {
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -1806,6 +1812,7 @@ export default {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
