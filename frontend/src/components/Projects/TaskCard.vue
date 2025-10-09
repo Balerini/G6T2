@@ -30,7 +30,7 @@
       </div>
 
       <div class="meta-group">
-        <span class="meta-label">Created By:</span>
+        <span class="meta-label">Owner:</span>
         <span class="meta-value">{{ getCreatorName(task.created_by) }}</span>
       </div>
 

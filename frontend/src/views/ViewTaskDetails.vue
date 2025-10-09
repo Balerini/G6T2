@@ -113,7 +113,7 @@
             <div class="info-card">
               <div class="info-icon">👤</div>
               <div class="info-content">
-                <h3 class="info-title">Created By</h3>
+                <h3 class="info-title">Owner</h3>
                 <div v-if="task.created_by" class="user-info">
                   <div class="user-avatar creator">
                     {{ getInitials(getCreatorName(task.created_by)) }}
@@ -192,7 +192,7 @@
                 <span class="metadata-value">{{ task.id }}</span>
               </div>
               <div class="metadata-item">
-                <span class="metadata-label">Created By</span>
+                <span class="metadata-label">Owner</span>
                 <span class="metadata-value">{{ getCreatorName(task.created_by) }}</span>
               </div>
               <div class="metadata-item">
