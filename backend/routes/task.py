@@ -15,14 +15,21 @@ def create_task():
         task_data = request.get_json()
         print(f"=== BACKEND TASK CREATION DEBUG ===")
         print(f"Received task data: {task_data}")
-        print(f"Priority level received: {task_data.get('priority_level')}")
-        print(f"Task data keys: {list(task_data.keys()) if task_data else 'No data'}")
+        print(f"Priority level received: {task_data.get('priority_level')}")  # Changed to priority_level
         
         # Validate required fields
-        required_fields = ['task_name', 'start_date']
+        required_fields = ['task_name', 'start_date', 'priority_level']  # Changed to priority_level
         for field in required_fields:
             if not task_data.get(field):
                 return jsonify({'error': f'Required field missing: {field}'}), 400
+
+        # Validate priority level range
+        try:
+            priority_level = int(task_data.get('priority_level'))  # Changed variable name
+            if priority_level < 1 or priority_level > 10:
+                return jsonify({'error': 'Priority level must be between 1 and 10'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Priority level must be a valid number between 1 and 10'}), 400
 
         # Get Firestore client
         db = get_firestore_client()
@@ -63,24 +70,19 @@ def create_task():
         else:
             print("No project name provided in task data")
 
-        # Ensure assigned_to includes the creator if creator is provided
-        assigned_to = task_data.get('assigned_to', [])
-        if creator_id and creator_id not in assigned_to:
-            assigned_to.append(creator_id)
-
         # Prepare task data for Firestore
         firestore_task_data = {
             'proj_name': task_data.get('proj_name', ''),
-            'proj_ID': proj_id,  # Add project ID for proper relationship
+            'proj_ID': proj_id,
             'task_name': task_data['task_name'],
             'task_desc': task_data.get('task_desc', ''),
             'start_date': start_date,
             'end_date': end_date,
             'created_by': creator_id,
-            'assigned_to': assigned_to,  # 👈 INCLUDES CREATOR
+            'assigned_to': task_data.get('assigned_to', []), 
             'attachments': task_data.get('attachments', []),
             'task_status': task_data.get('task_status'),
-            'priority_level': task_data.get('priority_level'),
+            'priority_level': priority_level,  
             'hasSubtasks': task_data.get('hasSubtasks', False),
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
@@ -88,7 +90,7 @@ def create_task():
 
         # Add document to Firestore
         print(f"Adding task to Firestore: {firestore_task_data}")
-        print(f"Creating task: {firestore_task_data['task_name']} with assigned_to: {assigned_to}")
+        print(f"Creating task: {firestore_task_data['task_name']} with assigned_to: {task_data.get('assigned_to', [])}")  # FIXED THIS LINE
         doc_ref = db.collection('Tasks').add(firestore_task_data)
         task_id = doc_ref[1].id
         print(f"Task created successfully with ID: {task_id}")
@@ -101,11 +103,11 @@ def create_task():
             response_data['end_date'] = end_date.isoformat()
         response_data['createdAt'] = datetime.now(sg_tz).isoformat()
         response_data['updatedAt'] = datetime.now(sg_tz).isoformat()
-        response_data['proj_ID'] = proj_id  # Include project ID in response
+        response_data['proj_ID'] = proj_id
 
         # ================== SEND EMAILS TO ASSIGNED USERS ==================
         try:
-            from email_service import email_service  # import the singleton instance
+            from email_service import email_service
 
             # Get creator's info (for the "Created by" field)
             creator_name = 'Unknown User'
@@ -114,7 +116,8 @@ def create_task():
                 creator_name = creator_doc.to_dict().get('name', 'Unknown User') if creator_doc.exists else 'Unknown User'
 
             # Send emails to each assigned user (except creator)
-            for user_id in assigned_to:
+            assigned_users = task_data.get('assigned_to', [])  # FIXED THIS LINE
+            for user_id in assigned_users:  # FIXED THIS LINE
                 if user_id == creator_id:
                     continue
 
@@ -134,13 +137,12 @@ def create_task():
                             creator_name=creator_name,
                             start_date=str(firestore_task_data['start_date'].date()),
                             end_date=str(firestore_task_data['end_date'].date()) if firestore_task_data.get('end_date') else None,
-                            priority_level=firestore_task_data.get('priority_level', '')
+                            priority_level=firestore_task_data.get('priority_level', '')  
                         )
                     else:
                         print(f"⚠️ No email found for user {user_id}")
         except Exception as e:
             print(f"❌ Failed to send email notifications: {e}")
-        # ================================================================
 
         return jsonify(response_data), 201
 
@@ -149,35 +151,6 @@ def create_task():
     except Exception as e:
         print(f"Error creating task: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
-# =============== GET ALL TASKS ===============
-# @tasks_bp.route('/api/tasks', methods=['GET'])
-# def get_all_tasks():
-#     try:
-#         db = get_firestore_client()
-#         tasks_ref = db.collection('Tasks')
-#         tasks = tasks_ref.stream()
-        
-#         task_list = []
-#         for task in tasks:
-#             task_data = task.to_dict()
-#             task_data['id'] = task.id
-            
-#             # Convert timestamps to ISO format for JSON serialization
-#             if 'start_date' in task_data and task_data['start_date']:
-#                 task_data['start_date'] = task_data['start_date'].isoformat()
-#             if 'end_date' in task_data and task_data['end_date']:
-#                 task_data['end_date'] = task_data['end_date'].isoformat()
-#             if 'createdAt' in task_data and task_data['createdAt']:
-#                 task_data['createdAt'] = task_data['createdAt'].isoformat()
-#             if 'updatedAt' in task_data and task_data['updatedAt']:
-#                 task_data['updatedAt'] = task_data['updatedAt'].isoformat()
-            
-#             task_list.append(task_data)
-            
-#         return jsonify(task_list), 200
-#     except Exception as e:
-#         return jsonify({'error': str(e)}), 500
 
 @tasks_bp.route("/api/tasks", methods=["GET"])
 def get_tasks():

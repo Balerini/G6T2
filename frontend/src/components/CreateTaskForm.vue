@@ -253,15 +253,20 @@
         Priority Level *
       </label>
       <select id="priorityLevel" v-model="formData.priority_level" class="form-select"
-        :class="{ 'error': validationErrors.priority_level }" 
+        :class="{ 'error': validationErrors.priority_level }"
         @change="validateField('priority_level', formData.priority_level)"
         @blur="validateField('priority_level', formData.priority_level)">
-        <option value="" disabled>Select priority level</option>
-        <option value="Highest">Highest</option>
-        <option value="High">High</option>
-        <option value="Medium">Medium</option>
-        <option value="Low">Low</option>
-        <option value="Lowest">Lowest</option>
+        <option value="" disabled>Select priority level (1-10)</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
       </select>
       <span v-if="validationErrors.priority_level" class="error-message">
         {{ validationErrors.priority_level }}
@@ -1017,13 +1022,15 @@ export default {
     }
 
     const validatePriorityLevel = (value) => {
-      if (!value || !value.trim()) {
+      if (!value || value === '') {
         return 'Priority level is required';
       }
-      const validPriorities = ['Highest', 'High', 'Medium', 'Low', 'Lowest'];
-      if (!validPriorities.includes(value)) {
-        return 'Invalid priority level selected';
+      
+      const numValue = parseInt(value);
+      if (isNaN(numValue) || numValue < 1 || numValue > 10) {
+        return 'Priority level must be a number between 1 and 10';
       }
+      
       return '';
     };
 
@@ -1222,7 +1229,7 @@ export default {
       validateField('end_date', formData.end_date, true);
       validateField('task_status', formData.task_status, true);
       validateField('collaborators', formData.assigned_to, true);
-      validateField('prioritylevel', formData.prioritylevel, true);
+      validateField('priority_level', formData.priority_level, true);
 
       // Check if form is actually valid
       if (!isFormValid.value) {
@@ -1351,7 +1358,7 @@ export default {
           created_by: taskData.created_by,
           attachments: uploadedAttachments, // Use uploaded file data instead of raw files
           task_status: taskData.task_status || null,
-          prioritylevel: taskData.priority_level || null,
+          priority_level: parseInt(taskData.priority_level),
         };
 
         console.log('=== FINAL TASK DATA DEBUG ===');
