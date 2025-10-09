@@ -1,14 +1,18 @@
 <template>
   <div 
-    class="assignee-avatar" 
-    :class="{ 
-      approver: type === 'approver', 
-      assignee: type === 'assignee',
-      [`color-${getColorIndex(user.id)}`]: true
-    }"
-    :title="user.name"
+    class="assignee-avatar-wrapper"
   >
-    {{ user.initials || getInitials(user.name) }}
+    <div 
+      class="assignee-avatar" 
+      :class="{ 
+        approver: type === 'approver', 
+        assignee: type === 'assignee',
+        [`color-${getColorIndex(user.id)}`]: true
+      }"
+    >
+      {{ user.initials || getInitials(user.name) }}
+    </div>
+    <div class="avatar-tooltip">{{ user.name }}</div>
   </div>
 </template>
 
@@ -50,6 +54,11 @@ export default {
 </script>
 
 <style scoped>
+.assignee-avatar-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
 .assignee-avatar {
   width: 28px;
   height: 28px;
@@ -69,6 +78,45 @@ export default {
 .assignee-avatar:hover {
   transform: scale(1.1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Tooltip styling */
+.avatar-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: #1f2937;
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Tooltip arrow */
+.avatar-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1f2937;
+}
+
+/* Show tooltip on hover */
+.assignee-avatar-wrapper:hover .avatar-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-4px);
 }
 
 /* Color variations */
