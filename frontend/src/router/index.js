@@ -8,6 +8,7 @@ import Projects from '../views/Projects.vue';
 import Createtask from '../views/CreateTask.vue'
 import CreateProject from '../views/CreateProject.vue'
 import ViewTaskDetails  from '../views/ViewTaskDetails.vue'
+import Notifications from '../views/Notifications.vue'
 // import ViewOwnTasks from '../views/ViewOwnTasks.vue'
 
 const routes = [
@@ -52,6 +53,12 @@ const routes = [
     name: 'viewtaskdetails',
     component: ViewTaskDetails,
     meta: { showNav: true }
+  },
+  {
+    path: '/notifications',
+    name: 'notifications',
+    component: Notifications,
+    meta: { showNav: true, requiresAuth: true }
   },
   // {
   //   path: '/owntasks',
