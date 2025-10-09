@@ -156,7 +156,7 @@ export default {
         start_date: '',
         end_date: '',
         proj_status: 'Not Started',
-        created_by: '',
+        owner: '',
         division_name: ''
       },
       errors: {}
@@ -204,7 +204,7 @@ export default {
     }
 
     // Set default form values
-    this.formData.created_by = this.currentUser.id || this.currentUser.user_ID
+    this.formData.owner = this.currentUser.id || this.currentUser.user_ID
     this.formData.division_name = this.currentUser.division_name
   },
   methods: {
@@ -266,7 +266,7 @@ export default {
           start_date: this.formData.start_date,
           end_date: this.formData.end_date,
           proj_status: 'Not Started',
-          created_by: this.currentUser.id || this.currentUser.user_ID,
+          owner: this.currentUser.id || this.currentUser.user_ID,
           division_name: this.currentUser.division_name
         }
 

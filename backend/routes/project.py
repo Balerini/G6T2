@@ -420,7 +420,7 @@ def create_project():
             return jsonify({'error': 'No data provided'}), 400
         
         # Validate required fields
-        required_fields = ['proj_name', 'start_date', 'end_date', 'created_by', 'division_name']
+        required_fields = ['proj_name', 'start_date', 'end_date', 'owner', 'division_name']
         for field in required_fields:
             if field not in project_data or not project_data[field]:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -447,12 +447,12 @@ def create_project():
             return jsonify({'error': f'Invalid date format: {str(e)}'}), 400
         
         # Get creator ID
-        creator_id = project_data['created_by']
+        owner_id = project_data['owner']
         
         # Ensure collaborators includes the creator
         collaborators = project_data.get('collaborators', [])
-        if creator_id not in collaborators:
-            collaborators.append(creator_id)
+        if owner_id not in collaborators:
+            collaborators.append(owner_id)
         
         # Prepare project data for Firestore
         firestore_data = {
@@ -461,7 +461,7 @@ def create_project():
             'start_date': start_date,
             'end_date': end_date,
             'proj_status': 'Not Started',  # Default status for new projects
-            'created_by': creator_id,
+            'owner': owner_id,
             'division_name': project_data['division_name'],
             'collaborators': collaborators,  # 👈 INCLUDES CREATOR
             'createdAt': firestore.SERVER_TIMESTAMP,
@@ -495,12 +495,12 @@ def create_project():
             from email_service import email_service  # import the singleton instance
 
             # Get creator's info (for the "Created by" field)
-            creator_doc = db.collection('Users').document(creator_id).get()
+            creator_doc = db.collection('Users').document(owner_id).get()
             creator_name = creator_doc.to_dict().get('name', 'Unknown User') if creator_doc.exists else 'Unknown User'
 
             # Send emails to each collaborator (except creator)
             for collab_id in collaborators:
-                if collab_id == creator_id:
+                if collab_id == owner_id:
                     continue
 
                 user_doc = db.collection('Users').document(collab_id).get()

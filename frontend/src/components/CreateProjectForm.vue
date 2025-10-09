@@ -66,10 +66,10 @@
             </span>
           </div>
 
-          <!-- Created By (Auto-populated, read-only) -->
+          <!-- Owner (Auto-populated, read-only) -->
           <div class="form-group">
-            <label class="form-label" for="createdBy">Owner</label>
-            <input id="createdBy" v-model="displayCreatedBy" type="text" class="form-input readonly-input" readonly
+            <label class="form-label" for="owner">Owner</label>
+            <input id="owner" v-model="displayowner" type="text" class="form-input readonly-input" readonly
               placeholder="Auto-populated from current user" />
           </div>
 
@@ -188,7 +188,7 @@ export default {
         proj_desc: '',
         start_date: '',
         end_date: '',
-        created_by: '',
+        owner: '',
         assignedto: [] // Matching CreateTaskForm structure
       },
       validationErrors: {
@@ -209,7 +209,7 @@ export default {
   },
 
   computed: {
-    displayCreatedBy() {
+    displayowner() {
       if (this.currentUser) {
         return this.currentUser.name || this.currentUser.email || `User ${this.currentUser.id || this.currentUser.user_ID}`
       }
@@ -274,8 +274,8 @@ export default {
     console.log('Current user from AuthService:', this.currentUser)
 
     if (this.currentUser) {
-      this.formData.created_by = this.currentUser.id || this.currentUser.user_ID || 'Unknown ID'
-      console.log('Set created_by to:', this.formData.created_by)
+      this.formData.owner = this.currentUser.id || this.currentUser.user_ID || 'Unknown ID'
+      console.log('Set owner to:', this.formData.owner)
 
       // Auto-add current user as collaborator
       this.formData.assignedto.push({
@@ -580,7 +580,7 @@ export default {
           proj_desc: this.formData.proj_desc.trim(),
           start_date: this.formData.start_date,
           end_date: this.formData.end_date,
-          created_by: creatorId,
+          owner: creatorId,
           division_name: this.currentUser.division_name,
           collaborators: collaboratorIds
         }

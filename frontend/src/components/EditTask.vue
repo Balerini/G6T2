@@ -128,11 +128,11 @@
             <label class="form-label" for="createdBy">Created By</label>
             <input
               id="createdBy"
-              v-model="localForm.created_by"
+              v-model="localForm.owner"
               type="text"
               class="form-input readonly-input"
               readonly
-              :placeholder="task?.created_by ? getUserName(task.created_by) : 'Auto-populated from current user'"
+              :placeholder="task?.owner ? getUserName(task.owner) : 'Auto-populated from current user'"
             />
           </div>
 
@@ -453,7 +453,7 @@ export default {
       task_desc: '',
       start_date: '',
       end_date: '',
-      created_by: '',
+      owner: '',
       assigned_to: [], // This will store user objects with id and name
       task_status: '',
       hasSubtasks: false
@@ -517,7 +517,7 @@ export default {
         task_desc: t.task_desc || '',
         start_date: t.start_date ? new Date(t.start_date).toISOString().split('T')[0] : '',
         end_date: t.end_date ? new Date(t.end_date).toISOString().split('T')[0] : '',
-        created_by: t.created_by || '',
+        owner: t.owner || '',
         assigned_to: [], // Will be populated below
         task_status: t.task_status || '',
         hasSubtasks: t.hasSubtasks || false
@@ -1083,7 +1083,7 @@ export default {
         if (newAttachments.value.length > 0) {
           const filesToUpload = newAttachments.value.map(item => item.file)
           const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
-          const userId = currentUser.id || currentUser.user_ID || currentUser.uid || localForm.created_by || 'anonymous'
+          const userId = currentUser.id || currentUser.user_ID || currentUser.uid || localForm.owner || 'anonymous'
           const taskStorageId = props.task?.id || props.task?.task_ID || localForm.task_ID || id
 
           try {
@@ -1107,7 +1107,7 @@ export default {
           task_desc: localForm.task_desc.trim(),
           start_date: localForm.start_date,
           end_date: localForm.end_date || null,
-          created_by: localForm.created_by,
+          owner: localForm.owner,
           assigned_to: localForm.assigned_to.map(user => user.id),
           task_status: localForm.task_status || null,
           hasSubtasks: localForm.hasSubtasks,

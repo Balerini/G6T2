@@ -31,7 +31,7 @@
 
       <div class="meta-group">
         <span class="meta-label">Owner:</span>
-        <span class="meta-value">{{ getCreatorName(task.created_by) }}</span>
+        <span class="meta-value">{{ getCreatorName(task.owner) }}</span>
       </div>
 
       <div class="meta-group">
@@ -145,7 +145,7 @@ export default {
         user = this.users.find(u => String(u.user_ID) === String(userId));
       }
 
-      // If still not found, try to find by name (in case created_by was stored as name)
+      // If still not found, try to find by name (in case owner was stored as name)
       if (!user) {
         user = this.users.find(u => u.name === userId);
       }

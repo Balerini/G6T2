@@ -294,27 +294,27 @@ export default {
         processedProject.tasks.forEach((task, index) => {
           console.log(`Task ${index + 1}:`, {
             name: task.task_name,
-            created_by: task.created_by,
+            owner: task.owner,
             assigned_to: task.assigned_to,
             assignee_id: task.assignee_id,
             allFields: Object.keys(task)
           });
           
-          // Add created_by user (could be ID or name)
-          if (task.created_by) {
+          // Add owner user (could be ID or name)
+          if (task.owner) {
             // Check if it looks like an ID (long string) or a name
-            if (typeof task.created_by === 'string' && task.created_by.length > 15) {
+            if (typeof task.owner === 'string' && task.owner.length > 15) {
               // Looks like an ID
-              taskUserIds.add(task.created_by);
-              // console.log(`Added created_by ID: ${task.created_by}`);
-            } else if (typeof task.created_by === 'string') {
+              taskUserIds.add(task.owner);
+              // console.log(`Added owner ID: ${task.owner}`);
+            } else if (typeof task.owner === 'string') {
               // Looks like a name
-              taskUserNames.add(task.created_by);
-              // console.log(`Added created_by name: ${task.created_by}`);
+              taskUserNames.add(task.owner);
+              // console.log(`Added owner name: ${task.owner}`);
             } else {
               // It's a number ID
-              taskUserIds.add(task.created_by);
-              // console.log(`Added created_by ID: ${task.created_by}`);
+              taskUserIds.add(task.owner);
+              // console.log(`Added owner ID: ${task.owner}`);
             }
           }
           

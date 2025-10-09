@@ -128,9 +128,13 @@
 
     <!-- Created By (Auto-populated, read-only) -->
     <div class="form-group">
-      <label class="form-label" for="createdBy">Owner</label>
-      <input id="createdBy" v-model="formData.created_by" type="text" class="form-input readonly-input" readonly
-        placeholder="Auto-populated from current user" />
+      <label class="form-label" for="owner">Owner</label>
+      <input id="owner" 
+       v-model="ownerDisplayName" 
+       type="text" 
+       class="form-input readonly-input" 
+       readonly 
+       placeholder="Auto-populated from current user" />
     </div>
 
     <!-- Assigned To -->
@@ -324,6 +328,7 @@ export default {
     const assignedToInput = ref('');
     const fileInput = ref(null);
     const dateValidationError = ref('');
+    const ownerDisplayName = ref('');
 
     // Helper function to get current user
     const getCurrentUser = () => {
@@ -392,7 +397,7 @@ export default {
       task_desc: '',
       start_date: '',
       end_date: '',
-      created_by: '',
+      owner: '',
       assigned_to: [], // This will now store user objects with id and name
       attachments: [],
       task_status: '',
@@ -1140,13 +1145,15 @@ export default {
     onMounted(() => {
       // Get current user using the helper function
       const currentUser = getCurrentUser();
-      if (currentUser) {
-        formData.created_by = currentUser.name;
-        // Store current user for filtering
-        currentUserId.value = currentUser.id;
-      } else {
-        formData.created_by = 'Not Logged In';
-      }
+        if (currentUser) {
+          formData.owner = currentUser.id;        // For backend - user ID
+          ownerDisplayName.value = currentUser.name; // For display - user name
+          // Store current user for filtering
+          currentUserId.value = currentUser.id;
+        } else {
+          formData.owner = 'Not Logged In';
+          ownerDisplayName.value = 'Not Logged In';
+        }
 
       loadUsers();
       loadProjects();
@@ -1170,7 +1177,7 @@ export default {
         task_desc: '',
         start_date: '',
         end_date: '',
-        created_by: '',
+        owner: '',
         assigned_to: [],
         attachments: [],
         task_status: '',
@@ -1185,7 +1192,7 @@ export default {
       dateValidationError.value = '';
       userSearch.value = '';
       closeDropdown();
-      formData.created_by = 'Current User';
+      formData.owner = 'Current User';
 
       // Clear validation errors and touched fields
       Object.keys(validationErrors).forEach(key => {
@@ -1355,7 +1362,7 @@ export default {
           task_desc: taskData.task_desc.trim(),
           start_date: taskData.start_date,
           end_date: taskData.end_date || null,
-          created_by: taskData.created_by,
+          owner: taskData.owner,
           attachments: uploadedAttachments, // Use uploaded file data instead of raw files
           task_status: taskData.task_status || null,
           priority_level: parseInt(taskData.priority_level),
@@ -1427,6 +1434,7 @@ export default {
       dateValidationError,
       validationErrors,
       isFormValid,
+      ownerDisplayName,
       removeAssignee,
       handleFileUpload,
       removeFile,

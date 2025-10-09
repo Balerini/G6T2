@@ -67,7 +67,7 @@
 
                 <div class="grid grid-cols-2 gap-2 text-sm">
                   <p><span class="font-medium">Project:</span> {{ task.proj_ID }}</p>
-                  <p><span class="font-medium">Created By:</span> {{ task.created_by }}</p>
+                  <p><span class="font-medium">Created By:</span> {{ task.owner }}</p>
                   <p><span class="font-medium">Assigned To:</span> {{ task.assigned_to.join(', ') }}</p>
                   <p><span class="font-medium">Start:</span> {{ task.start_date }}</p>
                   <p><span class="font-medium">End:</span> {{ task.end_date || 'N/A' }}</p>

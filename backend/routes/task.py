@@ -35,7 +35,7 @@ def create_task():
         db = get_firestore_client()
 
         # Get creator ID early so we can use it throughout
-        creator_id = task_data.get('created_by', '')
+        owner_id = task_data.get('owner', '')
 
         # Convert date strings to datetime objects with Singapore timezone
         sg_tz = pytz.timezone('Asia/Singapore')
@@ -78,7 +78,7 @@ def create_task():
             'task_desc': task_data.get('task_desc', ''),
             'start_date': start_date,
             'end_date': end_date,
-            'created_by': creator_id,
+            'owner': owner_id,
             'assigned_to': task_data.get('assigned_to', []), 
             'attachments': task_data.get('attachments', []),
             'task_status': task_data.get('task_status'),
@@ -109,16 +109,16 @@ def create_task():
         try:
             from email_service import email_service
 
-            # Get creator's info (for the "Created by" field)
+            # Get creator's info (for the "owner" field)
             creator_name = 'Unknown User'
-            if creator_id:
-                creator_doc = db.collection('Users').document(creator_id).get()
+            if owner_id:
+                creator_doc = db.collection('Users').document(owner_id).get()
                 creator_name = creator_doc.to_dict().get('name', 'Unknown User') if creator_doc.exists else 'Unknown User'
 
             # Send emails to each assigned user (except creator)
             assigned_users = task_data.get('assigned_to', [])  # FIXED THIS LINE
             for user_id in assigned_users:  # FIXED THIS LINE
-                if user_id == creator_id:
+                if user_id == owner_id:
                     continue
 
                 user_doc = db.collection('Users').document(user_id).get()

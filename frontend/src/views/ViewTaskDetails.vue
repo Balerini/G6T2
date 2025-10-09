@@ -117,12 +117,12 @@
               <div class="info-icon">👤</div>
               <div class="info-content">
                 <h3 class="info-title">Owner</h3>
-                <div v-if="task.created_by" class="user-info">
+                <div v-if="task.owner" class="user-info">
                   <div class="user-avatar creator">
-                    {{ getInitials(getCreatorName(task.created_by)) }}
+                    {{ getInitials(getCreatorName(task.owner)) }}
                   </div>
                   <div class="user-details">
-                    <p class="user-name">{{ getCreatorName(task.created_by) }}</p>
+                    <p class="user-name">{{ getCreatorName(task.owner) }}</p>
                     <p class="user-role">Creator</p>
                   </div>
                 </div>
@@ -196,7 +196,7 @@
               </div>
               <div class="metadata-item">
                 <span class="metadata-label">Owner</span>
-                <span class="metadata-value">{{ getCreatorName(task.created_by) }}</span>
+                <span class="metadata-value">{{ getCreatorName(task.owner) }}</span>
               </div>
               <div class="metadata-item">
                 <span class="metadata-label">Duration</span>
@@ -361,10 +361,10 @@
               <h4>Current Owner</h4>
               <div class="user-info">
                 <div class="user-avatar creator">
-                  {{ getInitials(getCreatorName(task.created_by)) }}
+                  {{ getInitials(getCreatorName(task.owner)) }}
                 </div>
                 <div class="user-details">
-                  <p class="user-name">{{ getCreatorName(task.created_by) }}</p>
+                  <p class="user-name">{{ getCreatorName(task.owner) }}</p>
                   <p class="user-role">Current Owner</p>
                 </div>
               </div>
@@ -578,7 +578,7 @@ export default {
 
             const isProjectCollaborator = this.parentProject.collaborators?.includes(userId);
             const isTaskAssignee = this.task.assigned_to?.includes(userId);
-            const isTaskCreator = String(this.task.created_by) === String(userId);
+            const isTaskCreator = String(this.task.owner) === String(userId);
 
             const hasAccess = isProjectCollaborator || isTaskAssignee || isTaskCreator;
 
@@ -1073,7 +1073,7 @@ export default {
       const userId = currentUser.id;
       
       // Only the current owner can transfer ownership
-      return String(this.task.created_by) === String(userId);
+      return String(this.task.owner) === String(userId);
     },
 
     // Open transfer modal and load eligible users
@@ -1158,16 +1158,16 @@ export default {
       try {
         this.transferring = true;
         
-        // Update the task's created_by field using the imported service
+        // Update the task's owner field using the imported service
         const updateData = {
-          created_by: this.selectedNewOwner
+          owner: this.selectedNewOwner
         };
         
         // Use the imported taskService directly
         await taskService.updateTask(this.task.id, updateData);
         
         // Update local task data
-        this.task.created_by = this.selectedNewOwner;
+        this.task.owner = this.selectedNewOwner;
         
         // Show success message
         this.successMessage = '✅ Task ownership transferred successfully!';
