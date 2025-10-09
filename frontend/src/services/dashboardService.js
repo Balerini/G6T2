@@ -35,6 +35,16 @@ export const dashboardService = {
         }
     },
 
+    // MANAGERS: GET COUNT OF TASKS BASED ON PRIORITY 
+    getCountofAllTasksByPriority: async (userId) => {
+        try {
+            const response = await api.get(`/api/dashboard/manager/tasks-by-priority/${userId}`);
+            return response.data
+        } catch (error) {
+            console.log("Error fetching tasks by priority", error)
+        }
+    },
+
     // MANAGERS: COUNT AND NAME OF TASKS BY STAFF MEMBER
     getCountAndNameofTasksByStaff: async (userId) => {
         try {

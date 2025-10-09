@@ -34,9 +34,10 @@
                 <div v-if="activeView === 'team'">
                     <TotalTaskCount />
                     <hr>
-                    <TasksByStatus />
-                    <hr>
-                    <TasksByPriority />
+                    <div class="charts-grid">
+                        <TasksByStatus />
+                        <TasksByPriority />
+                    </div>
                     <hr>
                     <TaskTimeline />
                     <hr>
@@ -48,32 +49,24 @@
                     <!-- <p class="coming-soon">Teehee</p> -->
                     <div class="crm-container">
                         <div class="header-section">
-                        <div class="container"> 
-                            <!-- Status Filter Tabs -->
-                            <div class="action-tabs mb-4">
-                            <button
-                                v-for="status in statuses"
-                                :key="status"
-                                @click="filter = status"
-                                :class="['tab-btn', { active: filter === status }]"
-                            >
-                                {{ status }}
-                            </button>
+                            <div class="container">
+                                <!-- Status Filter Tabs -->
+                                <div class="action-tabs mb-4">
+                                    <button v-for="status in statuses" :key="status" @click="filter = status"
+                                        :class="['tab-btn', { active: filter === status }]">
+                                        {{ status }}
+                                    </button>
+                                </div>
+                                <!-- Sort Filter Tabs -->
+                                <div class="action-tabs flex space-x-2">
+                                    <button v-for="option in sortOptions" :key="option.value"
+                                        @click="sortBy = option.value" :class="[
+                                            'tab-btn',
+                                            { active: sortBy === option.value }]">
+                                        {{ option.label }}
+                                    </button>
+                                </div>
                             </div>
-                            <!-- Sort Filter Tabs -->
-                            <div class="action-tabs flex space-x-2">
-                            <button
-                            v-for="option in sortOptions"
-                            :key="option.value"
-                            @click="sortBy = option.value"
-                            :class="[
-                                'tab-btn',
-                                { active: sortBy === option.value }]"
-                            >
-                                {{ option.label }}
-                            </button>
-                            </div>
-                        </div>
                         </div>
                         <!-- Tasks -->
                         <div class="tasks-section">
@@ -85,22 +78,21 @@
                                 </div>
                                 <div v-else>
                                     <div v-if="filteredTasks.length">
-                                        <div
-                                        v-for="(task, index) in this.filteredTasks"
-                                        :key="index"
-                                        class="task-card"
-                                        >
-                                        <task-card :task="task" class="mb-0"
-                                        @view-task="handleViewTask"/>
+                                        <div v-for="(task, index) in this.filteredTasks" :key="index" class="task-card">
+                                            <task-card :task="task" class="mb-0" @view-task="handleViewTask" />
                                         </div>
                                     </div>
                                     <div v-else class="nofound-section">
                                         <div class="mt-5">
                                             <div class="d-flex justify-content-center">
-                                                <svg xmlns="http://www.w3.org/2000/svg" height="100" width="100" fill="currentColor" class="bi bi-clipboard-x" viewBox="0 0 16 16">
-                                                <path fill-rule="evenodd" d="M6.146 7.146a.5.5 0 0 1 .708 0L8 8.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 9l1.147 1.146a.5.5 0 0 1-.708.708L8 9.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 9 6.146 7.854a.5.5 0 0 1 0-.708"/>
-                                                <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/>
-                                                <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/>
+                                                <svg xmlns="http://www.w3.org/2000/svg" height="100" width="100"
+                                                    fill="currentColor" class="bi bi-clipboard-x" viewBox="0 0 16 16">
+                                                    <path fill-rule="evenodd"
+                                                        d="M6.146 7.146a.5.5 0 0 1 .708 0L8 8.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 9l1.147 1.146a.5.5 0 0 1-.708.708L8 9.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 9 6.146 7.854a.5.5 0 0 1 0-.708" />
+                                                    <path
+                                                        d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z" />
+                                                    <path
+                                                        d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z" />
                                                 </svg>
                                             </div>
                                             <h2 class="text-center mt-2">
@@ -162,9 +154,9 @@ export default {
             statuses: ["All", "Unassigned", "Ongoing", "Under Review", "Completed", "Cancelled"],
             sortBy: "endDateAsc",
             sortOptions: [
-            { value: "endDateAsc", label: "Earliest" },
-            { value: "endDateDesc", label: "Latest" },
-            { value: "priority", label: "Priority" }
+                { value: "endDateAsc", label: "Earliest" },
+                { value: "endDateDesc", label: "Latest" },
+                { value: "priority", label: "Priority" }
             ]
         };
     },
@@ -176,110 +168,110 @@ export default {
         }
     },
     created() {
-    this.loadTaskData();
-  },
-  watch: {
-    $route() {
-      this.loadTaskData();
+        this.loadTaskData();
+    },
+    watch: {
+        $route() {
+            this.loadTaskData();
+        }
+    },
+    methods: {
+        async loadTaskData() {
+            try {
+                this.loading = true;
+                this.error = null;
+
+                // Replace with however you store logged-in user
+                const userString = sessionStorage.getItem('user');
+                const userData = JSON.parse(userString);
+                const currentUserId = userData.id;
+                console.log("user = ", userData);
+                console.log("id = ", currentUserId);
+
+                // Fetch tasks for this user
+                this.tasks = await ownTasksService.getTasks(currentUserId);
+                console.log("pulled tasks", this.tasks);
+                if (!this.tasks.length) {
+                    this.error = `No tasks found for user ${currentUserId}`;
+                }
+            } catch (error) {
+                console.error("Error loading tasks:", error);
+                this.error = error.message;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        goBack() {
+            this.$router.push("/projects");
+        },
+
+        formatDate(date) {
+            if (!date) return "No date set";
+            return new Date(date).toLocaleDateString("en-US", {
+                weekday: "long",
+                day: "2-digit",
+                month: "long",
+                year: "numeric"
+            });
+        },
+
+        formatDateRange(startDate, endDate) {
+            if (!startDate || !endDate) return "No dates set";
+            const start = new Date(startDate).toLocaleDateString("en-US", {
+                day: "2-digit",
+                month: "short"
+            });
+            const end = new Date(endDate).toLocaleDateString("en-US", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric"
+            });
+            return `${start} - ${end}`;
+        },
+        handleViewTask(task) {
+            const projectId = task.proj_ID || task.projectId;
+            const taskId = task.id || task.task_ID || task.taskId;
+            console.log('Viewing task:', { projectId, taskId, task });
+
+            // If task has a project, go to project task view
+            if (projectId) {
+                this.$router.push(`/projects/${projectId}/tasks/${taskId}`);
+            } else {
+                // If task has no project, go to standalone task view
+                this.$router.push(`/tasks/${taskId}`);
+            }
+        },
+        toggleSortOrder() {
+            this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
+        }
+    },
+    computed: {
+        filteredTasks() {
+            let result = this.tasks;
+
+            // Filter by status
+            if (this.filter !== "All") {
+                result = result.filter(t => t.task_status === this.filter);
+            }
+
+            // Sort by end date
+            result = result.slice().sort((a, b) => {
+                if (this.sortBy === "priority") {
+                    return (b.priority_bucket || 0) - (a.priority_bucket || 0); // high → low
+                }
+                if (this.sortBy === "endDateAsc") {
+                    return new Date(a.end_date) - new Date(b.end_date);
+                }
+                if (this.sortBy === "endDateDesc") {
+                    return new Date(b.end_date) - new Date(a.end_date);
+                }
+                return 0;
+            });
+
+            return result;
+        }
     }
-  },
-  methods: {
-    async loadTaskData() {
-      try {
-        this.loading = true;
-        this.error = null;
-
-        // Replace with however you store logged-in user
-        const userString = sessionStorage.getItem('user');
-        const userData = JSON.parse(userString);
-        const currentUserId = userData.id;
-        console.log("user = ", userData);
-        console.log("id = ", currentUserId);
-
-        // Fetch tasks for this user
-        this.tasks = await ownTasksService.getTasks(currentUserId);
-        console.log("pulled tasks", this.tasks);
-        if (!this.tasks.length) {
-          this.error = `No tasks found for user ${currentUserId}`;
-        }
-      } catch (error) {
-        console.error("Error loading tasks:", error);
-        this.error = error.message;
-      } finally {
-        this.loading = false;
-      }
-    },
-
-    goBack() {
-      this.$router.push("/projects");
-    },
-
-    formatDate(date) {
-      if (!date) return "No date set";
-      return new Date(date).toLocaleDateString("en-US", {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-        year: "numeric"
-      });
-    },
-
-    formatDateRange(startDate, endDate) {
-      if (!startDate || !endDate) return "No dates set";
-      const start = new Date(startDate).toLocaleDateString("en-US", {
-        day: "2-digit",
-        month: "short"
-      });
-      const end = new Date(endDate).toLocaleDateString("en-US", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
-      });
-      return `${start} - ${end}`;
-    },
-    handleViewTask(task) {
-      const projectId = task.proj_ID || task.projectId; 
-      const taskId = task.id || task.task_ID || task.taskId; 
-      console.log('Viewing task:', { projectId, taskId, task });
-      
-      // If task has a project, go to project task view
-      if (projectId) {
-        this.$router.push(`/projects/${projectId}/tasks/${taskId}`);
-      } else {
-        // If task has no project, go to standalone task view
-        this.$router.push(`/tasks/${taskId}`);
-      }
-    },
-    toggleSortOrder() {
-      this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
-    }
-  },
-  computed: {
-    filteredTasks() {
-      let result = this.tasks;
-
-      // Filter by status
-      if (this.filter !== "All") {
-        result = result.filter(t => t.task_status === this.filter);
-      }
-
-      // Sort by end date
-      result = result.slice().sort((a, b) => {
-        if (this.sortBy === "priority") {
-          return (b.priority_bucket || 0) - (a.priority_bucket || 0); // high → low
-        }
-        if (this.sortBy === "endDateAsc") {
-          return new Date(a.end_date) - new Date(b.end_date);
-        }
-        if (this.sortBy === "endDateDesc") {
-          return new Date(b.end_date) - new Date(a.end_date);
-        }
-        return 0;
-      });
-
-      return result;
-    }
-  }
 }
 </script>
 
@@ -385,6 +377,14 @@ hr {
     font-size: 1.125rem;
 }
 
+/* ADD THIS NEW CSS */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+    margin: 0;
+}
+
 @media (max-width: 768px) {
     .header-content {
         flex-direction: column;
@@ -399,6 +399,15 @@ hr {
 
     .tab-btn {
         width: 100%;
+    }
+
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .charts-grid :deep(.card) {
+        max-width: 100%;
+        margin: 0;
     }
 }
 </style>

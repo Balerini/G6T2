@@ -336,59 +336,89 @@ def get_team_task_count_by_staff(user_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-# # =============== MANAGERS: COUNT TASKS BY ITS DIFF PRIORITY ===============
-# @dashboard_bp.route('/api/dashboard/manager/tasks-by-priority/<user_id>', methods=['GET'])
-# def get_manager_tasks_by_priority(user_id):
-#     """Get count of tasks by priority for manager's team"""
-#     try:
-#         # Get manager info
-#         user_info = get_user_info(user_id)
-#         if not user_info:
-#             return jsonify({'error': 'User not found'}), 404
+# =============== MANAGERS: COUNT TASKS BY ITS DIFF PRIORITY ===============
+@dashboard_bp.route('/api/dashboard/manager/tasks-by-priority/<user_id>', methods=['GET'])
+def get_manager_tasks_by_priority(user_id):
+    """Get count of tasks by priority for manager's team"""
+    try:
+        # Get manager info
+        user_info = get_user_info(user_id)
+        if not user_info:
+            return jsonify({'error': 'User not found'}), 404
         
-#         if user_info.get('role_num', 4) > 3:
-#             return jsonify({'error': 'Unauthorized - Manager access only'}), 403
+        if user_info.get('role_num', 4) > 3:
+            return jsonify({'error': 'Unauthorized - Manager access only'}), 403
         
-#         division_name = user_info.get('division_name')
-#         if not division_name:
-#             return jsonify({'error': 'Division not found for user'}), 400
+        division_name = user_info.get('division_name')
+        if not division_name:
+            return jsonify({'error': 'Division not found for user'}), 400
         
-#         manager_role_num = user_info.get('role_num', 4)
-#         # Convert string to int if needed
-#         if isinstance(manager_role_num, str):
-#             manager_role_num = int(manager_role_num)
+        manager_role_num = user_info.get('role_num', 4)
+        # Convert string to int if needed
+        if isinstance(manager_role_num, str):
+            manager_role_num = int(manager_role_num)
         
-#         # Get all staff in the department (subordinates and self only)
-#         staff_ids, staff_info = get_department_staff(division_name, manager_role_num)
+        # Get all staff in the department (subordinates and self only)
+        staff_ids, staff_info = get_department_staff(division_name, manager_role_num)
         
-#         if not staff_ids:
-#             return jsonify({'tasks_by_priority': {}}), 200
+        if not staff_ids:
+            return jsonify({'tasks_by_priority': {'High': 0, 'Medium': 0, 'Low': 0}}), 200
         
-#         # Count tasks by priority
-#         db = get_firestore_client()
-#         tasks_ref = db.collection('Tasks')
-        
-#         priority_counts = {}
-        
-#         for staff_id in staff_ids:
-#             # Use array_contains since assigned_to is an array
-#             tasks_query = tasks_ref.where('assigned_to', 'array_contains', staff_id)
-#             tasks = tasks_query.stream()
+        # Helper function to categorize priority
+        def get_priority_category(priority_level):
+            """Convert priority integer (1-10) to category (High/Medium/Low)"""
+            if priority_level is None or priority_level == 'N/A':
+                return 'Others'
             
-#             for task in tasks:
-#                 task_data = task.to_dict()
-#                 priority = task_data.get('task_priority', 'Unknown')
-#                 priority_counts[priority] = priority_counts.get(priority, 0) + 1
+            try:
+                num = int(priority_level)
+                if num >= 8:
+                    return 'High'
+                elif num >= 4:
+                    return 'Medium'
+                else:
+                    return 'Low'
+            except (ValueError, TypeError):
+                return 'Others'
         
-#         return jsonify({
-#             'tasks_by_priority': priority_counts,
-#             'division_name': division_name
-#         }), 200
+        # Count tasks by priority
+        db = get_firestore_client()
+        tasks_ref = db.collection('Tasks')
         
-#     except Exception as e:
-#         print(f"Error getting tasks by priority: {str(e)}")
-#         traceback.print_exc()
-#         return jsonify({'error': str(e)}), 500
+        # Initialize priority counts
+        priority_counts = {
+            'High': 0,
+            'Medium': 0,
+            'Low': 0,
+            'Others': 0
+        }
+        
+        for staff_id in staff_ids:
+            # Use array_contains since assigned_to is an array
+            tasks_query = tasks_ref.where('assigned_to', 'array_contains', staff_id)
+            tasks = tasks_query.stream()
+            
+            for task in tasks:
+                task_data = task.to_dict()
+                priority_level = task_data.get('priority_level')
+                
+                # Get the category (High/Medium/Low)
+                category = get_priority_category(priority_level)
+                priority_counts[category] = priority_counts.get(category, 0) + 1
+        
+        # Remove 'Unknown' from response if it's 0
+        if priority_counts['Others'] == 0:
+            del priority_counts['Others']
+        
+        return jsonify({
+            'tasks_by_priority': priority_counts,
+            'division_name': division_name
+        }), 200
+        
+    except Exception as e:
+        print(f"Error getting tasks by priority: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 # =============== MANAGERS: PENDING TASKS BY AGE AND TASK NAME BASED ON TASK START DATE ===============
 @dashboard_bp.route('/api/dashboard/manager/pending-tasks-by-age/<user_id>', methods=['GET'])
