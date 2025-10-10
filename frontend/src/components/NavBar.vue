@@ -68,39 +68,15 @@
 
   <script>
   import authService from '@/services/auth'
+  import notificationService from '@/services/notificationService'
 
   export default {
     name: 'NavBar',
     data() {
       return {
         showNotifications: false,
-        notifications: [
-          // Sample notifications - replace with real data later
-          {
-            id: 1,
-            icon: '📋',
-            title: 'New Task Assigned',
-            message: 'You have been assigned to "Update Dashboard UI"',
-            time: new Date(Date.now() - 5 * 60000), // 5 minutes ago
-            read: false
-          },
-          {
-            id: 2,
-            icon: '✅',
-            title: 'Task Completed',
-            message: 'John completed "Design Landing Page"',
-            time: new Date(Date.now() - 2 * 3600000), // 2 hours ago
-            read: false
-          },
-          {
-            id: 3,
-            icon: '⏰',
-            title: 'Deadline Approaching',
-            message: 'Task "API Integration" is due in 2 days',
-            time: new Date(Date.now() - 24 * 3600000), // 1 day ago
-            read: true
-          }
-        ]
+        notifications: [],
+        loadingNotifications: false
       }
     },
     computed: {
@@ -118,18 +94,81 @@
         this.$router.push('/login');
       },
       
+      async loadNotifications() {
+        try {
+          const currentUser = authService.getCurrentUser()
+          if (!currentUser || !currentUser.id) {
+            console.log('No user logged in')
+            return
+          }
+          
+          this.loadingNotifications = true
+          const notifications = await notificationService.getNotifications(currentUser.id)
+          
+          // Map backend data to frontend format
+          this.notifications = notifications.map(n => ({
+            id: n.id,
+            icon: this.getNotificationIcon(n.type),
+            title: n.title,
+            message: n.message,
+            time: new Date(n.timestamp),
+            read: n.read,
+            type: n.type,
+            task_id: n.task_id,
+            project_id: n.project_id
+          }))
+          
+          console.log('Loaded notifications:', this.notifications.length)
+        } catch (error) {
+          console.error('Error loading notifications:', error)
+        } finally {
+          this.loadingNotifications = false
+        }
+      },
+      
       toggleNotifications() {
         this.showNotifications = !this.showNotifications
+        
+        // Load notifications when opening dropdown
+        if (this.showNotifications) {
+          this.loadNotifications()
+        }
       },
       
-      markAllAsRead() {
-        this.notifications.forEach(n => n.read = true)
+      async markAllAsRead() {
+        try {
+          const currentUser = authService.getCurrentUser()
+          if (!currentUser || !currentUser.id) return
+          
+          await notificationService.markAllAsRead(currentUser.id)
+          this.notifications.forEach(n => n.read = true)
+        } catch (error) {
+          console.error('Error marking all as read:', error)
+        }
       },
       
-      handleNotificationClick(notification) {
-        notification.read = true
-        // TODO: Navigate to relevant page or perform action
-        console.log('Notification clicked:', notification)
+      async handleNotificationClick(notification) {
+        try {
+          // Mark as read
+          await notificationService.markAsRead(notification.id)
+          notification.read = true
+          
+          // Close dropdown
+          this.showNotifications = false
+          
+          // Navigate to task details
+          if (notification.task_id && notification.project_id) {
+            // Task with project
+            this.$router.push(`/projects/${notification.project_id}/tasks/${notification.task_id}`)
+          } else if (notification.task_id) {
+            // Standalone task (no project)
+            this.$router.push(`/tasks/${notification.task_id}`)
+          }
+          
+          console.log('Navigating to task:', notification.task_id)
+        } catch (error) {
+          console.error('Error handling notification click:', error)
+        }
       },
       
       formatTime(time) {
@@ -144,15 +183,81 @@
         if (hours < 24) return `${hours}h ago`
         if (days < 7) return `${days}d ago`
         return time.toLocaleDateString()
+      },
+      
+      getNotificationIcon(type) {
+        const iconMap = {
+          'task_assigned': '📋',
+          'deadline': '❗',
+          'task_updated': '✏️',
+          'completion': '✅',
+          'comment': '💬',
+          'mention': '🎯',
+          'attachment': '📎'
+        }
+        return iconMap[type] || '📋'
+      },
+      
+      // Event handlers for notification updates
+      handleNotificationDeleted({ notificationId }) {
+        console.log('NavBar: Notification deleted event received:', notificationId)
+        const index = this.notifications.findIndex(n => n.id === notificationId)
+        if (index > -1) {
+          this.notifications.splice(index, 1)
+        }
+      },
+      
+      handleNotificationMarkedRead({ notificationId }) {
+        console.log('NavBar: Notification marked read event received:', notificationId)
+        const notification = this.notifications.find(n => n.id === notificationId)
+        if (notification) {
+          notification.read = true
+        }
+      },
+      
+      handleAllMarkedRead() {
+        console.log('NavBar: All notifications marked read event received')
+        this.notifications.forEach(n => n.read = true)
+      },
+      
+      handleNotificationsRefresh() {
+        console.log('NavBar: Notification refresh triggered')
+        this.loadNotifications()
       }
     },
     mounted() {
+      // Load notifications on mount
+      this.loadNotifications()
+      
+      // Set up periodic refresh (every 10 seconds for faster updates)
+      this.notificationInterval = setInterval(() => {
+        this.loadNotifications()
+      }, 10000)
+      
+      // Subscribe to notification events
+      notificationService.on('notification-deleted', this.handleNotificationDeleted)
+      notificationService.on('notification-marked-read', this.handleNotificationMarkedRead)
+      notificationService.on('notifications-marked-all-read', this.handleAllMarkedRead)
+      notificationService.on('notifications-refresh', this.handleNotificationsRefresh)
+      
       // Close dropdown when clicking outside
       document.addEventListener('click', (e) => {
         if (!this.$el.contains(e.target)) {
           this.showNotifications = false
         }
       })
+    },
+    beforeUnmount() {
+      // Clean up interval
+      if (this.notificationInterval) {
+        clearInterval(this.notificationInterval)
+      }
+      
+      // Unsubscribe from notification events
+      notificationService.off('notification-deleted', this.handleNotificationDeleted)
+      notificationService.off('notification-marked-read', this.handleNotificationMarkedRead)
+      notificationService.off('notifications-marked-all-read', this.handleAllMarkedRead)
+      notificationService.off('notifications-refresh', this.handleNotificationsRefresh)
     }
   }
   </script>
