@@ -24,7 +24,7 @@
           <button class="tab-btn" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
             All Projects ({{ currentUser?.division_name || 'My Division' }})
           </button>
-          <button class="tab-btn">
+          <button class="tab-btn" :class="{ active: activeTab === 'standalone' }" @click="activeTab = 'standalone'">
             Standalone Tasks
           </button>
         </div>
@@ -82,7 +82,7 @@
     </div>
 
     <!-- Projects Section -->
-    <div v-else class="projects-section">
+    <div v-else-if="activeTab === 'all'" class="projects-section">
       <div class="container">
         <!-- Add Sort Controls -->
         <div v-if="filteredProjects.length > 0" class="projects-header">
@@ -129,6 +129,33 @@
       </div>
     </div>
 
+    <!-- Standalone Tasks Section -->
+    <div v-else-if="activeTab === 'standalone'" class="standalone-tasks-section">
+      <div class="container">
+        <div v-if="loadingStandaloneTasks" class="loading-state">
+          <p>Loading standalone tasks...</p>
+        </div>
+        
+        <div v-else-if="standaloneTasks.length === 0" class="no-standalone-tasks">
+          <div class="empty-state-content">
+            <div class="empty-icon">📋</div>
+            <h3 class="empty-title">No Standalone Tasks</h3>
+           
+          </div>
+        </div>
+        
+        <div v-else class="tasks-grid">
+          <task-card 
+            v-for="task in standaloneTasks" 
+            :key="task.id" 
+            :task="task" 
+            :users="users"
+            @view-task="handleViewTask"
+          />
+        </div>
+      </div>
+    </div>
+
     <!-- Modal for Create Task Form -->
     <div v-if="showCreateTaskForm" class="modal-overlay" @click="closeCreateTaskForm">
       <div class="modal-content" @click.stop>
@@ -158,15 +185,18 @@
 
 <script>
 import ProjectList from '../components/Projects/ProjectList.vue'
+import TaskCard from '../components/Projects/TaskCard.vue'
 import CreateTaskForm from '../components/CreateTaskForm.vue'
 import CreateProjectForm from '../components/CreateProjectForm.vue'
 import AuthService from '../services/auth.js'
 import { projectAPI, userAPI } from '../services/api.js'
+import { ownTasksService } from '../services/myTaskService.js'
 
 export default {
   name: 'CRMProjectManager',
   components: {
     ProjectList,
+    TaskCard,
     CreateTaskForm,
     CreateProjectForm
   },
@@ -183,7 +213,9 @@ export default {
       error: null,
       successMessage: '',
       errorMessage: '',
-      sortOrder: 'asc'
+      sortOrder: 'asc',
+      standaloneTasks: [],
+      loadingStandaloneTasks: false
     }
   },
   computed: {
@@ -251,8 +283,19 @@ export default {
     if (this.$route.query.refresh === 'true') {
       console.log('Refreshing projects due to refresh parameter');
       await this.fetchProjects();
+      // Also refresh standalone tasks if on that tab
+      if (this.activeTab === 'standalone') {
+        await this.loadStandaloneTasks();
+      }
       // Remove the refresh parameter from URL
       this.$router.replace({ path: '/projects' });
+    }
+  },
+  watch: {
+    async activeTab(newTab) {
+      if (newTab === 'standalone') {
+        await this.loadStandaloneTasks();
+      }
     }
   },
   methods: {
@@ -472,6 +515,40 @@ export default {
       }
     },
 
+    async loadStandaloneTasks() {
+      try {
+        this.loadingStandaloneTasks = true;
+        
+        // Get current user ID
+        const userString = sessionStorage.getItem('user');
+        const userData = JSON.parse(userString);
+        const currentUserId = userData.id;
+        
+        // Get all tasks for this user
+        const allTasks = await ownTasksService.getTasks(currentUserId);
+        console.log('All tasks for user:', allTasks);
+        
+        // Debug: Check proj_ID values
+        allTasks.forEach(task => {
+          console.log(`Task: ${task.task_name}, proj_ID: ${task.proj_ID}, type: ${typeof task.proj_ID}`);
+        });
+        
+        // Filter to only tasks without proj_ID (standalone tasks)
+        this.standaloneTasks = allTasks.filter(task => {
+          const hasNoProject = !task.proj_ID || task.proj_ID === null || task.proj_ID === '' || task.proj_ID === 'null';
+          console.log(`Task: ${task.task_name}, hasNoProject: ${hasNoProject}`);
+          return hasNoProject;
+        });
+        
+        console.log('Filtered standalone tasks:', this.standaloneTasks.length, this.standaloneTasks);
+      } catch (error) {
+        console.error('Error loading standalone tasks:', error);
+        this.errorMessage = 'Failed to load standalone tasks';
+      } finally {
+        this.loadingStandaloneTasks = false;
+      }
+    },
+
     async fetchUsers() {
       try {
         console.log('Fetching all users for avatar display');
@@ -622,6 +699,10 @@ export default {
       // Refresh projects to show new task
       await this.fetchProjects();
       console.log('Projects refreshed after task creation');
+      
+      // Also refresh standalone tasks (in case it was a standalone task)
+      await this.loadStandaloneTasks();
+      console.log('Standalone tasks refreshed after task creation');
       
       // Clear success message after a delay
       setTimeout(() => {
@@ -949,6 +1030,69 @@ export default {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+/* Standalone Tasks Section */
+.standalone-tasks-section {
+  padding: 2rem 0;
+}
+
+.no-standalone-tasks {
+  text-align: center;
+  padding: 5rem 2rem;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.empty-state-content {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
+}
+
+.empty-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.75rem;
+}
+
+.empty-message {
+  font-size: 1rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.empty-hint {
+  font-size: 0.875rem;
+  color: #10b981;
+  margin-top: 1rem;
+  font-weight: 500;
+}
+
+.tasks-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #6b7280;
+}
+
+.loading-state p {
+  font-size: 1rem;
+  margin: 0;
 }
 
 .create-project-btn:hover {
