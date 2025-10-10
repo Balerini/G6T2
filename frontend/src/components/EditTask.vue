@@ -81,7 +81,6 @@
               type="date"
               class="form-input"
               :class="{ 'input-error': errors.start_date }"
-              :min="getTaskMinStartDate()"
               :max="getTaskMaxEndDate()"
               @change="() => { clearError('start_date'); validateDates(); }"
             />
@@ -100,7 +99,7 @@
               type="date"
               class="form-input"
               :class="{ 'input-error': errors.end_date }"
-              :min="localForm.start_date || getTaskMinStartDate()"
+              :min="localForm.start_date"
               :max="getTaskMaxEndDate()"
               @change="validateDates"
             />
@@ -114,11 +113,11 @@
             <label class="form-label" for="createdBy">Created By</label>
             <input
               id="createdBy"
-              v-model="localForm.owner"
+              v-model="ownerName"
               type="text"
               class="form-input readonly-input"
               readonly
-              :placeholder="task?.owner ? getUserName(task.owner) : 'Auto-populated from current user'"
+              :placeholder="'Auto-populated from current user'"
             />
           </div>
 
@@ -917,10 +916,9 @@ export default {
       const sgToday = new Date(today.toLocaleString("en-US", {timeZone: "Asia/Singapore"}))
       sgToday.setHours(0, 0, 0, 0)
 
-      // Check if date is in the past
-      if (startDate < sgToday) {
-        return 'Start date cannot be in the past'
-      }
+      // In edit mode, allow past dates (the task was already created with this date)
+      // Only validate against project constraints, not current date
+      // So we skip the past date check entirely for edit mode
 
       // Check project constraints
       const projectInfo = getSelectedProjectInfo()
@@ -1177,6 +1175,20 @@ export default {
 
     const handleClose = () => emit('close')
 
+    // Get user name by ID from the users array
+    const getUserName = (userId) => {
+      const user = props.users.find(u => u.id === userId)
+      return user ? user.name : 'Unknown User'
+    }
+
+    // Computed property for displaying the owner name
+    const ownerName = computed(() => {
+      if (localForm.owner) {
+        return getUserName(localForm.owner)
+      }
+      return ''
+    })
+
     onMounted(() => {
       document.addEventListener('click', handleOutsideClick);
     });
@@ -1200,6 +1212,7 @@ export default {
       removeNewAttachment,
       userSearch,
       showDropdown,
+      isLoadingUsers,
       highlightedIndex,
       filteredUsers,
       isFormValid,
@@ -1225,7 +1238,9 @@ export default {
       clearError,
       validateField,
       handleSubmit,
-      handleClose
+      handleClose,
+      getUserName,
+      ownerName
     }
   }
 }
