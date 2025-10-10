@@ -233,13 +233,7 @@
                 <div class="subtask-status-indicator" :class="getSubtaskStatusClass(subtask.status)"></div>
 
                 <div class="accordion-header-content">
-                  <div class="subtask-title-row">
-                    <h4 class="subtask-name">{{ subtask.name }}</h4>
-                     <button @click.stop="openEditSubtaskModal(subtask)">Edit</button>
-                    <div class="subtask-status-badge" :class="getSubtaskStatusClass(subtask.status)">
-                      {{ subtask.status || 'Unassigned' }}
-                    </div>
-                  </div>
+                  <h4 class="subtask-name">{{ subtask.name }}</h4>
 
                   <div class="subtask-preview-info">
                     <span class="preview-item">
@@ -257,6 +251,16 @@
                   </div>
                 </div>
 
+                <div class="subtask-status-badge" :class="getSubtaskStatusClass(subtask.status)">
+                  {{ subtask.status || 'Unassigned' }}
+                </div>
+
+                <!-- Edit Button -->
+                <button @click.stop="openEditSubtaskModal(subtask)" class="edit-subtask-btn">
+                  ✏️ Edit Subtask
+                </button>
+
+                <!-- View Details -->
                 <div class="accordion-toggle">
                   <span class="view-details-text">View Details</span>
                   <span class="toggle-icon">{{ expandedSubtask === index ? '▼' : '▶' }}</span>
@@ -1914,6 +1918,8 @@ export default {
   cursor: pointer;
   transition: background-color 0.2s;
   user-select: none;
+  flex-wrap: nowrap;
+  min-height: 90px;
 }
 
 .accordion-header:hover {
@@ -1952,20 +1958,25 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  margin-right: auto;
 }
 
 .subtask-title-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .subtask-name {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #111827;
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .subtask-status-badge {
@@ -1974,6 +1985,8 @@ export default {
   border-radius: 12px;
   font-weight: 600;
   flex-shrink: 0;
+  white-space: nowrap;
+  align-self: center;
 }
 
 .subtask-status-badge.status-unassigned {
@@ -2007,11 +2020,12 @@ export default {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: #6b7280;
+  color: #374151;
 }
 
 .preview-item.empty {
   font-style: italic;
+  color: #6b7280;
 }
 
 .preview-icon {
@@ -2021,10 +2035,10 @@ export default {
 .accordion-toggle {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
+  gap: 8px;
   flex-shrink: 0;
+  white-space: nowrap;
+  margin-left: 16px;
 }
 
 .toggle-icon {
@@ -2072,7 +2086,7 @@ export default {
 }
 
 .detail-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #6b7280;
   text-transform: uppercase;
@@ -2081,10 +2095,11 @@ export default {
 }
 
 .detail-value {
-  font-size: 15px;
+  font-size: 16px;
   color: #111827;
   margin: 0;
   line-height: 1.5;
+  font-weight: 500;
 }
 
 .detail-value.empty {
@@ -2128,7 +2143,7 @@ export default {
 
 .collaborator-name {
   font-size: 14px;
-  color: #374151;
+  color: #111827;
   font-weight: 500;
 }
 
@@ -2354,4 +2369,75 @@ export default {
   cursor: not-allowed;
 }
 
+/* Edit Subtask Button */
+.edit-subtask-btn {
+  background: #1f2937;
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  align-self: center;
+}
+
+.edit-subtask-btn:hover {
+  background: #111827;
+}
+
+/* Standardize subtask detail fonts */
+.subtask-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.detail-label {
+  font-size: 14px; /* Changed from 12px */
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.detail-value {
+  font-size: 16px; /* Changed from 15px */
+  color: #111827;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Fix View Details alignment */
+.accordion-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px; 
+  flex-shrink: 0;
+  white-space: nowrap; /* Prevent wrapping */
+  align-self: center;
+}
+
+.view-details-text {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.toggle-icon {
+  color: #6b7280;
+  font-size: 12px;
+  transition: transform 0.2s;
+}
 </style>
