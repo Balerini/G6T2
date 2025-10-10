@@ -132,7 +132,7 @@ def update_subtask(subtask_id):
         if 'status_history' in data:
             update_data['status_history'] = data['status_history']
         if 'owner' in data:
-            update_data['owner'] = git sdata['owner']
+            update_data['owner'] = data['owner']
         
         
         # Always update the timestamp
