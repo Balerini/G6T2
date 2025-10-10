@@ -129,6 +129,15 @@ export const taskService = {
       throw new Error(error.response?.data?.error || 'Failed to fetch subtasks');
     }
   },
+
+  async updateSubtask(subtaskId, subtaskData) {
+    try {
+      const response = await api.put(`/api/subtasks/${subtaskId}`, subtaskData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to update subtask');
+    }
+  },
 };
 
   

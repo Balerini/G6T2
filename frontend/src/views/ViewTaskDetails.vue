@@ -235,6 +235,7 @@
                 <div class="accordion-header-content">
                   <div class="subtask-title-row">
                     <h4 class="subtask-name">{{ subtask.name }}</h4>
+                     <button @click.stop="openEditSubtaskModal(subtask)">Edit</button>
                     <div class="subtask-status-badge" :class="getSubtaskStatusClass(subtask.status)">
                       {{ subtask.status || 'Unassigned' }}
                     </div>
@@ -346,6 +347,18 @@
       </div>
     </div>
 
+    <!-- Edit Subtask Modal -->
+    <div v-if="showEditSubtaskModal" class="modal-overlay" @click="closeEditSubtaskModal">
+      <div class="modal-content" @click.stop>
+        <EditSubtaskForm
+          :subtask="selectedSubtask"
+          :availableCollaborators="getProjectCollaborators"
+          @subtask-updated="handleSubtaskUpdated"
+          @cancel="closeEditSubtaskModal"
+        />
+      </div>
+    </div>  
+
     <!-- Edit Task Modal -->
     <EditTask v-if="selectedTask" :visible="showEdit" :task="selectedTask" :users="users" @close="showEdit = false" @saved="onTaskSaved" />
 
@@ -422,6 +435,7 @@ import { projectService } from '../services/projectService.js'
 import { taskService } from '../services/taskService.js'
 import SubtaskForm from '../components/SubTaskForm.vue'
 import EditTask from '../components/EditTask.vue'
+import EditSubtaskForm from '../components/EditSubtaskForm.vue' 
 import { storage } from '../firebase.js'
 import { ref as storageRef, getBlob } from 'firebase/storage'
 
@@ -429,7 +443,8 @@ export default {
   name: 'ViewIndivTask',
   components: {
     SubtaskForm,
-    EditTask
+    EditTask,
+    EditSubtaskForm
   },
   data() {
     return {
@@ -449,6 +464,8 @@ export default {
       subtasks: [],
       loadingSubtasks: false,
       expandedSubtask: null,
+      showEditSubtaskModal: false,
+      selectedSubtask: null,
       showTransferModal: false,
       selectedNewOwner: null,
       transferring: false,
@@ -1190,6 +1207,25 @@ export default {
         this.transferring = false;
       }
     },
+
+    // Subtask Modal
+    openEditSubtaskModal(subtask) {
+      this.selectedSubtask = { ...subtask };
+      this.showEditSubtaskModal = true;
+    },
+
+    closeEditSubtaskModal() {
+      this.showEditSubtaskModal = false;
+      this.selectedSubtask = null;
+    },
+
+    handleSubtaskUpdated(updatedSubtask) {
+      const idx = this.subtasks.findIndex(s => s.id === updatedSubtask.id);
+      if (idx !== -1) this.$set(this.subtasks, idx, updatedSubtask);
+      this.closeEditSubtaskModal();
+      this.successMessage = "Subtask updated successfully!";
+      setTimeout(() => { this.successMessage = ""; }, 3000);
+    }
   }
 }
 </script>
