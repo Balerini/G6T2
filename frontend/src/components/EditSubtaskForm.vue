@@ -1,288 +1,371 @@
 <template>
-  <div class="subtask-form-container">
-    <!-- Toast Notifications -->
-    <div v-if="successMessage" class="toast toast-success">
-      {{ successMessage }}
-    </div>
-    
-    <div v-if="uploadProgressMessage" class="toast toast-info">
-      {{ uploadProgressMessage }}
-    </div>
-    
-    <div v-if="errorMessage" class="toast toast-error">
-      {{ errorMessage }}
-    </div>
-    
-    <!-- Form Header with Close Button -->
-    <div class="form-header">
-      <h2 class="form-title">Edit Subtask</h2>
-      <button 
-        type="button" 
-        class="close-btn" 
-        @click="handleCancel"
-        title="Close form"
-      >
-        ×
-      </button>
-    </div>
-    
-    <!-- Form -->
-    <form class="task-form" @submit.prevent="handleSubmit" novalidate>
-      <!-- Subtask Name -->
-      <div class="form-group">
-        <label class="form-label" for="taskName">Subtask Name *</label>
-        <input
-          id="taskName"
-          name="name"
-          v-model="formData.name"
-          type="text"
-          class="form-input"
-          :class="{ 'error': errors.name }"
-          placeholder="Enter subtask name"
-          @input="clearError('name')"
-          @blur="validateField('name')"
-        />
-        <span v-if="errors.name" class="error-message">
-          {{ errors.name }}
-        </span>
+    <div class="edit-subtask-wrapper">
+    <div class="subtask-form-container">
+      <!-- Toast Notifications -->
+      <div v-if="successMessage" class="toast toast-success">
+        {{ successMessage }}
       </div>
-
-      <!-- Subtask Description -->
-      <div class="form-group">
-        <label class="form-label" for="taskDesc">Subtask Description</label>
-        <textarea
-          id="taskDesc"
-          v-model="formData.description"
-          class="form-textarea"
-          :class="{ 'error': errors.description }"
-          placeholder="Enter subtask description (max 500 characters)"
-          rows="4"
-          maxlength="500"
-        ></textarea>
-        <div class="char-count">
-          {{ formData.description.length }}/500 characters
-        </div>
-        <span v-if="errors.description" class="error-message">
-          {{ errors.description }}
-        </span>
+      
+      <div v-if="uploadProgressMessage" class="toast toast-info">
+        {{ uploadProgressMessage }}
       </div>
-
-      <!-- Assigned To / Collaborators -->
-      <div class="form-group">
-        <label class="form-label" for="assignedTo">
-          Collaborators (Optional)
-        </label>
-        
-        <!-- Show message when no collaborators are available -->
-        <div v-if="availableStaff.length === 0" class="no-collaborators-message">
-          No collaborators are assigned to the project. Please assign collaborators to the project first.
+      
+      <div v-if="errorMessage" class="toast toast-error">
+        {{ errorMessage }}
+      </div>
+      
+      <!-- Form Header with Close Button -->
+      <div class="form-header">
+        <h2 class="form-title">Edit Subtask</h2>
+        <div class="header-actions">
+          <button 
+            v-if="canTransferOwnership"
+            type="button" 
+            class="transfer-ownership-btn" 
+            @click="openTransferModal"
+            title="Transfer ownership of this subtask"
+          >
+            🔄 Transfer Ownership
+          </button>
+          <button
+            type="button" 
+            class="close-btn" 
+            @click="handleCancel"
+            title="Close form"
+          >
+            ×
+          </button>
         </div>
-
-        <!-- Combined search input with dropdown -->
-        <div v-else class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown }">
+      </div>
+      
+      <!-- Form -->
+      <form class="task-form" @submit.prevent="handleSubmit" novalidate>
+        <!-- Subtask Name -->
+        <div class="form-group">
+          <label class="form-label" for="taskName">Subtask Name *</label>
           <input
-            id="assignedTo"
-            name="assignedTo"
-            v-model="userSearch"
+            id="taskName"
+            name="name"
+            v-model="formData.name"
             type="text"
             class="form-input"
-            :class="{ 'error': errors.collaborators }"
-            placeholder="Search and select collaborators..."
-            @focus="handleInputFocus"
-            @blur="handleInputBlur"
-            @input="handleSearchInput"
-            @keydown.enter.prevent="selectFirstMatch"
-            @keydown.escape="closeDropdown"
-            @keydown.arrow-down.prevent="navigateDown"
-            @keydown.arrow-up.prevent="navigateUp"
+            :class="{ 'error': errors.name }"
+            placeholder="Enter subtask name"
+            @input="clearError('name')"
+            @blur="validateField('name')"
           />
-          
-          <!-- Dropdown icon -->
-          <div 
-            class="dropdown-toggle-icon" 
-            @click="toggleDropdown"
-            :class="{ 'rotated': showDropdown }"
-          >
-            ▼
-          </div>
-          
-          <!-- Dropdown options list -->
-          <div 
-            v-if="showDropdown" 
-            class="dropdown-list"
-            @mousedown.prevent
-            @click.prevent
-          >
-            <!-- No results found -->
-            <div 
-              v-if="filteredUsers.length === 0 && userSearch" 
-              class="dropdown-item no-results"
-            >
-              No users found matching "{{ userSearch }}"
-            </div>
-            
-            <!-- Show all users when no search -->
-            <div 
-              v-else-if="filteredUsers.length === 0 && !userSearch" 
-              class="dropdown-item no-results"
-            >
-              No more users available
-            </div>
-            
-            <!-- User options -->
-            <div 
-              v-for="(user, index) in filteredUsers" 
-              :key="`user-${index}-${user.id || user.name || 'unknown'}`"
-              class="dropdown-item"
-              :class="{ 
-                'highlighted': index === highlightedIndex,
-                'selected': isUserSelected(user),
-                'disabled': !canAssignTo(user)
-              }"
-              @mousedown.prevent="selectUser(user)"
-              @mouseenter="highlightedIndex = index"
-            >
-              <div class="user-info">
-                <span class="user-name">{{ user.name }}{{ isCurrentUser(user.id) ? ' (You)' : '' }}</span>
-                <span v-if="user.department" class="user-email">{{ user.department }}</span>
-              </div>
-              <span v-if="isUserSelected(user)" class="selected-indicator">✓</span>
-              <span v-if="!canAssignTo(user)" class="disabled-indicator">
-                (Cannot assign - higher rank)
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Selected collaborators tags -->
-        <div class="assignee-tags" v-if="selectedCollaborators.length > 0">
-          <span 
-            v-for="(collaborator, index) in selectedCollaborators" 
-            :key="`collaborator-${index}-${collaborator.id || 'unknown'}`"
-            class="assignee-tag"
-          >
-            {{ collaborator.name }} ({{ collaborator.department }})
-            <button 
-              type="button" 
-              class="remove-tag" 
-              @click="removeCollaborator(index)"
-              :title="`Remove ${collaborator.name}`"
-            >
-              ×
-            </button>
+          <span v-if="errors.name" class="error-message">
+            {{ errors.name }}
           </span>
         </div>
-        
-        <!-- Status messages -->
-        <div v-if="selectedCollaborators.length > 0" class="status-message info">
-          {{ selectedCollaborators.length }} collaborator{{ selectedCollaborators.length !== 1 ? 's' : '' }} selected
+
+        <!-- Subtask Description -->
+        <div class="form-group">
+          <label class="form-label" for="taskDesc">Subtask Description</label>
+          <textarea
+            id="taskDesc"
+            v-model="formData.description"
+            class="form-textarea"
+            :class="{ 'error': errors.description }"
+            placeholder="Enter subtask description (max 500 characters)"
+            rows="4"
+            maxlength="500"
+          ></textarea>
+          <div class="char-count">
+            {{ formData.description.length }}/500 characters
+          </div>
+          <span v-if="errors.description" class="error-message">
+            {{ errors.description }}
+          </span>
         </div>
-        
-        <!-- Collaborators validation error -->
-        <span v-if="errors.collaborators" class="error-message">
-          {{ errors.collaborators }}
-        </span>
-      </div>
 
-      <!-- Start Date -->
-      <div class="form-group">
-        <label class="form-label" for="startDate">Start Date *</label>
-        <input
-          id="startDate"
-          name="startDate"
-          v-model="formData.startDate"
-          type="date"
-          class="form-input"
-          :class="{ 'error': errors.startDate }"
-          @change="validateDates()"
-          @input="clearError('startDate')"
-          @blur="validateField('startDate')"
-        />
-        <span v-if="errors.startDate" class="error-message">
-          {{ errors.startDate }}
-        </span>
-      </div>
+        <!-- Assigned To / Collaborators -->
+        <div class="form-group">
+          <label class="form-label" for="assignedTo">
+            Collaborators (Optional)
+          </label>
+          
+          <!-- Show message when no collaborators are available -->
+          <div v-if="availableStaff.length === 0" class="no-collaborators-message">
+            No collaborators are assigned to the project. Please assign collaborators to the project first.
+          </div>
 
-      <!-- End Date -->
-      <div class="form-group">
-        <label class="form-label" for="endDate">End Date *</label>
-        <input
-          id="endDate"
-          name="endDate"
-          v-model="formData.endDate"
-          type="date"
-          class="form-input"
-          :class="{ 'error': errors.endDate }"
-          :min="formData.startDate"
-          @change="validateDates()"
-          @input="clearError('endDate')"
-          @blur="validateField('endDate')"
-        />
-        <span v-if="errors.endDate" class="error-message">
-          {{ errors.endDate }}
-        </span>
-      </div>
-
-      <!-- Current Attachments (Read-only) -->
-      <div class="form-group" v-if="formData.attachments && formData.attachments.length > 0">
-        <label class="form-label">Current Attachments</label>
-        <div class="file-preview-container">
-          <div 
-            v-for="(attachment, index) in formData.attachments" 
-            :key="`attachment-${index}`"
-            class="file-preview-item"
-          >
-            <div class="file-icon">
-              {{ getFileIcon(attachment.name) }}
+          <!-- Combined search input with dropdown -->
+          <div v-else class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown }">
+            <input
+              id="assignedTo"
+              name="assignedTo"
+              v-model="userSearch"
+              type="text"
+              class="form-input"
+              :class="{ 'error': errors.collaborators }"
+              placeholder="Search and select collaborators..."
+              @focus="handleInputFocus"
+              @blur="handleInputBlur"
+              @input="handleSearchInput"
+              @keydown.enter.prevent="selectFirstMatch"
+              @keydown.escape="closeDropdown"
+              @keydown.arrow-down.prevent="navigateDown"
+              @keydown.arrow-up.prevent="navigateUp"
+            />
+            
+            <!-- Dropdown icon -->
+            <div 
+              class="dropdown-toggle-icon" 
+              @click="toggleDropdown"
+              :class="{ 'rotated': showDropdown }"
+            >
+              ▼
             </div>
-            <div class="file-info">
-              <span class="file-name">{{ attachment.name }}</span>
-              <span class="file-size">Existing attachment</span>
+            
+            <!-- Dropdown options list -->
+            <div 
+              v-if="showDropdown" 
+              class="dropdown-list"
+              @mousedown.prevent
+              @click.prevent
+            >
+              <!-- No results found -->
+              <div 
+                v-if="filteredUsers.length === 0 && userSearch" 
+                class="dropdown-item no-results"
+              >
+                No users found matching "{{ userSearch }}"
+              </div>
+              
+              <!-- Show all users when no search -->
+              <div 
+                v-else-if="filteredUsers.length === 0 && !userSearch" 
+                class="dropdown-item no-results"
+              >
+                No more users available
+              </div>
+              
+              <!-- User options -->
+              <div 
+                v-for="(user, index) in filteredUsers" 
+                :key="`user-${index}-${user.id || user.name || 'unknown'}`"
+                class="dropdown-item"
+                :class="{ 
+                  'highlighted': index === highlightedIndex,
+                  'selected': isUserSelected(user),
+                  'disabled': !canAssignTo(user)
+                }"
+                @mousedown.prevent="selectUser(user)"
+                @mouseenter="highlightedIndex = index"
+              >
+                <div class="user-info">
+                  <span class="user-name">{{ user.name }}{{ isCurrentUser(user.id) ? ' (You)' : '' }}</span>
+                  <span v-if="user.department" class="user-email">{{ user.department }}</span>
+                </div>
+                <span v-if="isUserSelected(user)" class="selected-indicator">✓</span>
+                <span v-if="!canAssignTo(user)" class="disabled-indicator">
+                  (Cannot assign - higher rank)
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Selected collaborators tags -->
+          <div class="assignee-tags" v-if="selectedCollaborators.length > 0">
+            <span 
+              v-for="(collaborator, index) in selectedCollaborators" 
+              :key="`collaborator-${index}-${collaborator.id || 'unknown'}`"
+              class="assignee-tag"
+            >
+              {{ collaborator.name }} ({{ collaborator.department }})
+              <button 
+                type="button" 
+                class="remove-tag" 
+                @click="removeCollaborator(index)"
+                :title="`Remove ${collaborator.name}`"
+              >
+                ×
+              </button>
+            </span>
+          </div>
+          
+          <!-- Status messages -->
+          <div v-if="selectedCollaborators.length > 0" class="status-message info">
+            {{ selectedCollaborators.length }} collaborator{{ selectedCollaborators.length !== 1 ? 's' : '' }} selected
+          </div>
+          
+          <!-- Collaborators validation error -->
+          <span v-if="errors.collaborators" class="error-message">
+            {{ errors.collaborators }}
+          </span>
+        </div>
+
+        <!-- Start Date -->
+        <div class="form-group">
+          <label class="form-label" for="startDate">Start Date *</label>
+          <input
+            id="startDate"
+            name="startDate"
+            v-model="formData.startDate"
+            type="date"
+            class="form-input"
+            :class="{ 'error': errors.startDate }"
+            @change="validateDates()"
+            @input="clearError('startDate')"
+            @blur="validateField('startDate')"
+          />
+          <span v-if="errors.startDate" class="error-message">
+            {{ errors.startDate }}
+          </span>
+        </div>
+
+        <!-- End Date -->
+        <div class="form-group">
+          <label class="form-label" for="endDate">End Date *</label>
+          <input
+            id="endDate"
+            name="endDate"
+            v-model="formData.endDate"
+            type="date"
+            class="form-input"
+            :class="{ 'error': errors.endDate }"
+            :min="formData.startDate"
+            @change="validateDates()"
+            @input="clearError('endDate')"
+            @blur="validateField('endDate')"
+          />
+          <span v-if="errors.endDate" class="error-message">
+            {{ errors.endDate }}
+          </span>
+        </div>
+
+        <!-- Current Attachments (Read-only) -->
+        <div class="form-group" v-if="formData.attachments && formData.attachments.length > 0">
+          <label class="form-label">Current Attachments</label>
+          <div class="file-preview-container">
+            <div 
+              v-for="(attachment, index) in formData.attachments" 
+              :key="`attachment-${index}`"
+              class="file-preview-item"
+            >
+              <div class="file-icon">
+                {{ getFileIcon(attachment.name) }}
+              </div>
+              <div class="file-info">
+                <span class="file-name">{{ attachment.name }}</span>
+                <span class="file-size">Existing attachment</span>
+              </div>
+            </div>
+          </div>
+          <p class="helper-text">Note: Attachment editing not available in this version</p>
+        </div>
+
+        <!-- Subtask Status -->
+        <div class="form-group">
+          <label class="form-label" for="taskStatus">
+            Subtask Status *
+          </label>
+          <select 
+            id="taskStatus" 
+            name="status"
+            v-model="formData.status" 
+            class="form-select"
+            :class="{ 'error': errors.status }"
+            @change="clearError('status')"
+            @blur="validateField('status')"
+          >
+            <option value="" disabled>Select status</option>
+            <option value="Unassigned">Unassigned</option>
+            <option value="Ongoing">Ongoing</option>
+            <option value="Under Review">Under Review</option>
+            <option value="Completed">Completed</option>
+          </select>
+          <span v-if="errors.status" class="error-message">
+            {{ errors.status }}
+          </span>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button type="button" class="btn btn-cancel" @click="handleCancel" :disabled="isSubmitting">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            :disabled="isSubmitting"
+            class="btn btn-primary"
+          >
+            {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Transfer Ownership Modal -->
+    <div v-if="showTransferModal" class="transfer-modal-overlay" @click="closeTransferModal">
+      <div class="transfer-modal-content" @click.stop>
+        <div class="transfer-modal-header">
+          <h3>Transfer Subtask Ownership</h3>
+          <button @click="closeTransferModal" class="transfer-close-btn">×</button>
+        </div>
+        <div class="transfer-modal-body">
+          <div class="transfer-form">
+            <div class="current-owner-info">
+              <h4>Current Owner</h4>
+              <div class="owner-display">
+                <div class="owner-avatar">
+                  {{ getInitials(getCurrentOwnerName()) }}
+                </div>
+                <div class="owner-details">
+                  <p class="owner-name">{{ getCurrentOwnerName() }}</p>
+                  <p class="owner-role">Subtask Owner</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="new-owner-selection">
+              <h4>Select New Owner</h4>
+              <p class="transfer-description">
+                You can only transfer ownership to collaborators assigned to this subtask.
+              </p>
+              
+              <div v-if="transferEligibleUsers.length === 0" class="no-eligible-users">
+                <p>No eligible users found for ownership transfer.</p>
+                <p class="explanation">Only subtask collaborators can become the owner.</p>
+              </div>
+
+              <div v-else class="user-selection-list">
+                <div 
+                  v-for="user in transferEligibleUsers" 
+                  :key="user.id" 
+                  class="user-selection-item"
+                  :class="{ selected: selectedNewOwner === user.id }"
+                  @click="selectedNewOwner = user.id"
+                >
+                  <div class="owner-avatar">
+                    {{ getInitials(user.name) }}
+                  </div>
+                  <div class="owner-details">
+                    <p class="owner-name">{{ user.name }}</p>
+                    <p class="owner-role">{{ user.department }}</p>
+                  </div>
+                  <div class="selection-indicator">
+                    {{ selectedNewOwner === user.id ? '✓' : '' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="transfer-modal-actions">
+              <button @click="closeTransferModal" class="transfer-cancel-btn">Cancel</button>
+              <button 
+                @click="confirmTransferOwnership" 
+                class="transfer-confirm-btn"
+                :disabled="!selectedNewOwner || isTransferring"
+              >
+                {{ isTransferring ? 'Transferring...' : 'Transfer Ownership' }}
+              </button>
             </div>
           </div>
         </div>
-        <p class="helper-text">Note: Attachment editing not available in this version</p>
       </div>
-
-      <!-- Subtask Status -->
-      <div class="form-group">
-        <label class="form-label" for="taskStatus">
-          Subtask Status *
-        </label>
-        <select 
-          id="taskStatus" 
-          name="status"
-          v-model="formData.status" 
-          class="form-select"
-          :class="{ 'error': errors.status }"
-          @change="clearError('status')"
-          @blur="validateField('status')"
-        >
-          <option value="" disabled>Select status</option>
-          <option value="Unassigned">Unassigned</option>
-          <option value="Ongoing">Ongoing</option>
-          <option value="Under Review">Under Review</option>
-          <option value="Completed">Completed</option>
-        </select>
-        <span v-if="errors.status" class="error-message">
-          {{ errors.status }}
-        </span>
-      </div>
-
-      <!-- Form Actions -->
-      <div class="form-actions">
-        <button type="button" class="btn btn-cancel" @click="handleCancel" :disabled="isSubmitting">
-          Cancel
-        </button>
-        <button
-          type="submit"
-          :disabled="isSubmitting"
-          class="btn btn-primary"
-        >
-          {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
-        </button>
-      </div>
-    </form>
+    </div>
   </div>
 </template>
 
@@ -334,6 +417,12 @@ const showDropdown = ref(false)
 const highlightedIndex = ref(-1)
 const dropdownCloseTimeout = ref(null)
 
+// Transfer ownership data 
+const showTransferModal = ref(false)  
+const selectedNewOwner = ref(null)
+const isTransferring = ref(false)
+const transferEligibleUsers = ref([])
+
 // Available staff from prop
 const availableStaff = computed(() => {
   const collaborators = props.availableCollaborators()
@@ -379,6 +468,30 @@ const currentUserRank = computed(() => {
     }
   }
   return 3
+})
+
+// Check if current user can transfer ownership  
+const canTransferOwnership = computed(() => {
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
+      const userId = currentUser.id
+      const userRole = currentUser.role_num || 4
+
+      // Rule 1: Must be the owner of the subtask
+      const isOwner = String(props.subtask.owner) === String(userId)
+
+      // Rule 2: Must be a manager (role_num 3 only)
+      const isManager = userRole === 3
+
+      //Both conditions must be true 
+      return isOwner && isManager
+    } catch (error) {
+      console.error('Error checking transfer permission:', error)
+      return false
+    }
+  }
+  return false
 })
 
 // Initialize form with subtask data
@@ -764,6 +877,140 @@ const handleSubmit = async () => {
     })
   } finally {
     isSubmitting.value = false
+  }
+}
+
+// Get initials for avatar
+const getInitials = (name) => {
+  if (!name) return 'U'
+  return name
+    .split(' ')
+    .map(word => word.charAt(0))
+    .join('')
+    .substring(0, 2)
+    .toUpperCase()
+}
+
+// Get current owner name
+const getCurrentOwnerName = () => {
+  if (!props.subtask.owner) return 'Unknown'
+  
+  const owner = availableStaff.value.find(u => String(u.id) === String(props.subtask.owner))
+  return owner ? owner.name : 'Unknown User'
+}
+
+// Open transfer modal
+const openTransferModal = () => {
+  // Load eligible users (only subtask collaborators)
+  if (selectedCollaborators.value.length === 0) {
+    errorMessage.value = 'Cannot transfer ownership: No collaborators assigned to this subtask.'
+    setTimeout(() => {
+      errorMessage.value = ''
+    }, 3000)
+    return
+  }
+
+  // Get current user info
+  const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
+  const currentUserRole = currentUser.role_num || 4
+
+  // Filter eligible users:
+  // 1. Exclude current owner
+  // 2. Must be subtask collaborators
+  // 3. Must have HIGHER role_num (lower position) - top-down only
+  //    Manager (role 3) can only transfer to Staff (role 4)
+  transferEligibleUsers.value = selectedCollaborators.value.filter(collab => {
+    // Exclude current owner
+    if (String(collab.id) === String(currentUser.id)) return false
+
+    // Find user in available staff to get their role
+    const user = availableStaff.value.find(u => String(u.id) === String(collab.id))
+    if (!user) return false
+    
+    const userRole = user.rank || 4
+
+    // Only allow transfer to users with HIGHER role_num (lower position)
+    // Manager (role 3) can only transfer to Staff (role 4)
+    return userRole > currentUserRole
+  })
+  
+  if (transferEligibleUsers.value.length === 0) {
+    errorMessage.value = 'Cannot transfer ownership: No eligible staff members found. You can only transfer to staff (role 4) assigned to this subtask.'
+    setTimeout(() => {
+      errorMessage.value = ''
+    }, 4000)
+    return
+  }
+  
+  showTransferModal.value = true
+  selectedNewOwner.value = null
+}
+
+// Close transfer modal
+const closeTransferModal = () => {
+  showTransferModal.value = false
+  selectedNewOwner.value = null
+  transferEligibleUsers.value = []
+}
+
+// Confirm transfer ownership
+const confirmTransferOwnership = async () => {
+  if (!selectedNewOwner.value || isTransferring.value) return
+  
+  // Get the new owner details
+  const newOwner = transferEligibleUsers.value.find(u => u.id === selectedNewOwner.value)
+  if (!newOwner) return
+  
+  // Confirmation dialog
+  const confirmed = confirm(
+    `Are you sure you want to transfer ownership of this subtask to ${newOwner.name}?\n\n` +
+    `This action will make ${newOwner.name} the new owner, and they will have full control over this subtask.`
+  )
+  
+  if (!confirmed) return
+  
+  isTransferring.value = true
+  
+  try {
+    // Update subtask owner
+    const updateData = {
+      owner: selectedNewOwner.value
+    }
+    
+    await taskService.updateSubtask(props.subtask.id, updateData)
+    
+    // Show success message
+    successMessage.value = `✅ Ownership successfully transferred to ${newOwner.name}!`
+    
+    // Close modal
+    closeTransferModal()
+    
+    // Clear success message and emit update
+    setTimeout(() => {
+      successMessage.value = ''
+      emit('subtask-updated', {
+        ...props.subtask,
+        owner: selectedNewOwner.value
+      })
+    }, 2000)
+    
+  } catch (error) {
+    console.error('Error transferring ownership:', error)
+    
+    // Show error with retry option
+    const retry = confirm(
+      `Failed to transfer ownership: ${error.message}\n\n` +
+      `Would you like to retry?`
+    )
+    
+    if (retry) {
+      // Retry the transfer
+      confirmTransferOwnership()
+    } else {
+      closeTransferModal()
+    }
+  } finally {
+    isTransferring.value = false
   }
 }
 
@@ -1229,5 +1476,248 @@ onMounted(() => {
     align-items: flex-start;
     gap: 8px;
   }
+}
+
+/* Transfer Ownership Button */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.transfer-ownership-btn {
+  background: #059669;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.transfer-ownership-btn:hover {
+  background: #047857;
+}
+
+/* Transfer Modal */
+.transfer-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+}
+
+.transfer-modal-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.transfer-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.transfer-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.transfer-close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transfer-close-btn:hover {
+  color: #374151;
+}
+
+.transfer-modal-body {
+  padding: 24px;
+}
+
+.transfer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.current-owner-info h4,
+.new-owner-selection h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 12px 0;
+}
+
+.transfer-description {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 16px 0;
+}
+
+.owner-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.owner-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #3730a3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.owner-details {
+  flex: 1;
+}
+
+.owner-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  margin: 0 0 2px 0;
+}
+
+.owner-role {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.no-eligible-users {
+  padding: 20px;
+  background: #fef3c7;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.no-eligible-users p {
+  margin: 0 0 8px 0;
+  color: #92400e;
+}
+
+.explanation {
+  font-size: 14px;
+  font-style: italic;
+}
+
+.user-selection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.user-selection-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.user-selection-item:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.user-selection-item.selected {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.selection-indicator {
+  margin-left: auto;
+  font-size: 18px;
+  color: #10b981;
+  font-weight: bold;
+}
+
+.transfer-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.transfer-cancel-btn {
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.transfer-cancel-btn:hover {
+  background: #e5e7eb;
+}
+
+.transfer-confirm-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.transfer-confirm-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.transfer-confirm-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
 }
 </style>
