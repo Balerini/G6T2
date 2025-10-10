@@ -72,20 +72,6 @@
             </div>
           </div>
 
-          <!-- Subtasks Checkbox -->
-          <div class="form-group checkbox-group">
-            <label class="checkbox-container">
-              <input
-                type="checkbox"
-                class="checkbox-input"
-                v-model="localForm.hasSubtasks"
-                @change="onSubtasksChange"
-              />
-              <span class="checkbox-checkmark"></span>
-              <span class="checkbox-label">  Subtasks will have respective inputs</span>
-            </label>
-          </div>
-
           <!-- Start Date -->
           <div class="form-group">
             <label class="form-label" for="startDate">Start Date *</label>
@@ -139,7 +125,7 @@
           <!-- Assigned To -->
           <div class="form-group">
             <label class="form-label" for="assignedTo">
-              Collaborators * ({{ localForm.hasSubtasks ? '1-5' : '1-10' }} required)
+              Collaborators
             </label>
 
             <!-- Combined search input with dropdown -->
@@ -158,7 +144,7 @@
                 @keydown.escape="closeDropdown"
                 @keydown.arrow-down.prevent="navigateDown"
                 @keydown.arrow-up.prevent="navigateUp"
-                :disabled="isAtLimit || isLoadingUsers"
+                :disabled="isLoadingUsers"
               />
 
               <!-- Dropdown icon -->
@@ -239,10 +225,6 @@
             </div>
 
             <!-- Status messages -->
-            <div v-if="isAtLimit" class="status-message warning">
-              Maximum number of collaborators reached ({{ localForm.hasSubtasks ? '5' : '10' }})
-            </div>
-
             <div v-if="localForm.assigned_to.length > 0" class="status-message info">
               {{ localForm.assigned_to.length }} collaborator{{ localForm.assigned_to.length !== 1 ? 's' : '' }} selected
             </div>
@@ -342,6 +324,35 @@
               Remove existing files or add new ones. All changes are saved when you update the task.
             </div>
           </div>
+          <!-- Priority Level -->
+          <div class="form-group">
+            <label class="form-label" for="priorityLevel">
+              Priority Level *
+            </label>
+            <select
+              id="priorityLevel"
+              v-model="localForm.priority_level"
+              class="form-select"
+              :class="{ 'input-error': errors.priority_level }"
+              @change="clearError('priority_level')"
+            >
+              <option value="" disabled>Select priority level (1-10)</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+            <span v-if="errors.priority_level" class="error-message">
+              {{ errors.priority_level }}
+            </span>
+          </div>
+
           <!-- Task Status -->
           <div class="form-group">
             <label class="form-label" for="taskStatus">
@@ -355,11 +366,10 @@
               @change="clearError('task_status')"
             >
               <option value="" disabled>Select status</option>
-              <option value="Not Started">Not Started</option>
-              <option value="In Progress">In Progress</option>
-              <option value="On Hold">On Hold</option>
+              <option value="Unassigned">Unassigned</option>
+              <option value="Ongoing">Ongoing</option>
+              <option value="Under Review">Under Review</option>
               <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
             </select>
             <span v-if="errors.task_status" class="error-message">
               {{ errors.task_status }}
@@ -407,7 +417,8 @@ export default {
       start_date: '',
       end_date: '',
       task_status: '',
-      collaborators: ''
+      collaborators: '',
+      priority_level: ''
     })
 
     // Toast notification system
@@ -440,12 +451,6 @@ export default {
       }, 2000)
     }
 
-    // Helper function to get user name by ID
-    const getUserName = (userId) => {
-      const user = props.users.find(u => String(u.id) === String(userId));
-      return user ? user.name : 'Unknown User';
-    };
-
     const localForm = reactive({
       proj_name: '',
       task_ID: '',
@@ -456,7 +461,7 @@ export default {
       owner: '',
       assigned_to: [], // This will store user objects with id and name
       task_status: '',
-      hasSubtasks: false
+      priority_level: ''
     })
 
     // Dropdown-related reactive data
@@ -483,11 +488,6 @@ export default {
       }
 
       return filtered.slice(0, 20);
-    });
-
-    const isAtLimit = computed(() => {
-      const maxCollaborators = localForm.hasSubtasks ? 5 : 10;
-      return localForm.assigned_to.length >= maxCollaborators;
     });
 
     const isFormValid = computed(() => {
@@ -520,7 +520,9 @@ export default {
         owner: t.owner || '',
         assigned_to: [], // Will be populated below
         task_status: t.task_status || '',
-        hasSubtasks: t.hasSubtasks || false
+        priority_level: t.priority_level !== undefined && t.priority_level !== null
+          ? String(t.priority_level)
+          : ''
       });
 
       // Populate assigned_to with user objects
@@ -637,13 +639,6 @@ export default {
       return `${start} - ${end}`
     }
 
-    const onSubtasksChange = () => {
-      if (localForm.hasSubtasks && localForm.assigned_to.length > 5) {
-        localForm.assigned_to = localForm.assigned_to.slice(0, 5);
-      }
-      dateValidationError.value = '';
-    };
-
     const attachmentSummary = computed(() => {
       const existingCount = existingAttachments.value.length
       const newCount = newAttachments.value.length
@@ -736,7 +731,7 @@ export default {
 
     // Dropdown interaction methods
     const handleInputFocus = () => {
-      if (!isAtLimit.value && !isLoadingUsers.value) {
+      if (!isLoadingUsers.value) {
         showDropdown.value = true;
         highlightedIndex.value = -1;
       }
@@ -764,14 +759,14 @@ export default {
     };
 
     const handleSearchInput = () => {
-      if (!showDropdown.value && !isAtLimit.value) {
+      if (!showDropdown.value) {
         showDropdown.value = true;
       }
       highlightedIndex.value = -1;
     };
 
     const toggleDropdown = () => {
-      if (isAtLimit.value || isLoadingUsers.value) return;
+      if (isLoadingUsers.value) return;
 
       // Clear any pending close timeout when manually toggling
       if (dropdownCloseTimeout.value) {
@@ -801,7 +796,7 @@ export default {
     };
 
     const selectUser = (user) => {
-      if (isAtLimit.value || isUserSelected(user)) return;
+      if (isUserSelected(user)) return;
 
       // Clear any pending close timeout
       if (dropdownCloseTimeout.value) {
@@ -822,20 +817,13 @@ export default {
       // Reset search but DON'T close dropdown
       userSearch.value = '';
 
-      // Keep dropdown open if not at limit and re-focus input
-      if (!isAtLimit.value) {
-        nextTick(() => {
-          const input = document.getElementById('assignedTo');
-          if (input) {
-            input.focus(); // Re-focus the input
-          }
-          // Keep dropdown open for next selection
-          showDropdown.value = true;
-        });
-      } else {
-        // Only close if at limit
-        closeDropdown();
-      }
+      nextTick(() => {
+        const input = document.getElementById('assignedTo');
+        if (input) {
+          input.focus();
+        }
+        showDropdown.value = true;
+      });
     };
 
     const isUserSelected = (user) => {
@@ -1016,12 +1004,20 @@ export default {
       return '';
     };
 
-    const validateCollaborators = (collaborators) => {
-      if (!collaborators || collaborators.length === 0) {
-        return 'At least 1 collaborator is required';
+    const validatePriorityLevel = (value) => {
+      if (!value || value === '') {
+        return 'Priority level is required';
       }
+
+      const numValue = parseInt(value, 10);
+      if (Number.isNaN(numValue) || numValue < 1 || numValue > 10) {
+        return 'Priority level must be between 1 and 10';
+      }
+
       return '';
     };
+
+    const validateCollaborators = () => '';
 
     const validateField = (fieldName, value) => {
       switch (fieldName) {
@@ -1044,6 +1040,9 @@ export default {
         case 'task_status':
           errors.task_status = validateTaskStatus(value);
           break;
+        case 'priority_level':
+          errors.priority_level = validatePriorityLevel(value);
+          break;
         case 'collaborators':
           errors.collaborators = validateCollaborators(value);
           break;
@@ -1059,6 +1058,7 @@ export default {
       validateField('start_date', localForm.start_date);
       validateField('end_date', localForm.end_date);
       validateField('task_status', localForm.task_status);
+      validateField('priority_level', localForm.priority_level);
       validateField('collaborators', localForm.assigned_to);
 
       // Check if form is valid
@@ -1110,7 +1110,7 @@ export default {
           owner: localForm.owner,
           assigned_to: localForm.assigned_to.map(user => user.id),
           task_status: localForm.task_status || null,
-          hasSubtasks: localForm.hasSubtasks,
+          priority_level: localForm.priority_level ? parseInt(localForm.priority_level, 10) : null,
           attachments: finalAttachments
         }
 
@@ -1120,7 +1120,7 @@ export default {
             {
               changed_by: 'Current User',
               timestamp: new Date().toISOString(),
-              new_status: localForm.task_status || 'Not Started'
+              new_status: localForm.task_status || 'Unassigned'
             }
           ]
         }
@@ -1202,13 +1202,11 @@ export default {
       showDropdown,
       highlightedIndex,
       filteredUsers,
-      isAtLimit,
       isFormValid,
       getSelectedProjectInfo,
       getTaskMinStartDate,
       getTaskMaxEndDate,
       formatDateRange,
-      onSubtasksChange,
       handleInputFocus,
       handleInputBlur,
       handleSearchInput,
@@ -1227,8 +1225,7 @@ export default {
       clearError,
       validateField,
       handleSubmit,
-      handleClose,
-      getUserName
+      handleClose
     }
   }
 }
