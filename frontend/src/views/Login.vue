@@ -57,6 +57,7 @@
 <script>
 import { authAPI } from '@/services/api'
 import authService from '@/services/auth'
+import notificationService from '@/services/notificationService'
 
 export default {
   name: 'Login',
@@ -108,6 +109,10 @@ export default {
           console.log('Login successful, redirecting to home...');
           // Store user data in auth service
           authService.login(response.user);
+          
+          // Check for upcoming deadlines in the background
+          notificationService.checkUpcomingDeadlines();
+          
           this.$router.push('/');
         } else {
           this.error = response.error || 'Login failed';
