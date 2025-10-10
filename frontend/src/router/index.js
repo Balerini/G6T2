@@ -56,6 +56,12 @@ const routes = [
     meta: { showNav: true }
   },
   {
+    path: '/tasks/:taskId',
+    name: 'viewstandalonetask',
+    component: ViewTaskDetails,
+    meta: { showNav: true }
+  },
+  {
     path: '/my-schedule',
     name: 'myschedule',
     component: MySchedule,
