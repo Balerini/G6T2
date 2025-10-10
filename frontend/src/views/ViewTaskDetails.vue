@@ -418,13 +418,39 @@
             <div class="modal-actions">
               <button @click="closeTransferModal" class="cancel-btn">Cancel</button>
               <button 
-                @click="transferOwnership" 
+                @click="showTransferConfirmation" 
                 class="transfer-btn"
-                :disabled="!selectedNewOwner || transferring"
-              >
+                :disabled="!selectedNewOwner || transferring">
                 {{ transferring ? 'Transferring...' : 'Transfer Ownership' }}
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div v-if="showConfirmationModal" class="modal-overlay" @click="cancelConfirmation">
+      <div class="modal-content confirmation-modal" @click.stop>
+        <div class="modal-header">
+          <h3>⚠️ Confirm Transfer</h3>
+        </div>
+        <div class="modal-body">
+          <p class="confirmation-text">
+            Are you sure you want to transfer ownership to 
+            <strong>{{ transferEligibleUsers.find(u => u.id === selectedNewOwner)?.name }}</strong>?
+          </p>
+          <p class="warning-text">
+            Once ownership is transferred, you cannot revert this change.
+          </p>
+          
+          <div class="modal-actions">
+            <button @click="cancelConfirmation" class="cancel-btn">
+              Cancel
+            </button>
+            <button @click="confirmTransferOwnership" class="confirm-btn">
+              Confirm
+            </button>
           </div>
         </div>
       </div>
@@ -472,7 +498,8 @@ export default {
       showTransferModal: false,
       selectedNewOwner: null,
       transferring: false,
-      transferEligibleUsers: []
+      transferEligibleUsers: [],
+      showConfirmationModal: false,
     }
   },
   created() {
@@ -1230,6 +1257,23 @@ export default {
       } finally {
         this.transferring = false;
       }
+    },
+
+    // Show confirmation modal
+    showTransferConfirmation() {
+      if (!this.selectedNewOwner || this.transferring) return;
+      this.showConfirmationModal = true;
+    },
+
+    // Cancel confirmation
+    cancelConfirmation() {
+      this.showConfirmationModal = false;
+    },
+
+    // Confirm and transfer
+    async confirmTransferOwnership() {
+      this.showConfirmationModal = false;
+      await this.transferOwnership();
     },
 
     // Subtask Modal
@@ -2460,4 +2504,49 @@ export default {
   font-size: 12px;
   transition: transform 0.2s;
 }
+
+/* Confirmation Modal Buttons */
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.cancel-btn {
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn:hover {
+  background: #e5e7eb;
+}
+
+.confirm-btn {
+  background: #10b981; /* Green background */
+  color: white;
+  border: none; /* Remove the black border */
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none; /* Remove focus outline */
+}
+
+.confirm-btn:hover {
+  background: #059669; /* Darker green on hover */
+}
+
+.confirm-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3); /* Green focus ring */
+}
+
 </style>
