@@ -1296,7 +1296,9 @@ export default {
 
     handleSubtaskUpdated(updatedSubtask) {
       const idx = this.subtasks.findIndex(s => s.id === updatedSubtask.id);
-      if (idx !== -1) this.$set(this.subtasks, idx, updatedSubtask);
+      if (idx !== -1) {
+        this.subtasks[idx] = updatedSubtask;
+      }
       this.closeEditSubtaskModal();
       this.successMessage = "Subtask updated successfully!";
       setTimeout(() => { this.successMessage = ""; }, 3000);
