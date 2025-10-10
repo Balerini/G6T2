@@ -89,3 +89,84 @@ def get_task_subtasks(task_id):
     except Exception as e:
         print(f"Error fetching subtasks: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+@subtask_bp.route('/subtasks/<subtask_id>', methods=['PUT'])
+def update_subtask(subtask_id):
+    try:
+        data = request.get_json()
+        print(f"=== BACKEND SUBTASK UPDATE DEBUG ===")
+        print(f"Updating subtask ID: {subtask_id}")
+        print(f"Received update data: {data}")
+        
+        # Get Firestore client
+        db = get_firestore_client()
+        
+        # Check if subtask exists
+        subtask_ref = db.collection('subtasks').document(subtask_id)
+        subtask_doc = subtask_ref.get()
+        
+        if not subtask_doc.exists:
+            print(f"Subtask not found: {subtask_id}")
+            return jsonify({'error': 'Subtask not found'}), 404
+        
+        # Prepare update data
+        update_data = {}
+        
+        # Update only fields that are provided
+        if 'name' in data:
+            update_data['name'] = data['name']
+        if 'description' in data:
+            update_data['description'] = data['description']
+        if 'start_date' in data:
+            update_data['start_date'] = data['start_date']
+        if 'end_date' in data:
+            update_data['end_date'] = data['end_date']
+        if 'status' in data:
+            update_data['status'] = data['status']
+        if 'assigned_to' in data:
+            update_data['assigned_to'] = data['assigned_to']
+        if 'attachments' in data:
+            update_data['attachments'] = data['attachments']
+        if 'status_history' in data:
+            update_data['status_history'] = data['status_history']
+        
+        # Always update the timestamp
+        update_data['updatedAt'] = firestore.SERVER_TIMESTAMP
+        
+        print(f"Updating subtask with data: {update_data}")
+        
+        # Update in Firestore
+        subtask_ref.update(update_data)
+        
+        # Get updated subtask
+        updated_subtask = subtask_ref.get().to_dict()
+        updated_subtask['id'] = subtask_id
+        
+        print(f"Subtask updated successfully: {subtask_id}")
+        
+        # Prepare response data
+        response_data = {
+            'message': 'Subtask updated successfully',
+            'subtaskId': subtask_id,
+            'data': {
+                'id': subtask_id,
+                'name': updated_subtask.get('name'),
+                'description': updated_subtask.get('description'),
+                'start_date': updated_subtask.get('start_date'),
+                'end_date': updated_subtask.get('end_date'),
+                'status': updated_subtask.get('status'),
+                'parent_task_id': updated_subtask.get('parent_task_id'),
+                'project_id': updated_subtask.get('project_id'),
+                'assigned_to': updated_subtask.get('assigned_to', []),
+                'attachments': updated_subtask.get('attachments', []),
+                'status_history': updated_subtask.get('status_history', [])
+            }
+        }
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        print(f"Error updating subtask: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
