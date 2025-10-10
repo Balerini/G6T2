@@ -1,5 +1,6 @@
 // frontend/src/services/taskService.js
 import axios from 'axios';
+import notificationService from './notificationService';
 
 const API_BASE_URL = process.env.VUE_APP_API_URL || 'http://localhost:8000';
 
@@ -17,6 +18,8 @@ export const taskService = {
   async createTask(taskData) {
     try {
       const response = await api.post('/api/tasks', taskData);
+      // Trigger notification refresh after task creation
+      notificationService.triggerRefresh();
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.error || 'Failed to create task');
@@ -63,6 +66,8 @@ export const taskService = {
     try {
       // id can be Firestore doc id or business task_ID; backend resolves both
       const response = await api.put(`/api/tasks/${id}`, taskData);
+      // Trigger notification refresh after task update
+      notificationService.triggerRefresh();
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.error || 'Failed to update task');

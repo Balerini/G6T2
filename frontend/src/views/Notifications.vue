@@ -108,69 +108,30 @@
 </template>
 
 <script>
+import authService from '@/services/auth'
+import notificationService from '@/services/notificationService'
+
 export default {
   name: 'NotificationsPage',
   data() {
     return {
       currentFilter: 'all',
-      notifications: [
-        // Sample notifications - replace with real data later
-        {
-          id: 1,
-          icon: '📋',
-          type: 'task',
-          title: 'New Task Assigned',
-          message: 'You have been assigned to "Update Dashboard UI". The task is due on March 15, 2024.',
-          time: new Date(Date.now() - 5 * 60000),
-          read: false
-        },
-        {
-          id: 2,
-          icon: '✅',
-          type: 'completion',
-          title: 'Task Completed',
-          message: 'John Smith completed "Design Landing Page". You can now review the submitted work.',
-          time: new Date(Date.now() - 2 * 3600000),
-          read: false
-        },
-        {
-          id: 3,
-          icon: '⏰',
-          type: 'deadline',
-          title: 'Deadline Approaching',
-          message: 'Task "API Integration" is due in 2 days. Make sure to complete it on time.',
-          time: new Date(Date.now() - 24 * 3600000),
-          read: true
-        },
-        {
-          id: 4,
-          icon: '💬',
-          type: 'comment',
-          title: 'New Comment',
-          message: 'Sarah Johnson commented on "Update Dashboard UI": "Great progress so far! Just need a few minor tweaks."',
-          time: new Date(Date.now() - 3 * 24 * 3600000),
-          read: true
-        },
-        {
-          id: 5,
-          icon: '🎯',
-          type: 'mention',
-          title: 'You were mentioned',
-          message: 'Mike Wilson mentioned you in "Project Planning Meeting Notes".',
-          time: new Date(Date.now() - 5 * 24 * 3600000),
-          read: true
-        },
-        {
-          id: 6,
-          icon: '📎',
-          type: 'attachment',
-          title: 'New Attachment',
-          message: 'Emily Chen added a new attachment to "Design Mockups" task.',
-          time: new Date(Date.now() - 7 * 24 * 3600000),
-          read: true
-        }
-      ]
+      loading: false,
+      notifications: []
     }
+  },
+  mounted() {
+    this.loadNotifications()
+    
+    // Check for upcoming deadlines when notifications page loads
+    notificationService.checkUpcomingDeadlines()
+    
+    // Subscribe to refresh events
+    notificationService.on('notifications-refresh', this.loadNotifications)
+  },
+  beforeUnmount() {
+    // Unsubscribe from events
+    notificationService.off('notifications-refresh', this.loadNotifications)
   },
   computed: {
     filteredNotifications() {
@@ -189,8 +150,52 @@ export default {
     }
   },
   methods: {
-    markAllAsRead() {
-      this.notifications.forEach(n => n.read = true)
+    async loadNotifications() {
+      try {
+        const currentUser = authService.getCurrentUser()
+        if (!currentUser || !currentUser.id) {
+          console.log('No user logged in')
+          this.$router.push('/login')
+          return
+        }
+        
+        this.loading = true
+        const notifications = await notificationService.getNotifications(currentUser.id)
+        
+        // Map backend data to frontend format
+        this.notifications = notifications.map(n => {
+          console.log('Notification type:', n.type, 'Icon:', this.getNotificationIcon(n.type))
+          return {
+            id: n.id,
+            icon: this.getNotificationIcon(n.type),
+            title: n.title,
+            message: n.message,
+            time: new Date(n.timestamp),
+            read: n.read,
+            type: n.type,
+            task_id: n.task_id,
+            project_id: n.project_id
+          }
+        })
+        
+        console.log('Loaded notifications for page:', this.notifications.length)
+      } catch (error) {
+        console.error('Error loading notifications:', error)
+      } finally {
+        this.loading = false
+      }
+    },
+    
+    async markAllAsRead() {
+      try {
+        const currentUser = authService.getCurrentUser()
+        if (!currentUser || !currentUser.id) return
+        
+        await notificationService.markAllAsRead(currentUser.id)
+        this.notifications.forEach(n => n.read = true)
+      } catch (error) {
+        console.error('Error marking all as read:', error)
+      }
     },
     
     clearAll() {
@@ -199,23 +204,54 @@ export default {
       }
     },
     
-    markAsRead(notification) {
-      notification.read = true
-    },
-    
-    deleteNotification(notification) {
-      const index = this.notifications.findIndex(n => n.id === notification.id)
-      if (index > -1) {
-        this.notifications.splice(index, 1)
-      }
-    },
-    
-    handleNotificationClick(notification) {
-      if (!notification.read) {
+    async markAsRead(notification) {
+      try {
+        await notificationService.markAsRead(notification.id)
         notification.read = true
+      } catch (error) {
+        console.error('Error marking as read:', error)
       }
-      // TODO: Navigate to relevant page based on notification type
-      console.log('Notification clicked:', notification)
+    },
+    
+    async deleteNotification(notification) {
+      try {
+        await notificationService.deleteNotification(notification.id)
+        const index = this.notifications.findIndex(n => n.id === notification.id)
+        if (index > -1) {
+          this.notifications.splice(index, 1)
+        }
+      } catch (error) {
+        console.error('Error deleting notification:', error)
+      }
+    },
+    
+    async handleNotificationClick(notification) {
+      try {
+        console.log('Notification clicked:', notification)
+        console.log('Task ID:', notification.task_id)
+        console.log('Project ID:', notification.project_id)
+        
+        // Mark as read
+        if (!notification.read) {
+          await notificationService.markAsRead(notification.id)
+          notification.read = true
+        }
+        
+        // Navigate to task details
+        if (notification.task_id && notification.project_id) {
+          // Task with project
+          console.log(`Navigating to: /projects/${notification.project_id}/tasks/${notification.task_id}`)
+          this.$router.push(`/projects/${notification.project_id}/tasks/${notification.task_id}`)
+        } else if (notification.task_id) {
+          // Standalone task (no project)
+          console.log(`Navigating to: /tasks/${notification.task_id}`)
+          this.$router.push(`/tasks/${notification.task_id}`)
+        } else {
+          console.log('⚠️ No task_id found - cannot navigate')
+        }
+      } catch (error) {
+        console.error('Error handling notification click:', error)
+      }
     },
     
     formatTime(time) {
@@ -240,6 +276,19 @@ export default {
         hour: '2-digit',
         minute: '2-digit'
       })
+    },
+    
+    getNotificationIcon(type) {
+      const iconMap = {
+        'task_assigned': '📋',
+        'deadline': '❗',
+        'task_updated': '✏️',
+        'completion': '✅',
+        'comment': '💬',
+        'mention': '🎯',
+        'attachment': '📎'
+      }
+      return iconMap[type] || '📋'
     }
   }
 }
@@ -453,8 +502,6 @@ export default {
 .notification-indicator.attachment {
   background: #06b6d4;
 }
-
-/* Removed large icon - using colored indicator bar instead */
 
 .notification-content {
   flex: 1;

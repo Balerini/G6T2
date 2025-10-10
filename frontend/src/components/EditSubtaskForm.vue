@@ -33,6 +33,7 @@
         <label class="form-label" for="taskName">Subtask Name *</label>
         <input
           id="taskName"
+          name="name"
           v-model="formData.name"
           type="text"
           class="form-input"
@@ -81,6 +82,7 @@
         <div v-else class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown }">
           <input
             id="assignedTo"
+            name="assignedTo"
             v-model="userSearch"
             type="text"
             class="form-input"
@@ -187,6 +189,7 @@
         <label class="form-label" for="startDate">Start Date *</label>
         <input
           id="startDate"
+          name="startDate"
           v-model="formData.startDate"
           type="date"
           class="form-input"
@@ -205,6 +208,7 @@
         <label class="form-label" for="endDate">End Date *</label>
         <input
           id="endDate"
+          name="endDate"
           v-model="formData.endDate"
           type="date"
           class="form-input"
@@ -247,6 +251,7 @@
         </label>
         <select 
           id="taskStatus" 
+          name="status"
           v-model="formData.status" 
           class="form-select"
           :class="{ 'error': errors.status }"
@@ -300,7 +305,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['subtask-updated', 'cancel'])
+const emit = defineEmits(['subtask-updated', 'cancel', 'validation-error'])
 
 // Form data
 const formData = ref({
@@ -673,10 +678,26 @@ const handleSubmit = async () => {
   errorMessage.value = ''
   
   if (!validateForm()) {
-    errorMessage.value = 'Please fill in all required fields correctly'
-    setTimeout(() => {
-      errorMessage.value = ''
-    }, 3000)
+    // Find the first error field
+    const firstErrorField = Object.keys(errors.value)[0]
+    const errorMessage = errors.value[firstErrorField]
+    
+    // Emit validation error to parent
+    emit('validation-error', {
+      message: errorMessage,
+      field: firstErrorField
+    })
+    
+    // Scroll to the error field
+    nextTick(() => {
+      const fieldElement = document.querySelector(`[name="${firstErrorField}"]`) || 
+                          document.getElementById(firstErrorField)
+      if (fieldElement) {
+        fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        fieldElement.focus()
+      }
+    })
+
     return
   }
   
@@ -735,11 +756,12 @@ const handleSubmit = async () => {
     
   } catch (error) {
     console.error('Error updating subtask:', error)
-    errorMessage.value = `Failed to update subtask: ${error.message}`
     
-    setTimeout(() => {
-      errorMessage.value = ''
-    }, 5000)
+    // Emit error to parent
+    emit('validation-error', {
+      message: `Failed to update subtask: ${error.message}`,
+      field: null
+    })
   } finally {
     isSubmitting.value = false
   }

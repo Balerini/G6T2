@@ -125,6 +125,7 @@ import TaskTimeline from '@/components/Dashboard/TaskTimeline.vue';
 import AuthService from '@/services/auth.js';
 import TaskCard from '@/components/Projects/TaskCard.vue';
 import { ownTasksService } from '../services/myTaskService.js'
+import notificationService from '@/services/notificationService'
 // import PendingTasksByAge from '@/components/Dashboard/PendingTasksByAge.vue';
 
 export default {
@@ -158,6 +159,9 @@ export default {
     },
     mounted() {
         console.log('Home.vue mounted - All components should load');
+        
+        // Check for upcoming deadlines when dashboard loads
+        notificationService.checkUpcomingDeadlines();
 
         if (AuthService.checkAuthStatus()) {
             this.currentUser = AuthService.getCurrentUser();

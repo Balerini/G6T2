@@ -4,6 +4,12 @@ from firebase_admin import firestore
 from datetime import datetime
 import traceback
 import pytz
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from services.notification_service import notification_service
 
 
 tasks_bp = Blueprint('tasks', __name__)
@@ -144,6 +150,22 @@ def create_task():
         except Exception as e:
             print(f"❌ Failed to send email notifications: {e}")
 
+        # ================== CREATE NOTIFICATIONS FOR STAFF ==================
+        try:
+            # Notify assigned staff members about task assignment
+            assigned_users = task_data.get('assigned_to', [])
+            if assigned_users:
+                notification_task_data = {
+                    'task_name': firestore_task_data['task_name'],
+                    'task_ID': task_id,
+                    'id': task_id,
+                    'proj_ID': proj_id
+                }
+                notification_service.notify_task_assigned(notification_task_data, assigned_users)
+                print(f"✅ Notifications created for {len(assigned_users)} assigned users")
+        except Exception as e:
+            print(f"❌ Failed to create notifications: {e}")
+
         return jsonify(response_data), 201
 
     except ValueError as e:
@@ -232,7 +254,9 @@ def update_task(task_id):
       - status_log is appended (ArrayUnion) instead of overwriting
     """
     try:
+        print(f"\n🔧 === UPDATE TASK CALLED === Task ID: {task_id}")
         update_data = request.get_json()
+        print(f"📦 Update data received: {list(update_data.keys())}")
         db = get_firestore_client()
         
         # Handle date conversion if dates are being updated with Singapore timezone
@@ -270,6 +294,10 @@ def update_task(task_id):
                 return jsonify({'error': 'Task not found'}), 404
             doc_ref = results[0].reference
 
+        # Get the OLD document data BEFORE updating (for notification comparison)
+        old_doc = doc_ref.get()
+        old_assigned_to = old_doc.to_dict().get('assigned_to', []) if old_doc.exists else []
+        
         # If status_log present, append rather than overwrite
         status_log_update = None
         if 'status_log' in update_data and isinstance(update_data['status_log'], list) and update_data['status_log']:
@@ -302,6 +330,99 @@ def update_task(task_id):
                 response_data['updatedAt'] = response_data['updatedAt'].isoformat()
             if 'createdAt' in response_data and response_data['createdAt']:
                 response_data['createdAt'] = response_data['createdAt'].isoformat()
+
+            # ================== CREATE NOTIFICATIONS FOR TASK UPDATES ==================
+            try:
+                print(f"🔔 NOTIFICATION BLOCK REACHED")
+                
+                # Get the NEW assigned_to list (after update)
+                # old_assigned_to was captured before the update above
+                new_assigned_to = response_data.get('assigned_to', [])
+                
+                # Determine what ACTUALLY changed by comparing old vs new values
+                # Exclude only true metadata/system fields
+                metadata_fields = ['updatedAt', 'createdAt', 'status_log', 'id', 'task_ID', 'proj_ID']
+                old_values_dict = old_doc.to_dict() if old_doc.exists else {}
+                
+                actually_changed = []
+                for key in update_data.keys():
+                    if key in metadata_fields:
+                        continue
+                    
+                    old_val = old_values_dict.get(key)
+                    new_val = update_data.get(key)
+                    
+                    # Compare values (handle different types)
+                    if key == 'assigned_to':
+                        # For lists, sort and compare
+                        old_sorted = sorted(old_val) if old_val else []
+                        new_sorted = sorted(new_val) if new_val else []
+                        if old_sorted != new_sorted:
+                            actually_changed.append(key)
+                            print(f"   ✓ {key} changed: {old_sorted} → {new_sorted}")
+                    elif key in ['start_date', 'end_date']:
+                        # For dates, compare the calendar date only (ignore time and timezone)
+                        old_date = old_val.date() if old_val and hasattr(old_val, 'date') else None
+                        new_date = new_val.date() if new_val and hasattr(new_val, 'date') else None
+                        
+                        if old_date != new_date:
+                            actually_changed.append(key)
+                            print(f"   ✓ {key} changed: {old_date} → {new_date}")
+                    elif old_val != new_val:
+                        actually_changed.append(key)
+                        print(f"   ✓ {key} changed: '{old_val}' (type: {type(old_val).__name__}) → '{new_val}' (type: {type(new_val).__name__})")
+                
+                updated_fields = actually_changed
+                assignment_changed = 'assigned_to' in updated_fields
+                other_fields_changed = [f for f in updated_fields if f != 'assigned_to']
+                
+                print(f"   All update_data keys: {list(update_data.keys())}")
+                print(f"   Actually changed fields: {updated_fields}")
+                print(f"   Assignment changed: {assignment_changed}")
+                print(f"   Other fields changed: {other_fields_changed}")
+                print(f"   Old assigned_to: {old_assigned_to}")
+                print(f"   New assigned_to: {new_assigned_to}")
+                
+                notification_task_data = {
+                    'task_name': response_data.get('task_name', 'Unknown Task'),
+                    'task_ID': response_data.get('task_ID'),
+                    'id': updated_doc.id,
+                    'proj_ID': response_data.get('proj_ID')
+                }
+                
+                # Prepare old and new values for changed fields
+                old_values = old_doc.to_dict() if old_doc.exists else {}
+                new_values = response_data
+                
+                # SCENARIO 1: Assignment changed - notify NEWLY added users about assignment
+                if assignment_changed and new_assigned_to:
+                    newly_assigned = [user for user in new_assigned_to if user not in old_assigned_to]
+                    already_assigned = [user for user in new_assigned_to if user in old_assigned_to]
+                    
+                    # Notify newly assigned users
+                    if newly_assigned:
+                        print(f"🎯 Notifying {len(newly_assigned)} NEWLY assigned users")
+                        notification_service.notify_task_assigned(notification_task_data, newly_assigned)
+                        print(f"✅ Task assignment notifications sent to: {newly_assigned}")
+                    
+                    # If other fields also changed, notify already assigned users about updates
+                    if other_fields_changed and already_assigned:
+                        print(f"🎯 Notifying {len(already_assigned)} ALREADY assigned users about updates")
+                        notification_service.notify_task_updated(notification_task_data, already_assigned, other_fields_changed, old_values, new_values)
+                        print(f"✅ Task update notifications sent to: {already_assigned}")
+                
+                # SCENARIO 2: Other fields changed WITHOUT assignment change - notify ALL current assignees
+                elif other_fields_changed and new_assigned_to:
+                    print(f"🎯 Notifying {len(new_assigned_to)} users about task details update (no assignment change)")
+                    notification_service.notify_task_updated(notification_task_data, new_assigned_to, other_fields_changed, old_values, new_values)
+                    print(f"✅ Task update notifications sent")
+                else:
+                    print(f"⏭️  No notifications needed (no changes or no assignees)")
+                
+            except Exception as e:
+                print(f"❌ Failed to create update notifications: {e}")
+                import traceback
+                traceback.print_exc()
 
             return jsonify(response_data), 200
         else:

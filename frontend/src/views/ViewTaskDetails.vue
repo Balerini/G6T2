@@ -52,11 +52,11 @@
     </main>
 
     <!-- Main Content -->
-    <main v-else-if="task && parentProject" class="page-content">
+    <main v-else-if="task" class="page-content">
       <div class="content-container">
 
-        <!-- Parent Project Context -->
-        <div class="parent-project-banner">
+        <!-- Parent Project Context (only show if task has a parent project) -->
+        <div v-if="parentProject" class="parent-project-banner">
           <div class="project-status-indicator" :class="getParentStatusClass(parentProject.proj_status)"></div>
           <div class="banner-content">
             <h1 class="parent-project-title">{{ parentProject.proj_name }}</h1>
@@ -77,18 +77,18 @@
           <div class="card-header">
             <h2 class="task-title">{{ task.task_name }}</h2>
             <div class="header-actions">
-              <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
+            <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
                 {{ formatStatus(task.task_status) }}
-              </div>
-              <button @click="openTransferModal" class="transfer-ownership-btn" v-if="canTransferOwnership()">
+            </div>
+              <button @click="openTransferModal" class="transfer-ownership-btn">
                 🔄 Transfer Ownership
               </button>
               <button @click="openEditModal" class="edit-task-btn" v-if="task">
                 ✏️ Edit Task
               </button>
-              <button @click="openSubtaskModal" class="add-subtask-btn">
-                + Add Subtask
-              </button>
+            <button @click="openSubtaskModal" class="add-subtask-btn">
+              + Add Subtask
+            </button>
             </div>
           </div>
 
@@ -466,10 +466,10 @@ export default {
         const taskId = this.$route.params.taskId;
 
         console.log('Route params:', { projectId, taskId });
-
-        // Validate route parameters
-        if (!projectId || !taskId) {
-          this.error = `Invalid route parameters. Project ID: ${projectId}, Task ID: ${taskId}`;
+        
+        // Validate route parameters - taskId is required, projectId is optional (for standalone tasks)
+        if (!taskId) {
+          this.error = `Invalid route parameters. Task ID is required.`;
           return;
         }
 
@@ -482,7 +482,7 @@ export default {
 
         // Load all projects to diagnose the issue
         const allProjects = await projectService.getAllProjects();
-
+        
         if (!allProjects || allProjects.length === 0) {
           this.error = 'No projects found. Please check your connection and try again.';
           return;
@@ -518,49 +518,53 @@ export default {
           console.error('Task not found in any project');
           console.log('Searching for taskId:', taskId);
           console.log('Searching for projectId:', projectId);
-
+          
           allProjects.forEach(proj => {
             if (proj.tasks && proj.tasks.length > 0) {
               console.log(`${proj.proj_name}:`, proj.tasks.map(t => `${t.id} (${t.task_name})`));
             }
           });
-
+          
           // Try to load the task directly from the backend as a fallback
           console.log('Attempting to load task directly from backend...');
           try {
             const directTask = await taskService.getTask(taskId);
             if (directTask) {
               // Find the parent project by the task's proj_ID
-              const parentProject = allProjects.find(proj =>
-                String(proj.id) === String(directTask.proj_ID)
-              );
+              // For standalone tasks (proj_ID is null), parentProject will be null
+              const parentProject = directTask.proj_ID 
+                ? allProjects.find(proj => String(proj.id) === String(directTask.proj_ID))
+                : null;
 
-              if (parentProject) {
-                this.task = directTask;
-                this.parentProject = parentProject;
-                console.log('Task loaded directly from backend successfully');
-                return;
-              } else {
+              // If task has a proj_ID but project not found, show error
+              // If task has no proj_ID (standalone), allow it to load without a project
+              if (directTask.proj_ID && !parentProject) {
                 this.error = `Task found but parent project not found. Task proj_ID: ${directTask.proj_ID}`;
                 return;
               }
+
+              // Load task (with or without parent project)
+                this.task = directTask;
+                this.parentProject = parentProject;
+              console.log('Task loaded directly from backend successfully', parentProject ? '(with project)' : '(standalone task)');
+                return;
             }
           } catch (directLoadError) {
             console.error('Failed to load task directly:', directLoadError);
           }
-
+          
           this.error = `Task not found. Task ID: ${taskId}, Project ID: ${projectId}`;
           return;
         }
 
         // Double-check our final result
-        if (!this.task || !this.parentProject) {
-          this.error = `Failed to load task data. Task: ${this.task ? 'Found' : 'Missing'}, Project: ${this.parentProject ? 'Found' : 'Missing'}`;
+        if (!this.task) {
+          this.error = `Failed to load task data. Task: ${this.task ? 'Found' : 'Missing'}`;
           return;
         }
 
         // ACCESS CONTROL CHECK
-        if (this.task && this.parentProject) {
+        if (this.task) {
           try {
             const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
             const userId = currentUser.id;
@@ -570,7 +574,10 @@ export default {
               return;
             }
 
-            const isProjectCollaborator = this.parentProject.collaborators?.includes(userId);
+            // For standalone tasks, skip project collaborator check
+            const isProjectCollaborator = this.parentProject 
+              ? this.parentProject.collaborators?.includes(userId)
+              : false;
             const isTaskAssignee = this.task.assigned_to?.includes(userId);
             const isTaskCreator = String(this.task.owner) === String(userId);
 
@@ -1138,7 +1145,9 @@ export default {
 
     handleSubtaskUpdated(updatedSubtask) {
       const idx = this.subtasks.findIndex(s => s.id === updatedSubtask.id);
-      if (idx !== -1) this.$set(this.subtasks, idx, updatedSubtask);
+      if (idx !== -1) {
+        this.subtasks[idx] = updatedSubtask;
+      }
       this.closeEditSubtaskModal();
       this.successMessage = "Subtask updated successfully!";
       setTimeout(() => { this.successMessage = ""; }, 3000);
@@ -1267,6 +1276,28 @@ export default {
   display: flex;
   gap: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.standalone-task-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 6px rgba(102, 126, 234, 0.2);
+  margin-bottom: 24px;
+}
+
+.badge-icon {
+  font-size: 24px;
+}
+
+.badge-text {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .project-status-indicator {
