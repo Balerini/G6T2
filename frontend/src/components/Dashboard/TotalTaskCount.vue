@@ -8,7 +8,8 @@
                 <div class="stat-number">{{ data.total_tasks }}</div>
                 <div class="stat-label">Total Tasks</div>
             </div>
-            <div class="card card-green">
+            <!-- Only show staff count for managers (when staff_count > 1) -->
+            <div v-if="data.staff_count > 1" class="card card-green">
                 <div class="stat-number">{{ data.staff_count }}</div>
                 <div class="stat-label">Staff Members</div>
             </div>

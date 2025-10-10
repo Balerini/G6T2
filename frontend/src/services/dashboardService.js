@@ -9,25 +9,73 @@ const api = axios.create({
     },
 });
 
+// Helper function to determine user role
+const getUserRole = () => {
+    try {
+        const userStr = sessionStorage.getItem('user');
+        if (!userStr) {
+            console.log('getUserRole: No user in session storage');
+            return null;
+        }
+        const user = JSON.parse(userStr);
+        console.log('getUserRole: user object:', user);
+        
+        let roleNum = user.role_num;
+        
+        // Convert string to number if needed
+        if (typeof roleNum === 'string') {
+            roleNum = parseInt(roleNum);
+        }
+        
+        // Fallback: derive from role_name if role_num is missing
+        if (!roleNum && user.role_name) {
+            const roleName = user.role_name.toLowerCase();
+            if (roleName === 'staff') roleNum = 4;
+            else if (roleName === 'manager') roleNum = 3;
+            else if (roleName === 'director') roleNum = 2;
+            console.log('getUserRole: Derived from role_name:', roleNum);
+        }
+        
+        console.log('getUserRole: final role_num:', roleNum);
+        return roleNum;
+    } catch (error) {
+        console.error('Error getting user role:', error);
+        return null;
+    }
+};
+
 export const dashboardService = {
 
-    // ============================== MANAGERS ==============================
+    // ============================== MANAGERS & STAFF ==============================
 
-    // MANAGERS: COUNT TOTAL NUMBER OF TASKS OF TEAM
+    // COUNT TOTAL NUMBER OF TASKS (Auto-selects endpoint based on role)
     getCountofAllTasksByTeam: async (userId) => {
         try {
-            const response = await api.get(`/api/dashboard/manager/total-tasks/${userId}`);
+            const roleNum = getUserRole();
+            const endpoint = roleNum === 4 
+                ? `/api/dashboard/staff/total-tasks/${userId}`
+                : `/api/dashboard/manager/total-tasks/${userId}`;
+            
+            console.log(`getCountofAllTasksByTeam: roleNum=${roleNum}, endpoint=${endpoint}`);
+            const response = await api.get(endpoint);
             return response.data;
         } catch (error) {
-            console.error('Error fetching manager total tasks:', error);
+            console.error('Error fetching total tasks:', error);
+            console.error('Error response:', error.response?.data);
             throw error;
         }
     },
 
-    // MANAGERS: COUNT TASKS BY STATUS
+    // COUNT TASKS BY STATUS (Auto-selects endpoint based on role)
     getCountofAllTasksByStatus: async (userId) => {
         try {
-            const response = await api.get(`/api/dashboard/manager/tasks-by-status/${userId}`);
+            const roleNum = getUserRole();
+            const endpoint = roleNum === 4
+                ? `/api/dashboard/staff/tasks-by-status/${userId}`
+                : `/api/dashboard/manager/tasks-by-status/${userId}`;
+            
+            console.log(`getCountofAllTasksByStatus: roleNum=${roleNum}, endpoint=${endpoint}`);
+            const response = await api.get(endpoint);
             return response.data;
         } catch (error) {
             console.error('Error fetching tasks by status:', error);
@@ -35,13 +83,20 @@ export const dashboardService = {
         }
     },
 
-    // MANAGERS: GET COUNT OF TASKS BASED ON PRIORITY 
+    // GET COUNT OF TASKS BASED ON PRIORITY (Auto-selects endpoint based on role)
     getCountofAllTasksByPriority: async (userId) => {
         try {
-            const response = await api.get(`/api/dashboard/manager/tasks-by-priority/${userId}`);
-            return response.data
+            const roleNum = getUserRole();
+            const endpoint = roleNum === 4
+                ? `/api/dashboard/staff/tasks-by-priority/${userId}`
+                : `/api/dashboard/manager/tasks-by-priority/${userId}`;
+            
+            console.log(`getCountofAllTasksByPriority: roleNum=${roleNum}, endpoint=${endpoint}`);
+            const response = await api.get(endpoint);
+            return response.data;
         } catch (error) {
-            console.log("Error fetching tasks by priority", error)
+            console.log("Error fetching tasks by priority", error);
+            throw error;
         }
     },
 
@@ -56,13 +111,20 @@ export const dashboardService = {
         }
     },
 
-    // MANAGERS: PENDING TASKS BY AGE AND TASK NAME BASED ON TASK START DATE
+    // PENDING TASKS BY AGE (Auto-selects based on role)
     getPendingTasksByAgeAndStaffName: async (userId) => {
         try {
-            const response = await api.get(`/api/dashboard/manager/pending-tasks-by-age/${userId}`);
+            const roleNum = getUserRole();
+            const endpoint = roleNum === 4
+                ? `/api/dashboard/staff/pending-tasks-by-age/${userId}`
+                : `/api/dashboard/manager/pending-tasks-by-age/${userId}`;
+            
+            console.log(`getPendingTasksByAge: roleNum=${roleNum}, endpoint=${endpoint}`);
+            const response = await api.get(endpoint);
             return response.data;
         } catch (error) {
             console.error('Error fetching pending tasks by age:', error);
+            console.error('403 error? Using wrong endpoint. roleNum should be 4 for staff');
             throw error;
         }
     },

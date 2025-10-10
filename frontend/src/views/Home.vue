@@ -13,15 +13,17 @@
                 </div>
 
                 <div class="action-tabs">
-                    <button class="tab-btn" :class="{ active: activeView === 'team' }" @click="activeView = 'team'">
+                    <!-- Only show Team Tasks for managers (role_num < 4) -->
+                    <button 
+                        v-if="isManager" 
+                        class="tab-btn" 
+                        :class="{ active: activeView === 'team' }" 
+                        @click="activeView = 'team'"
+                    >
                         Team Tasks
                     </button>
                     <button class="tab-btn" :class="{ active: activeView === 'my' }" @click="activeView = 'my'">
                         My Tasks
-                    </button>
-                    <button class="tab-btn" :class="{ active: activeView === 'calendar' }"
-                        @click="activeView = 'calendar'">
-                        Calendar
                     </button>
                 </div>
             </div>
@@ -41,7 +43,8 @@
                     <hr>
                     <TaskTimeline />
                     <hr>
-                    <TasksByStaff />
+                    <!-- Only show TasksByStaff for managers -->
+                    <TasksByStaff v-if="isManager" />
                 </div>
 
                 <!-- My Tasks View -->
@@ -108,11 +111,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Calendar View -->
-                <div v-if="activeView === 'calendar'">
-                    <TaskCalendar />
-                </div>
             </div>
         </div>
     </div>
@@ -124,7 +122,6 @@ import TasksByStatus from '@/components/Dashboard/TasksByStatus.vue';
 import TasksByStaff from '@/components/Dashboard/TasksByStaff.vue';
 import TasksByPriority from '@/components/Dashboard/TasksByPriority.vue';
 import TaskTimeline from '@/components/Dashboard/TaskTimeline.vue';
-import TaskCalendar from '@/components/Dashboard/TaskCalendar.vue';
 import AuthService from '@/services/auth.js';
 import TaskCard from '@/components/Projects/TaskCard.vue';
 import { ownTasksService } from '../services/myTaskService.js'
@@ -139,7 +136,6 @@ export default {
         TasksByPriority,
         // PendingTasksByAge,
         TaskTimeline,
-        TaskCalendar,
         TaskCard
     },
     data() {
@@ -247,6 +243,53 @@ export default {
         }
     },
     computed: {
+        isManager() {
+            try {
+                const userStr = sessionStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    let roleNum = user.role_num;
+                    
+                    if (typeof roleNum === 'string') {
+                        roleNum = parseInt(roleNum);
+                    }
+                    
+                    if (!roleNum && user.role_name) {
+                        const roleName = user.role_name.toLowerCase();
+                        if (roleName === 'manager') roleNum = 3;
+                        else if (roleName === 'director') roleNum = 2;
+                    }
+                    
+                    return roleNum && roleNum < 4;
+                }
+            } catch (e) {
+                console.error('Error checking manager role:', e);
+            }
+            return false;
+        },
+        isStaff() {
+            try {
+                const userStr = sessionStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    let roleNum = user.role_num;
+                    
+                    if (typeof roleNum === 'string') {
+                        roleNum = parseInt(roleNum);
+                    }
+                    
+                    if (!roleNum && user.role_name) {
+                        const roleName = user.role_name.toLowerCase();
+                        if (roleName === 'staff') roleNum = 4;
+                    }
+                    
+                    return roleNum === 4;
+                }
+            } catch (e) {
+                console.error('Error checking staff role:', e);
+            }
+            return false;
+        },
         filteredTasks() {
             let result = this.tasks;
 

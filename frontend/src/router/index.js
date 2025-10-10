@@ -4,6 +4,7 @@ import authService from '../services/auth';
 import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import Home from '../views/Home.vue';
+import MySchedule from '../views/MySchedule.vue';
 import Projects from '../views/Projects.vue';
 import Createtask from '../views/CreateTask.vue'
 import CreateProject from '../views/CreateProject.vue'
@@ -53,6 +54,12 @@ const routes = [
     name: 'viewtaskdetails',
     component: ViewTaskDetails,
     meta: { showNav: true }
+  },
+  {
+    path: '/my-schedule',
+    name: 'myschedule',
+    component: MySchedule,
+    meta: { showNav: true, requiresAuth: true }
   },
   {
     path: '/notifications',
