@@ -323,6 +323,220 @@
               Remove existing files or add new ones. All changes are saved when you update the task.
             </div>
           </div>
+
+          <!-- Recurrence -->
+          <div class="form-group recurrence-section">
+            <div class="recurrence-toggle-row">
+              <input
+                id="editRecurrenceToggle"
+                type="checkbox"
+                class="recurrence-toggle-input"
+                v-model="localForm.recurrence.enabled"
+                @change="handleRecurrenceToggle"
+              />
+              <label class="recurrence-toggle-label" for="editRecurrenceToggle">
+                Make this a recurring task
+              </label>
+            </div>
+            <p class="recurrence-helper-text">
+              Schedule this task to repeat automatically on a cadence.
+            </p>
+
+            <div v-if="localForm.recurrence.enabled" class="recurrence-config">
+              <div class="recurrence-field">
+                <label class="form-label" for="editRecurrenceFrequency">Frequency *</label>
+                <select
+                  id="editRecurrenceFrequency"
+                  class="form-select"
+                  v-model="localForm.recurrence.frequency"
+                  :class="{ 'input-error': errors.recurrence_frequency }"
+                  @change="handleRecurrenceFrequencyChange"
+                >
+                  <option value="" disabled>Select frequency</option>
+                  <option
+                    v-for="option in RECURRENCE_FREQUENCIES"
+                    :key="`edit-recurrence-frequency-${option.value}`"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+                <span v-if="errors.recurrence_frequency" class="error-message">
+                  {{ errors.recurrence_frequency }}
+                </span>
+              </div>
+
+              <div class="recurrence-field">
+                <label class="form-label" for="editRecurrenceInterval">Repeat every</label>
+                <div
+                  class="recurrence-inline-group"
+                  v-if="localForm.recurrence.frequency !== 'custom'"
+                >
+                  <input
+                    id="editRecurrenceInterval"
+                    type="number"
+                    min="1"
+                    class="form-input"
+                    :class="{ 'input-error': errors.recurrence_interval }"
+                    v-model="localForm.recurrence.interval"
+                    @input="handleRecurrenceIntervalChange"
+                  />
+                  <span class="recurrence-interval-suffix">{{ recurrenceIntervalSuffix }}</span>
+                </div>
+
+                <div
+                  class="recurrence-inline-group"
+                  v-else
+                >
+                  <input
+                    id="editRecurrenceIntervalCustom"
+                    type="number"
+                    min="1"
+                    class="form-input"
+                    :class="{ 'input-error': errors.recurrence_interval }"
+                    v-model="localForm.recurrence.interval"
+                    @input="handleRecurrenceIntervalChange"
+                  />
+                  <select
+                    class="form-select recurrence-unit-select"
+                    :class="{ 'input-error': errors.recurrence_custom_unit }"
+                    v-model="localForm.recurrence.customUnit"
+                    @change="handleRecurrenceCustomUnitChange"
+                  >
+                    <option
+                      v-for="unit in CUSTOM_INTERVAL_UNITS"
+                      :key="`edit-custom-unit-${unit.value}`"
+                      :value="unit.value"
+                    >
+                      {{ unit.label }}
+                    </option>
+                  </select>
+                </div>
+
+                <span v-if="errors.recurrence_interval" class="error-message">
+                  {{ errors.recurrence_interval }}
+                </span>
+                <span v-if="errors.recurrence_custom_unit" class="error-message">
+                  {{ errors.recurrence_custom_unit }}
+                </span>
+              </div>
+
+              <div
+                v-if="localForm.recurrence.frequency === 'weekly'"
+                class="recurrence-field"
+              >
+                <label class="form-label">Repeats on</label>
+                <div class="weekday-selector">
+                  <label
+                    v-for="day in WEEKLY_DAY_OPTIONS"
+                    :key="`edit-weekday-${day.value}`"
+                    class="weekday-option"
+                  >
+                    <input
+                      type="checkbox"
+                      :value="day.value"
+                      v-model="localForm.recurrence.weeklyDays"
+                      @change="handleWeeklyDaysChange"
+                    />
+                    <span>{{ day.label }}</span>
+                  </label>
+                </div>
+                <span v-if="errors.recurrence_weekly_days" class="error-message">
+                  {{ errors.recurrence_weekly_days }}
+                </span>
+              </div>
+
+              <div
+                v-if="localForm.recurrence.frequency === 'monthly'"
+                class="recurrence-field"
+              >
+                <label class="form-label" for="editRecurrenceMonthlyDay">Day of month</label>
+                <input
+                  id="editRecurrenceMonthlyDay"
+                  type="number"
+                  min="1"
+                  max="31"
+                  class="form-input"
+                  :class="{ 'input-error': errors.recurrence_monthly_day }"
+                  v-model="localForm.recurrence.monthlyDay"
+                  @input="handleMonthlyDayChange"
+                />
+                <span v-if="errors.recurrence_monthly_day" class="error-message">
+                  {{ errors.recurrence_monthly_day }}
+                </span>
+              </div>
+
+              <div class="recurrence-field">
+                <label class="form-label">Ends</label>
+                <div class="recurrence-radio-group">
+                  <label class="radio-option">
+                    <input
+                      type="radio"
+                      value="never"
+                      v-model="localForm.recurrence.endCondition"
+                      @change="handleRecurrenceEndConditionChange"
+                    />
+                    <span>Never</span>
+                  </label>
+                  <label class="radio-option">
+                    <input
+                      type="radio"
+                      value="after"
+                      v-model="localForm.recurrence.endCondition"
+                      @change="handleRecurrenceEndConditionChange"
+                    />
+                    <span>After</span>
+                  </label>
+                  <label class="radio-option">
+                    <input
+                      type="radio"
+                      value="onDate"
+                      v-model="localForm.recurrence.endCondition"
+                      @change="handleRecurrenceEndConditionChange"
+                    />
+                    <span>On date</span>
+                  </label>
+                </div>
+
+                <div
+                  v-if="localForm.recurrence.endCondition === 'after'"
+                  class="recurrence-secondary-field"
+                >
+                  <input
+                    type="number"
+                    min="1"
+                    class="form-input small-input"
+                    v-model="localForm.recurrence.endAfterOccurrences"
+                    @input="handleRecurrenceOccurrencesChange"
+                  />
+                  <span class="secondary-label">occurrence(s)</span>
+                </div>
+
+                <div
+                  v-else-if="localForm.recurrence.endCondition === 'onDate'"
+                  class="recurrence-secondary-field"
+                >
+                  <input
+                    type="date"
+                    class="form-input"
+                    :min="recurrenceEndDateMin"
+                    v-model="localForm.recurrence.endDate"
+                    @change="handleRecurrenceEndDateChange"
+                  />
+                </div>
+
+                <span v-if="errors.recurrence_end" class="error-message">
+                  {{ errors.recurrence_end }}
+                </span>
+              </div>
+
+              <div v-if="recurrenceSummary" class="recurrence-summary">
+                <span class="summary-label">Summary:</span>
+                <span>{{ recurrenceSummary }}</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Priority Level -->
           <div class="form-group">
             <label class="form-label" for="priorityLevel">
@@ -417,7 +631,13 @@ export default {
       end_date: '',
       task_status: '',
       collaborators: '',
-      priority_level: ''
+      priority_level: '',
+      recurrence_frequency: '',
+      recurrence_interval: '',
+      recurrence_weekly_days: '',
+      recurrence_monthly_day: '',
+      recurrence_custom_unit: '',
+      recurrence_end: ''
     })
 
     // Toast notification system
@@ -432,6 +652,17 @@ export default {
     const newAttachments = ref([])
     const attachmentErrors = ref('')
     const maxAttachments = 3
+
+    const getCurrentDate = () => {
+      const today = new Date()
+      const sgTime = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Singapore' }))
+      return sgTime.toISOString().split('T')[0]
+    }
+
+    const getUserName = (userId) => {
+      const user = props.users.find(u => String(u.id) === String(userId));
+      return user ? user.name : 'Unknown User';
+    }
 
     // Helper function to show toast
     const showToastNotification = (message, type = 'success') => {
@@ -450,6 +681,65 @@ export default {
       }, 2000)
     }
 
+    const createDefaultRecurrence = () => ({
+      enabled: false,
+      frequency: '',
+      interval: 1,
+      weeklyDays: [],
+      monthlyDay: '',
+      customUnit: 'days',
+      endCondition: 'never',
+      endAfterOccurrences: '',
+      endDate: ''
+    })
+
+    const RECURRENCE_FREQUENCIES = [
+      { value: 'daily', label: 'Daily' },
+      { value: 'weekly', label: 'Weekly' },
+      { value: 'monthly', label: 'Monthly' },
+      { value: 'custom', label: 'Custom Interval' }
+    ]
+
+    const WEEKLY_DAY_OPTIONS = [
+      { value: 'mon', label: 'Mon' },
+      { value: 'tue', label: 'Tue' },
+      { value: 'wed', label: 'Wed' },
+      { value: 'thu', label: 'Thu' },
+      { value: 'fri', label: 'Fri' },
+      { value: 'sat', label: 'Sat' },
+      { value: 'sun', label: 'Sun' }
+    ]
+
+    const CUSTOM_INTERVAL_UNITS = [
+      { value: 'days', label: 'Day(s)' },
+      { value: 'weeks', label: 'Week(s)' },
+      { value: 'months', label: 'Month(s)' }
+    ]
+
+    const CUSTOM_UNIT_SUMMARY_LABELS = {
+      days: 'day(s)',
+      weeks: 'week(s)',
+      months: 'month(s)'
+    }
+
+    const RECURRENCE_FIELD_KEYS = [
+      'recurrence_frequency',
+      'recurrence_interval',
+      'recurrence_weekly_days',
+      'recurrence_monthly_day',
+      'recurrence_custom_unit',
+      'recurrence_end'
+    ]
+
+    const recurrenceTouched = reactive({
+      frequency: false,
+      interval: false,
+      weeklyDays: false,
+      monthlyDay: false,
+      customUnit: false,
+      end: false
+    })
+
     const localForm = reactive({
       proj_name: '',
       task_ID: '',
@@ -460,7 +750,8 @@ export default {
       owner: '',
       assigned_to: [], // This will store user objects with id and name
       task_status: '',
-      priority_level: ''
+      priority_level: '',
+      recurrence: createDefaultRecurrence()
     })
 
     // Dropdown-related reactive data
@@ -509,20 +800,21 @@ export default {
 
     const fillFromProps = () => {
       const t = props.task || {}
-      Object.assign(localForm, {
-        proj_name: t.proj_name || '',
-        task_ID: t.id || t.task_ID || '',
-        task_name: t.task_name || '',
-        task_desc: t.task_desc || '',
-        start_date: t.start_date ? new Date(t.start_date).toISOString().split('T')[0] : '',
-        end_date: t.end_date ? new Date(t.end_date).toISOString().split('T')[0] : '',
-        owner: t.owner || '',
-        assigned_to: [], // Will be populated below
-        task_status: t.task_status || '',
-        priority_level: t.priority_level !== undefined && t.priority_level !== null
-          ? String(t.priority_level)
-          : ''
-      });
+
+      localForm.proj_name = t.proj_name || ''
+      localForm.task_ID = t.id || t.task_ID || ''
+      localForm.task_name = t.task_name || ''
+      localForm.task_desc = t.task_desc || ''
+      localForm.start_date = t.start_date ? new Date(t.start_date).toISOString().split('T')[0] : ''
+      localForm.end_date = t.end_date ? new Date(t.end_date).toISOString().split('T')[0] : ''
+      localForm.owner = t.owner || ''
+      localForm.task_status = t.task_status || ''
+      localForm.priority_level = t.priority_level !== undefined && t.priority_level !== null
+        ? String(t.priority_level)
+        : ''
+
+      // Reset assigned_to before repopulating
+      localForm.assigned_to = []
 
       // Populate assigned_to with user objects
       if (t.assigned_to && Array.isArray(t.assigned_to)) {
@@ -536,6 +828,10 @@ export default {
         }).filter(user => user !== null);
       }
 
+      // Sync recurrence details without replacing the reactive object reference
+      const normalizedRecurrence = normalizeRecurrence(t.recurrence)
+      Object.assign(localForm.recurrence, normalizedRecurrence)
+
       existingAttachments.value = Array.isArray(t.attachments)
         ? t.attachments.map(attachment => ({ ...attachment }))
         : []
@@ -544,6 +840,18 @@ export default {
       attachmentErrors.value = ''
       if (fileInput.value) {
         fileInput.value.value = ''
+      }
+
+      clearRecurrenceValidation()
+      if (localForm.recurrence.enabled) {
+        if (localForm.recurrence.frequency === 'weekly' && localForm.recurrence.weeklyDays.length === 0) {
+          const defaultDay = deriveWeekdayFromDate(localForm.start_date) || 'mon'
+          localForm.recurrence.weeklyDays = [defaultDay]
+        }
+        if (localForm.recurrence.frequency === 'monthly' && !localForm.recurrence.monthlyDay) {
+          localForm.recurrence.monthlyDay = deriveDefaultMonthlyDay()
+        }
+        validateRecurrence(false)
       }
 
       // Clear errors when form is populated
@@ -568,6 +876,34 @@ export default {
           fileInput.value.value = ''
         }
       }
+    })
+
+    watch(() => localForm.start_date, (newStart) => {
+      if (!localForm.recurrence.enabled) {
+        return
+      }
+
+      if (localForm.recurrence.frequency === 'monthly' && !localForm.recurrence.monthlyDay) {
+        localForm.recurrence.monthlyDay = deriveDefaultMonthlyDay()
+      }
+
+      if (localForm.recurrence.frequency === 'weekly' && localForm.recurrence.weeklyDays.length === 0) {
+        const defaultDay = deriveWeekdayFromDate(newStart)
+        if (defaultDay) {
+          localForm.recurrence.weeklyDays = [defaultDay]
+        }
+      }
+
+      if (
+        localForm.recurrence.endCondition === 'onDate' &&
+        localForm.recurrence.endDate &&
+        newStart &&
+        new Date(localForm.recurrence.endDate) < new Date(newStart)
+      ) {
+        localForm.recurrence.endDate = newStart
+      }
+
+      validateRecurrence(false)
     })
 
     const getSelectedProjectInfo = () => {
@@ -1015,6 +1351,387 @@ export default {
       return '';
     };
 
+    function clearRecurrenceValidation() {
+      RECURRENCE_FIELD_KEYS.forEach((key) => {
+        errors[key] = '';
+      });
+      recurrenceTouched.frequency = false;
+      recurrenceTouched.interval = false;
+      recurrenceTouched.weeklyDays = false;
+      recurrenceTouched.monthlyDay = false;
+      recurrenceTouched.customUnit = false;
+      recurrenceTouched.end = false;
+    };
+
+    function deriveWeekdayFromDate(dateString) {
+      if (!dateString) {
+        return null;
+      }
+      const date = new Date(`${dateString}T00:00:00`);
+      const map = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+      return map[date.getDay()] || null;
+    }
+
+    function deriveDefaultMonthlyDay() {
+      if (!localForm.start_date) {
+        return '1';
+      }
+      const date = new Date(`${localForm.start_date}T00:00:00`);
+      return String(date.getDate());
+    }
+
+    function validateRecurrence(markAllTouched = false) {
+      if (!localForm.recurrence.enabled) {
+        clearRecurrenceValidation();
+        return true;
+      }
+
+      if (markAllTouched) {
+        recurrenceTouched.frequency = true;
+        recurrenceTouched.interval = true;
+        recurrenceTouched.end = true;
+        if (localForm.recurrence.frequency === 'weekly') {
+          recurrenceTouched.weeklyDays = true;
+        }
+        if (localForm.recurrence.frequency === 'monthly') {
+          recurrenceTouched.monthlyDay = true;
+        }
+        if (localForm.recurrence.frequency === 'custom') {
+          recurrenceTouched.customUnit = true;
+        }
+      }
+
+      errors.recurrence_frequency = recurrenceTouched.frequency
+        ? (localForm.recurrence.frequency ? '' : 'Select a recurrence frequency')
+        : '';
+
+      const intervalNumber = Number(localForm.recurrence.interval);
+      errors.recurrence_interval = recurrenceTouched.interval
+        ? (!Number.isInteger(intervalNumber) || intervalNumber < 1 ? 'Interval must be at least 1' : '')
+        : '';
+
+      if (localForm.recurrence.frequency === 'weekly') {
+        errors.recurrence_weekly_days = recurrenceTouched.weeklyDays
+          ? (localForm.recurrence.weeklyDays.length > 0 ? '' : 'Select at least one day')
+          : '';
+      } else {
+        errors.recurrence_weekly_days = '';
+        recurrenceTouched.weeklyDays = false;
+      }
+
+      if (localForm.recurrence.frequency === 'monthly') {
+        const monthlyValue = Number(localForm.recurrence.monthlyDay);
+        errors.recurrence_monthly_day = recurrenceTouched.monthlyDay
+          ? (Number.isFinite(monthlyValue) && monthlyValue >= 1 && monthlyValue <= 31
+            ? ''
+            : 'Enter a day between 1 and 31')
+          : '';
+      } else {
+        errors.recurrence_monthly_day = '';
+        recurrenceTouched.monthlyDay = false;
+      }
+
+      if (localForm.recurrence.frequency === 'custom') {
+        errors.recurrence_custom_unit = recurrenceTouched.customUnit
+          ? (localForm.recurrence.customUnit ? '' : 'Select a custom interval unit')
+          : '';
+      } else {
+        errors.recurrence_custom_unit = '';
+        recurrenceTouched.customUnit = false;
+      }
+
+      let endError = '';
+      if (localForm.recurrence.endCondition === 'after') {
+        const occurrences = Number(localForm.recurrence.endAfterOccurrences);
+        if (!Number.isInteger(occurrences) || occurrences < 1) {
+          endError = 'Occurrences must be at least 1';
+        }
+      } else if (localForm.recurrence.endCondition === 'onDate') {
+        if (!localForm.recurrence.endDate) {
+          endError = 'Select an end date';
+        } else if (
+          localForm.start_date &&
+          new Date(localForm.recurrence.endDate) < new Date(localForm.start_date)
+        ) {
+          endError = 'End date must be on or after the start date';
+        }
+      } else if (!localForm.recurrence.endCondition) {
+        endError = 'Choose how the recurrence ends';
+      }
+
+      errors.recurrence_end = recurrenceTouched.end ? endError : '';
+
+      return RECURRENCE_FIELD_KEYS.every((key) => errors[key] === '');
+    }
+
+    const handleRecurrenceToggle = () => {
+      if (!localForm.recurrence.enabled) {
+        Object.assign(localForm.recurrence, createDefaultRecurrence());
+        clearRecurrenceValidation();
+        return;
+      }
+
+      clearRecurrenceValidation();
+
+      if (!localForm.recurrence.frequency) {
+        localForm.recurrence.frequency = 'daily';
+      }
+
+      if (!localForm.recurrence.interval || Number(localForm.recurrence.interval) < 1) {
+        localForm.recurrence.interval = 1;
+      }
+
+      if (!localForm.recurrence.endCondition) {
+        localForm.recurrence.endCondition = 'never';
+      }
+
+      if (!localForm.recurrence.customUnit) {
+        localForm.recurrence.customUnit = 'days';
+      }
+
+      if (localForm.recurrence.frequency === 'weekly' && localForm.recurrence.weeklyDays.length === 0) {
+        const defaultDay = deriveWeekdayFromDate(localForm.start_date) || 'mon';
+        localForm.recurrence.weeklyDays = [defaultDay];
+      }
+
+      if (localForm.recurrence.frequency === 'monthly' && !localForm.recurrence.monthlyDay) {
+        localForm.recurrence.monthlyDay = deriveDefaultMonthlyDay();
+      }
+
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceFrequencyChange = () => {
+      recurrenceTouched.frequency = true;
+
+      if (localForm.recurrence.frequency !== 'weekly') {
+        localForm.recurrence.weeklyDays = [];
+        errors.recurrence_weekly_days = '';
+        recurrenceTouched.weeklyDays = false;
+      } else if (localForm.recurrence.weeklyDays.length === 0) {
+        const defaultDay = deriveWeekdayFromDate(localForm.start_date) || 'mon';
+        localForm.recurrence.weeklyDays = [defaultDay];
+      }
+
+      if (localForm.recurrence.frequency !== 'monthly') {
+        localForm.recurrence.monthlyDay = '';
+        errors.recurrence_monthly_day = '';
+        recurrenceTouched.monthlyDay = false;
+      } else if (!localForm.recurrence.monthlyDay) {
+        localForm.recurrence.monthlyDay = deriveDefaultMonthlyDay();
+      }
+
+      if (localForm.recurrence.frequency !== 'custom') {
+        localForm.recurrence.customUnit = 'days';
+        errors.recurrence_custom_unit = '';
+        recurrenceTouched.customUnit = false;
+      }
+
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceIntervalChange = () => {
+      recurrenceTouched.interval = true;
+      if (!localForm.recurrence.interval || Number(localForm.recurrence.interval) < 1) {
+        localForm.recurrence.interval = 1;
+      } else {
+        localForm.recurrence.interval = Math.floor(Number(localForm.recurrence.interval));
+      }
+      validateRecurrence(false);
+    };
+
+    const handleWeeklyDaysChange = () => {
+      recurrenceTouched.weeklyDays = true;
+      validateRecurrence(false);
+    };
+
+    const handleMonthlyDayChange = () => {
+      recurrenceTouched.monthlyDay = true;
+      if (localForm.recurrence.monthlyDay) {
+        let value = Number(localForm.recurrence.monthlyDay);
+        if (value < 1) value = 1;
+        if (value > 31) value = 31;
+        localForm.recurrence.monthlyDay = String(value);
+      }
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceCustomUnitChange = () => {
+      recurrenceTouched.customUnit = true;
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceEndConditionChange = () => {
+      recurrenceTouched.end = true;
+
+      if (localForm.recurrence.endCondition === 'after') {
+        if (!localForm.recurrence.endAfterOccurrences) {
+          localForm.recurrence.endAfterOccurrences = '1';
+        }
+        localForm.recurrence.endDate = '';
+      } else if (localForm.recurrence.endCondition === 'onDate') {
+        localForm.recurrence.endAfterOccurrences = '';
+        if (!localForm.recurrence.endDate) {
+          localForm.recurrence.endDate = localForm.start_date || getCurrentDate();
+        }
+      } else {
+        localForm.recurrence.endAfterOccurrences = '';
+        localForm.recurrence.endDate = '';
+      }
+
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceOccurrencesChange = () => {
+      recurrenceTouched.end = true;
+      if (localForm.recurrence.endAfterOccurrences) {
+        let value = Number(localForm.recurrence.endAfterOccurrences);
+        if (value < 1) value = 1;
+        localForm.recurrence.endAfterOccurrences = String(Math.floor(value));
+      }
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceEndDateChange = () => {
+      recurrenceTouched.end = true;
+      validateRecurrence(false);
+    };
+
+    const recurrenceIntervalSuffix = computed(() => {
+      if (!localForm.recurrence.enabled) {
+        return 'day(s)';
+      }
+
+      switch (localForm.recurrence.frequency) {
+        case 'weekly':
+          return 'week(s)';
+        case 'monthly':
+          return 'month(s)';
+        default:
+          return 'day(s)';
+      }
+    });
+
+    const recurrenceEndDateMin = computed(() => localForm.start_date || getCurrentDate());
+
+    const recurrenceSummary = computed(() => {
+      if (!localForm.recurrence.enabled || !localForm.recurrence.frequency) {
+        return '';
+      }
+
+      const intervalNumber = Number(localForm.recurrence.interval) || 1;
+      const plural = (value, base) => `${base}${value === 1 ? '' : 's'}`;
+      let summary = '';
+
+      switch (localForm.recurrence.frequency) {
+        case 'daily':
+          summary = `Repeats every ${intervalNumber} ${plural(intervalNumber, 'day')}`;
+          break;
+        case 'weekly': {
+          const dayLabels = localForm.recurrence.weeklyDays.map((day) => {
+            const option = WEEKLY_DAY_OPTIONS.find(opt => opt.value === day);
+            return option ? option.label : day;
+          });
+          const daysText = dayLabels.length > 0 ? dayLabels.join(', ') : 'no days selected';
+          summary = `Repeats every ${intervalNumber} ${plural(intervalNumber, 'week')} on ${daysText}`;
+          break;
+        }
+        case 'monthly':
+          summary = `Repeats every ${intervalNumber} ${plural(intervalNumber, 'month')} on day ${localForm.recurrence.monthlyDay || '?'}`;
+          break;
+        case 'custom': {
+          const customUnit = localForm.recurrence.customUnit || 'days';
+          const unitLabel = CUSTOM_UNIT_SUMMARY_LABELS[customUnit] || 'day(s)';
+          summary = `Repeats every ${intervalNumber} ${unitLabel}`;
+          break;
+        }
+        default:
+          summary = '';
+      }
+
+      if (!summary) {
+        return '';
+      }
+
+      if (localForm.recurrence.endCondition === 'after') {
+        const occurrences = Number(localForm.recurrence.endAfterOccurrences) || 0;
+        summary += ` - Ends after ${occurrences} occurrence${occurrences === 1 ? '' : 's'}`;
+      } else if (localForm.recurrence.endCondition === 'onDate' && localForm.recurrence.endDate) {
+        const formatted = new Date(localForm.recurrence.endDate).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+        summary += ` - Ends on ${formatted}`;
+      } else {
+        summary += ' - No end date';
+      }
+
+      return summary;
+    });
+
+    const buildRecurrencePayload = () => {
+      if (!localForm.recurrence?.enabled) {
+        return { enabled: false };
+      }
+
+      const intervalValue = Number(localForm.recurrence.interval) || 1;
+      const payload = {
+        enabled: true,
+        frequency: localForm.recurrence.frequency,
+        interval: intervalValue,
+        endCondition: localForm.recurrence.endCondition,
+      };
+
+      if (localForm.recurrence.frequency === 'weekly') {
+        payload.weeklyDays = [...localForm.recurrence.weeklyDays];
+      }
+
+      if (localForm.recurrence.frequency === 'monthly') {
+        payload.monthlyDay = localForm.recurrence.monthlyDay
+          ? Number(localForm.recurrence.monthlyDay)
+          : null;
+      }
+
+      if (localForm.recurrence.frequency === 'custom') {
+        payload.customUnit = localForm.recurrence.customUnit;
+      }
+
+      if (localForm.recurrence.endCondition === 'after') {
+        payload.endAfterOccurrences = localForm.recurrence.endAfterOccurrences
+          ? Number(localForm.recurrence.endAfterOccurrences)
+          : null;
+      } else if (localForm.recurrence.endCondition === 'onDate') {
+        payload.endDate = localForm.recurrence.endDate || null;
+      }
+
+      return payload;
+    };
+
+    function normalizeRecurrence(recurrence) {
+      const defaults = createDefaultRecurrence();
+      if (!recurrence || !recurrence.enabled) {
+        return defaults;
+      }
+
+      return {
+        ...defaults,
+        enabled: Boolean(recurrence.enabled),
+        frequency: recurrence.frequency || '',
+        interval: recurrence.interval || 1,
+        weeklyDays: Array.isArray(recurrence.weeklyDays) ? [...recurrence.weeklyDays] : [],
+        monthlyDay: recurrence.monthlyDay !== undefined && recurrence.monthlyDay !== null
+          ? String(recurrence.monthlyDay)
+          : '',
+        customUnit: recurrence.customUnit || 'days',
+        endCondition: recurrence.endCondition || 'never',
+        endAfterOccurrences: recurrence.endAfterOccurrences
+          ? String(recurrence.endAfterOccurrences)
+          : '',
+        endDate: recurrence.endDate || ''
+      };
+    }
+
     const validateCollaborators = () => '';
 
     const validateField = (fieldName, value) => {
@@ -1044,6 +1761,33 @@ export default {
         case 'collaborators':
           errors.collaborators = validateCollaborators(value);
           break;
+        case 'recurrence':
+          validateRecurrence(true);
+          break;
+        case 'recurrence_frequency':
+          recurrenceTouched.frequency = true;
+          validateRecurrence(false);
+          break;
+        case 'recurrence_interval':
+          recurrenceTouched.interval = true;
+          validateRecurrence(false);
+          break;
+        case 'recurrence_weekly_days':
+          recurrenceTouched.weeklyDays = true;
+          validateRecurrence(false);
+          break;
+        case 'recurrence_monthly_day':
+          recurrenceTouched.monthlyDay = true;
+          validateRecurrence(false);
+          break;
+        case 'recurrence_custom_unit':
+          recurrenceTouched.customUnit = true;
+          validateRecurrence(false);
+          break;
+        case 'recurrence_end':
+          recurrenceTouched.end = true;
+          validateRecurrence(false);
+          break;
       }
     };
 
@@ -1058,6 +1802,7 @@ export default {
       validateField('task_status', localForm.task_status);
       validateField('priority_level', localForm.priority_level);
       validateField('collaborators', localForm.assigned_to);
+      validateField('recurrence', localForm.recurrence);
 
       // Check if form is valid
       if (!isFormValid.value) {
@@ -1109,7 +1854,8 @@ export default {
           assigned_to: localForm.assigned_to.map(user => user.id),
           task_status: localForm.task_status || null,
           priority_level: localForm.priority_level ? parseInt(localForm.priority_level, 10) : null,
-          attachments: finalAttachments
+          attachments: finalAttachments,
+          recurrence: buildRecurrencePayload()
         }
 
         // Status change log
@@ -1231,6 +1977,21 @@ export default {
       navigateDown,
       navigateUp,
       removeAssignee,
+      RECURRENCE_FREQUENCIES,
+      WEEKLY_DAY_OPTIONS,
+      CUSTOM_INTERVAL_UNITS,
+      recurrenceIntervalSuffix,
+      recurrenceEndDateMin,
+      recurrenceSummary,
+      handleRecurrenceToggle,
+      handleRecurrenceFrequencyChange,
+      handleRecurrenceIntervalChange,
+      handleWeeklyDaysChange,
+      handleMonthlyDayChange,
+      handleRecurrenceCustomUnitChange,
+      handleRecurrenceEndConditionChange,
+      handleRecurrenceOccurrencesChange,
+      handleRecurrenceEndDateChange,
       formatFileSize,
       getFileIcon,
       getFileTypeColor,
@@ -1240,7 +2001,8 @@ export default {
       handleSubmit,
       handleClose,
       getUserName,
-      ownerName
+      ownerName,
+      getUserName
     }
   }
 }
@@ -1388,6 +2150,126 @@ export default {
 
 .remove-tag:hover {
   color: #000000;
+}
+
+.recurrence-section {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+.recurrence-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recurrence-toggle-input {
+  width: 18px;
+  height: 18px;
+}
+
+.recurrence-toggle-label {
+  font-weight: 600;
+  color: #333;
+}
+
+.recurrence-helper-text {
+  margin: 8px 0 16px;
+  font-size: 0.875rem;
+  color: #555;
+}
+
+.recurrence-config {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.recurrence-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recurrence-inline-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recurrence-interval-suffix {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.recurrence-unit-select {
+  max-width: 160px;
+}
+
+.weekday-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weekday-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background-color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.weekday-option input {
+  margin: 0;
+}
+
+.recurrence-radio-group {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.recurrence-secondary-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recurrence-secondary-field .small-input {
+  max-width: 120px;
+}
+
+.secondary-label {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.recurrence-summary {
+  padding: 12px;
+  border-radius: 6px;
+  background-color: #eef5ff;
+  color: #1a3a6b;
+  font-size: 0.9rem;
+}
+
+.summary-label {
+  font-weight: 600;
+  margin-right: 6px;
 }
 
 /* File Upload */

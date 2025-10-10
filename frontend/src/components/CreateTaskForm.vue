@@ -72,6 +72,219 @@
       </span>
     </div>
 
+    <!-- Recurrence -->
+    <div class="form-group recurrence-section">
+      <div class="recurrence-toggle-row">
+        <input
+          id="recurrenceToggle"
+          type="checkbox"
+          class="recurrence-toggle-input"
+          v-model="formData.recurrence.enabled"
+          @change="handleRecurrenceToggle"
+        />
+        <label class="recurrence-toggle-label" for="recurrenceToggle">
+          Make this a recurring task
+        </label>
+      </div>
+      <p class="recurrence-helper-text">
+        Repeat this task on a schedule so it is created automatically.
+      </p>
+
+      <div v-if="formData.recurrence.enabled" class="recurrence-config">
+        <div class="recurrence-field">
+          <label class="form-label" for="recurrenceFrequency">Frequency *</label>
+          <select
+            id="recurrenceFrequency"
+            class="form-select"
+            v-model="formData.recurrence.frequency"
+            :class="{ 'error': validationErrors.recurrence_frequency }"
+            @change="handleRecurrenceFrequencyChange"
+          >
+            <option value="" disabled>Select frequency</option>
+            <option
+              v-for="option in RECURRENCE_FREQUENCIES"
+              :key="`recurrence-frequency-${option.value}`"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+          <span v-if="validationErrors.recurrence_frequency" class="error-message">
+            {{ validationErrors.recurrence_frequency }}
+          </span>
+        </div>
+
+        <div class="recurrence-field">
+          <label class="form-label" for="recurrenceInterval">Repeat every</label>
+          <div
+            class="recurrence-inline-group"
+            v-if="formData.recurrence.frequency !== 'custom'"
+          >
+            <input
+              id="recurrenceInterval"
+              type="number"
+              min="1"
+              class="form-input"
+              :class="{ 'error': validationErrors.recurrence_interval }"
+              v-model="formData.recurrence.interval"
+              @input="handleRecurrenceIntervalChange"
+            />
+            <span class="recurrence-interval-suffix">{{ recurrenceIntervalSuffix }}</span>
+          </div>
+
+          <div
+            class="recurrence-inline-group"
+            v-else
+          >
+            <input
+              id="recurrenceIntervalCustom"
+              type="number"
+              min="1"
+              class="form-input"
+              :class="{ 'error': validationErrors.recurrence_interval }"
+              v-model="formData.recurrence.interval"
+              @input="handleRecurrenceIntervalChange"
+            />
+            <select
+              class="form-select recurrence-unit-select"
+              :class="{ 'error': validationErrors.recurrence_custom_unit }"
+              v-model="formData.recurrence.customUnit"
+              @change="handleRecurrenceCustomUnitChange"
+            >
+              <option
+                v-for="unit in CUSTOM_INTERVAL_UNITS"
+                :key="`custom-unit-${unit.value}`"
+                :value="unit.value"
+              >
+                {{ unit.label }}
+              </option>
+            </select>
+          </div>
+
+          <span v-if="validationErrors.recurrence_interval" class="error-message">
+            {{ validationErrors.recurrence_interval }}
+          </span>
+          <span v-if="validationErrors.recurrence_custom_unit" class="error-message">
+            {{ validationErrors.recurrence_custom_unit }}
+          </span>
+        </div>
+
+        <div
+          v-if="formData.recurrence.frequency === 'weekly'"
+          class="recurrence-field"
+        >
+          <label class="form-label">Repeats on</label>
+          <div class="weekday-selector">
+            <label
+              v-for="day in WEEKLY_DAY_OPTIONS"
+              :key="`weekday-${day.value}`"
+              class="weekday-option"
+            >
+              <input
+                type="checkbox"
+                :value="day.value"
+                v-model="formData.recurrence.weeklyDays"
+                @change="handleWeeklyDaysChange"
+              />
+              <span>{{ day.label }}</span>
+            </label>
+          </div>
+          <span v-if="validationErrors.recurrence_weekly_days" class="error-message">
+            {{ validationErrors.recurrence_weekly_days }}
+          </span>
+        </div>
+
+        <div
+          v-if="formData.recurrence.frequency === 'monthly'"
+          class="recurrence-field"
+        >
+          <label class="form-label" for="recurrenceMonthlyDay">Day of month</label>
+          <input
+            id="recurrenceMonthlyDay"
+            type="number"
+            min="1"
+            max="31"
+            class="form-input"
+            :class="{ 'error': validationErrors.recurrence_monthly_day }"
+            v-model="formData.recurrence.monthlyDay"
+            @input="handleMonthlyDayChange"
+          />
+          <span v-if="validationErrors.recurrence_monthly_day" class="error-message">
+            {{ validationErrors.recurrence_monthly_day }}
+          </span>
+        </div>
+
+        <div class="recurrence-field">
+          <label class="form-label">Ends</label>
+          <div class="recurrence-radio-group">
+            <label class="radio-option">
+              <input
+                type="radio"
+                value="never"
+                v-model="formData.recurrence.endCondition"
+                @change="handleRecurrenceEndConditionChange"
+              />
+              <span>Never</span>
+            </label>
+            <label class="radio-option">
+              <input
+                type="radio"
+                value="after"
+                v-model="formData.recurrence.endCondition"
+                @change="handleRecurrenceEndConditionChange"
+              />
+              <span>After</span>
+            </label>
+            <label class="radio-option">
+              <input
+                type="radio"
+                value="onDate"
+                v-model="formData.recurrence.endCondition"
+                @change="handleRecurrenceEndConditionChange"
+              />
+              <span>On date</span>
+            </label>
+          </div>
+
+          <div
+            v-if="formData.recurrence.endCondition === 'after'"
+            class="recurrence-secondary-field"
+          >
+            <input
+              type="number"
+              min="1"
+              class="form-input small-input"
+              v-model="formData.recurrence.endAfterOccurrences"
+              @input="handleRecurrenceOccurrencesChange"
+            />
+            <span class="secondary-label">occurrence(s)</span>
+          </div>
+
+          <div
+            v-else-if="formData.recurrence.endCondition === 'onDate'"
+            class="recurrence-secondary-field"
+          >
+            <input
+              type="date"
+              class="form-input"
+              :min="recurrenceEndDateMin"
+              v-model="formData.recurrence.endDate"
+              @change="handleRecurrenceEndDateChange"
+            />
+          </div>
+
+          <span v-if="validationErrors.recurrence_end" class="error-message">
+            {{ validationErrors.recurrence_end }}
+          </span>
+        </div>
+
+        <div v-if="recurrenceSummary" class="recurrence-summary">
+          <span class="summary-label">Summary:</span>
+          <span>{{ recurrenceSummary }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Task Name -->
     <div class="form-group">
       <label class="form-label" for="taskName">Task Name *</label>
@@ -356,6 +569,13 @@ export default {
       task_status: '',
       priority_level: '',
       attachments: '',
+      collaborators: '',
+      recurrence_frequency: '',
+      recurrence_interval: '',
+      recurrence_weekly_days: '',
+      recurrence_monthly_day: '',
+      recurrence_custom_unit: '',
+      recurrence_end: '',
     });
 
     // Track which fields have been touched by the user
@@ -369,6 +589,13 @@ export default {
       task_status: false,
       priority_level: false,
       attachments: false,
+      collaborators: false,
+      recurrence_frequency: false,
+      recurrence_interval: false,
+      recurrence_weekly_days: false,
+      recurrence_monthly_day: false,
+      recurrence_custom_unit: false,
+      recurrence_end: false,
     });
 
     // NEW: Dropdown-related reactive data
@@ -390,6 +617,56 @@ export default {
     const projectDropdownCloseTimeout = ref(null);
     const selectedProjectRef = ref(null);
 
+    const createDefaultRecurrence = () => ({
+      enabled: false,
+      frequency: '',
+      interval: 1,
+      weeklyDays: [],
+      monthlyDay: '',
+      customUnit: 'days',
+      endCondition: 'never',
+      endAfterOccurrences: '',
+      endDate: '',
+    });
+
+    const RECURRENCE_FREQUENCIES = [
+      { value: 'daily', label: 'Daily' },
+      { value: 'weekly', label: 'Weekly' },
+      { value: 'monthly', label: 'Monthly' },
+      { value: 'custom', label: 'Custom Interval' },
+    ];
+
+    const WEEKLY_DAY_OPTIONS = [
+      { value: 'mon', label: 'Mon' },
+      { value: 'tue', label: 'Tue' },
+      { value: 'wed', label: 'Wed' },
+      { value: 'thu', label: 'Thu' },
+      { value: 'fri', label: 'Fri' },
+      { value: 'sat', label: 'Sat' },
+      { value: 'sun', label: 'Sun' },
+    ];
+
+    const CUSTOM_INTERVAL_UNITS = [
+      { value: 'days', label: 'Day(s)' },
+      { value: 'weeks', label: 'Week(s)' },
+      { value: 'months', label: 'Month(s)' },
+    ];
+
+    const RECURRENCE_FIELD_KEYS = [
+      'recurrence_frequency',
+      'recurrence_interval',
+      'recurrence_weekly_days',
+      'recurrence_monthly_day',
+      'recurrence_custom_unit',
+      'recurrence_end',
+    ];
+
+    const CUSTOM_UNIT_SUMMARY_LABELS = {
+      days: 'day(s)',
+      weeks: 'week(s)',
+      months: 'month(s)',
+    };
+
     const formData = reactive({
       proj_name: '',
       task_ID: '',
@@ -402,6 +679,7 @@ export default {
       attachments: [],
       task_status: '',
       priority_level: '',
+      recurrence: createDefaultRecurrence(),
     });
 
 
@@ -1046,6 +1324,323 @@ export default {
       return '';
     };
 
+    const clearRecurrenceValidation = () => {
+      RECURRENCE_FIELD_KEYS.forEach((key) => {
+        validationErrors[key] = '';
+        touchedFields[key] = false;
+      });
+    };
+
+    const deriveWeekdayFromDate = (dateString) => {
+      if (!dateString) {
+        return null;
+      }
+      const date = new Date(`${dateString}T00:00:00`);
+      const map = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+      return map[date.getDay()] || null;
+    };
+
+    const deriveDefaultMonthlyDay = () => {
+      if (!formData.start_date) {
+        return '1';
+      }
+      const date = new Date(`${formData.start_date}T00:00:00`);
+      return String(date.getDate());
+    };
+
+    const validateRecurrence = (markAsTouched = false) => {
+      if (!formData.recurrence.enabled) {
+        clearRecurrenceValidation();
+        return true;
+      }
+
+      if (markAsTouched) {
+        touchedFields.recurrence_frequency = true;
+        touchedFields.recurrence_interval = true;
+        touchedFields.recurrence_end = true;
+
+        if (formData.recurrence.frequency === 'weekly') {
+          touchedFields.recurrence_weekly_days = true;
+        }
+
+        if (formData.recurrence.frequency === 'monthly') {
+          touchedFields.recurrence_monthly_day = true;
+        }
+
+        if (formData.recurrence.frequency === 'custom') {
+          touchedFields.recurrence_custom_unit = true;
+        }
+      }
+
+      validationErrors.recurrence_frequency = touchedFields.recurrence_frequency
+        ? (formData.recurrence.frequency ? '' : 'Select a recurrence frequency')
+        : '';
+
+      const intervalNumber = Number(formData.recurrence.interval);
+      validationErrors.recurrence_interval = touchedFields.recurrence_interval
+        ? (!Number.isInteger(intervalNumber) || intervalNumber < 1 ? 'Interval must be at least 1' : '')
+        : '';
+
+      if (formData.recurrence.frequency === 'weekly') {
+        validationErrors.recurrence_weekly_days = touchedFields.recurrence_weekly_days
+          ? (formData.recurrence.weeklyDays.length > 0 ? '' : 'Select at least one day')
+          : '';
+      } else {
+        validationErrors.recurrence_weekly_days = '';
+        touchedFields.recurrence_weekly_days = false;
+      }
+
+      if (formData.recurrence.frequency === 'monthly') {
+        const monthlyValue = Number(formData.recurrence.monthlyDay);
+        validationErrors.recurrence_monthly_day = touchedFields.recurrence_monthly_day
+          ? (Number.isFinite(monthlyValue) && monthlyValue >= 1 && monthlyValue <= 31
+            ? ''
+            : 'Enter a day between 1 and 31')
+          : '';
+      } else {
+        validationErrors.recurrence_monthly_day = '';
+        touchedFields.recurrence_monthly_day = false;
+      }
+
+      if (formData.recurrence.frequency === 'custom') {
+        validationErrors.recurrence_custom_unit = touchedFields.recurrence_custom_unit
+          ? (formData.recurrence.customUnit ? '' : 'Select a custom interval unit')
+          : '';
+      } else {
+        validationErrors.recurrence_custom_unit = '';
+        touchedFields.recurrence_custom_unit = false;
+      }
+
+      let endError = '';
+      if (formData.recurrence.endCondition === 'after') {
+        const occurrences = Number(formData.recurrence.endAfterOccurrences);
+        if (!Number.isInteger(occurrences) || occurrences < 1) {
+          endError = 'Occurrences must be at least 1';
+        }
+      } else if (formData.recurrence.endCondition === 'onDate') {
+        if (!formData.recurrence.endDate) {
+          endError = 'Select an end date';
+        } else if (
+          formData.start_date &&
+          new Date(formData.recurrence.endDate) < new Date(formData.start_date)
+        ) {
+          endError = 'End date must be on or after the start date';
+        }
+      } else if (!formData.recurrence.endCondition) {
+        endError = 'Choose how the recurrence ends';
+      }
+
+      validationErrors.recurrence_end = touchedFields.recurrence_end ? endError : '';
+
+      return RECURRENCE_FIELD_KEYS.every((key) => validationErrors[key] === '');
+    };
+
+    const handleRecurrenceToggle = () => {
+      if (!formData.recurrence.enabled) {
+        Object.assign(formData.recurrence, createDefaultRecurrence());
+        clearRecurrenceValidation();
+        return;
+      }
+
+      clearRecurrenceValidation();
+
+      if (!formData.recurrence.frequency) {
+        formData.recurrence.frequency = 'daily';
+      }
+
+      if (!formData.recurrence.interval || Number(formData.recurrence.interval) < 1) {
+        formData.recurrence.interval = 1;
+      }
+
+      if (!formData.recurrence.endCondition) {
+        formData.recurrence.endCondition = 'never';
+      }
+
+      if (!formData.recurrence.customUnit) {
+        formData.recurrence.customUnit = 'days';
+      }
+
+      if (formData.recurrence.frequency === 'weekly' && formData.recurrence.weeklyDays.length === 0) {
+        const defaultDay = deriveWeekdayFromDate(formData.start_date) || 'mon';
+        formData.recurrence.weeklyDays = [defaultDay];
+      }
+
+      if (formData.recurrence.frequency === 'monthly' && !formData.recurrence.monthlyDay) {
+        formData.recurrence.monthlyDay = deriveDefaultMonthlyDay();
+      }
+
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceFrequencyChange = () => {
+      touchedFields.recurrence_frequency = true;
+
+      if (formData.recurrence.frequency !== 'weekly') {
+        formData.recurrence.weeklyDays = [];
+        validationErrors.recurrence_weekly_days = '';
+        touchedFields.recurrence_weekly_days = false;
+      } else if (formData.recurrence.weeklyDays.length === 0) {
+        const defaultDay = deriveWeekdayFromDate(formData.start_date) || 'mon';
+        formData.recurrence.weeklyDays = [defaultDay];
+      }
+
+      if (formData.recurrence.frequency !== 'monthly') {
+        formData.recurrence.monthlyDay = '';
+        validationErrors.recurrence_monthly_day = '';
+        touchedFields.recurrence_monthly_day = false;
+      } else if (!formData.recurrence.monthlyDay) {
+        formData.recurrence.monthlyDay = deriveDefaultMonthlyDay();
+      }
+
+      if (formData.recurrence.frequency !== 'custom') {
+        formData.recurrence.customUnit = 'days';
+        validationErrors.recurrence_custom_unit = '';
+        touchedFields.recurrence_custom_unit = false;
+      }
+
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceIntervalChange = () => {
+      touchedFields.recurrence_interval = true;
+      if (!formData.recurrence.interval || Number(formData.recurrence.interval) < 1) {
+        formData.recurrence.interval = 1;
+      } else {
+        formData.recurrence.interval = Math.floor(Number(formData.recurrence.interval));
+      }
+      validateRecurrence(false);
+    };
+
+    const handleWeeklyDaysChange = () => {
+      touchedFields.recurrence_weekly_days = true;
+      validateRecurrence(false);
+    };
+
+    const handleMonthlyDayChange = () => {
+      touchedFields.recurrence_monthly_day = true;
+      if (formData.recurrence.monthlyDay) {
+        let value = Number(formData.recurrence.monthlyDay);
+        if (value < 1) value = 1;
+        if (value > 31) value = 31;
+        formData.recurrence.monthlyDay = String(value);
+      }
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceCustomUnitChange = () => {
+      touchedFields.recurrence_custom_unit = true;
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceEndConditionChange = () => {
+      touchedFields.recurrence_end = true;
+
+      if (formData.recurrence.endCondition === 'after') {
+        if (!formData.recurrence.endAfterOccurrences) {
+          formData.recurrence.endAfterOccurrences = '1';
+        }
+        formData.recurrence.endDate = '';
+      } else if (formData.recurrence.endCondition === 'onDate') {
+        formData.recurrence.endAfterOccurrences = '';
+        if (!formData.recurrence.endDate) {
+          formData.recurrence.endDate = formData.start_date || getCurrentDate();
+        }
+      } else {
+        formData.recurrence.endAfterOccurrences = '';
+        formData.recurrence.endDate = '';
+      }
+
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceOccurrencesChange = () => {
+      touchedFields.recurrence_end = true;
+      if (formData.recurrence.endAfterOccurrences) {
+        let value = Number(formData.recurrence.endAfterOccurrences);
+        if (value < 1) value = 1;
+        formData.recurrence.endAfterOccurrences = String(Math.floor(value));
+      }
+      validateRecurrence(false);
+    };
+
+    const handleRecurrenceEndDateChange = () => {
+      touchedFields.recurrence_end = true;
+      validateRecurrence(false);
+    };
+
+    const recurrenceIntervalSuffix = computed(() => {
+      if (!formData.recurrence.enabled) {
+        return 'day(s)';
+      }
+
+      switch (formData.recurrence.frequency) {
+        case 'weekly':
+          return 'week(s)';
+        case 'monthly':
+          return 'month(s)';
+        default:
+          return 'day(s)';
+      }
+    });
+
+    const recurrenceEndDateMin = computed(() => formData.start_date || getCurrentDate());
+
+    const recurrenceSummary = computed(() => {
+      if (!formData.recurrence.enabled || !formData.recurrence.frequency) {
+        return '';
+      }
+
+      const intervalNumber = Number(formData.recurrence.interval) || 1;
+      const plural = (value, base) => `${base}${value === 1 ? '' : 's'}`;
+      let summary = '';
+
+      switch (formData.recurrence.frequency) {
+        case 'daily':
+          summary = `Repeats every ${intervalNumber} ${plural(intervalNumber, 'day')}`;
+          break;
+        case 'weekly': {
+          const dayLabels = formData.recurrence.weeklyDays.map((day) => {
+            const option = WEEKLY_DAY_OPTIONS.find(opt => opt.value === day);
+            return option ? option.label : day;
+          });
+          const daysText = dayLabels.length > 0 ? dayLabels.join(', ') : 'no days selected';
+          summary = `Repeats every ${intervalNumber} ${plural(intervalNumber, 'week')} on ${daysText}`;
+          break;
+        }
+        case 'monthly':
+          summary = `Repeats every ${intervalNumber} ${plural(intervalNumber, 'month')} on day ${formData.recurrence.monthlyDay || '?'}`;
+          break;
+        case 'custom': {
+          const customUnit = formData.recurrence.customUnit || 'days';
+          const unitLabel = CUSTOM_UNIT_SUMMARY_LABELS[customUnit] || 'day(s)';
+          summary = `Repeats every ${intervalNumber} ${unitLabel}`;
+          break;
+        }
+        default:
+          summary = '';
+      }
+
+      if (!summary) {
+        return '';
+      }
+
+      if (formData.recurrence.endCondition === 'after') {
+        const occurrences = Number(formData.recurrence.endAfterOccurrences) || 0;
+        summary += ` - Ends after ${occurrences} occurrence${occurrences === 1 ? '' : 's'}`;
+      } else if (formData.recurrence.endCondition === 'onDate' && formData.recurrence.endDate) {
+        const formatted = new Date(formData.recurrence.endDate).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+        summary += ` - Ends on ${formatted}`;
+      } else {
+        summary += ' - No end date';
+      }
+
+      return summary;
+    });
+
     const validateAttachments = (files) => {
       if (files.length > 3) {
         return 'Maximum 3 files allowed';
@@ -1088,6 +1683,10 @@ export default {
         case 'task_desc':
           validationErrors.task_desc = touchedFields.task_desc ? validateTaskDescription(value) : '';
           break;
+        case 'collaborators':
+          // Collaborators optional validation currently not enforced; clear errors when invoked
+          validationErrors.collaborators = '';
+          break;
         case 'proj_name':
           // Project is optional, no validation needed
           validationErrors.proj_name = '';
@@ -1110,6 +1709,20 @@ export default {
           break;
         case 'priority_level':
           validationErrors.priority_level = touchedFields.priority_level ? validatePriorityLevel(value) : '';
+          break;
+        case 'recurrence':
+          validateRecurrence(markAsTouched);
+          break;
+        case 'recurrence_frequency':
+        case 'recurrence_interval':
+        case 'recurrence_weekly_days':
+        case 'recurrence_monthly_day':
+        case 'recurrence_custom_unit':
+        case 'recurrence_end':
+          if (markAsTouched) {
+            touchedFields[fieldName] = true;
+          }
+          validateRecurrence(false);
           break;
       }
     };
@@ -1141,6 +1754,34 @@ export default {
         showProjectDropdown.value = false;
       }
     }, { immediate: true });
+
+    watch(() => formData.start_date, (newStart) => {
+      if (!formData.recurrence.enabled) {
+        return;
+      }
+
+      if (formData.recurrence.frequency === 'monthly' && !formData.recurrence.monthlyDay) {
+        formData.recurrence.monthlyDay = deriveDefaultMonthlyDay();
+      }
+
+      if (formData.recurrence.frequency === 'weekly' && formData.recurrence.weeklyDays.length === 0) {
+        const defaultDay = deriveWeekdayFromDate(newStart);
+        if (defaultDay) {
+          formData.recurrence.weeklyDays = [defaultDay];
+        }
+      }
+
+      if (
+        formData.recurrence.endCondition === 'onDate' &&
+        formData.recurrence.endDate &&
+        newStart &&
+        new Date(formData.recurrence.endDate) < new Date(newStart)
+      ) {
+        formData.recurrence.endDate = newStart;
+      }
+
+      validateRecurrence(false);
+    });
 
     onMounted(() => {
       // Get current user using the helper function
@@ -1178,18 +1819,20 @@ export default {
         start_date: '',
         end_date: '',
         owner: '',
-        assigned_to: [],
-        attachments: [],
-        task_status: '',
-        priority_level: '',
-      });
+      assigned_to: [],
+      attachments: [],
+      task_status: '',
+      priority_level: '',
+      recurrence: createDefaultRecurrence(),
+    });
 
-      if (fileInput.value) {
-        fileInput.value.value = '';
-      }
+    if (fileInput.value) {
+      fileInput.value.value = '';
+    }
 
-      assignedToInput.value = '';
-      dateValidationError.value = '';
+    assignedToInput.value = '';
+    dateValidationError.value = '';
+    clearRecurrenceValidation();
       userSearch.value = '';
       closeDropdown();
       formData.owner = 'Current User';
@@ -1205,10 +1848,53 @@ export default {
 
 
     // UPDATED: Prepare form data for submission (send only user IDs)
+    const buildRecurrencePayload = () => {
+      if (!formData.recurrence?.enabled) {
+        return { enabled: false };
+      }
+
+      const intervalValue = Number(formData.recurrence.interval) || 1;
+      const payload = {
+        enabled: true,
+        frequency: formData.recurrence.frequency,
+        interval: intervalValue,
+        endCondition: formData.recurrence.endCondition,
+      };
+
+      if (formData.recurrence.frequency === 'weekly') {
+        payload.weeklyDays = [...formData.recurrence.weeklyDays];
+      }
+
+      if (formData.recurrence.frequency === 'monthly') {
+        payload.monthlyDay = formData.recurrence.monthlyDay
+          ? Number(formData.recurrence.monthlyDay)
+          : null;
+      }
+
+      if (formData.recurrence.frequency === 'custom') {
+        payload.customUnit = formData.recurrence.customUnit;
+      }
+
+      if (formData.recurrence.endCondition === 'after') {
+        payload.endAfterOccurrences = formData.recurrence.endAfterOccurrences
+          ? Number(formData.recurrence.endAfterOccurrences)
+          : null;
+      } else if (formData.recurrence.endCondition === 'onDate') {
+        payload.endDate = formData.recurrence.endDate || null;
+      }
+
+      return payload;
+    };
+
     const prepareFormDataForSubmission = () => {
-      return {
+      const baseData = {
         ...formData,
-        assigned_to: formData.assigned_to.map(user => typeof user === 'object' ? user.id : user)
+        assigned_to: formData.assigned_to.map(user => typeof user === 'object' ? user.id : user),
+      };
+
+      return {
+        ...baseData,
+        recurrence: buildRecurrencePayload(),
       };
     };
 
@@ -1237,6 +1923,7 @@ export default {
       validateField('task_status', formData.task_status, true);
       validateField('collaborators', formData.assigned_to, true);
       validateField('priority_level', formData.priority_level, true);
+      validateField('recurrence', formData.recurrence, true);
 
       // Check if form is actually valid
       if (!isFormValid.value) {
@@ -1302,6 +1989,35 @@ export default {
       if (validationErrors.priority_level) {
         hasErrors = true;
         if (!firstErrorField) firstErrorField = 'priorityLevel';
+      }
+
+      if (formData.recurrence.enabled) {
+        if (validationErrors.recurrence_frequency) {
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = 'recurrenceFrequency';
+        }
+        if (validationErrors.recurrence_interval) {
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = formData.recurrence.frequency === 'custom'
+            ? 'recurrenceIntervalCustom'
+            : 'recurrenceInterval';
+        }
+        if (validationErrors.recurrence_weekly_days) {
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = 'recurrenceFrequency';
+        }
+        if (validationErrors.recurrence_monthly_day) {
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = 'recurrenceMonthlyDay';
+        }
+        if (validationErrors.recurrence_custom_unit) {
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = 'recurrenceIntervalCustom';
+        }
+        if (validationErrors.recurrence_end) {
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = 'recurrenceToggle';
+        }
       }
 
       // If there are errors, scroll to the first one and return
@@ -1464,6 +2180,21 @@ export default {
       selectFirstMatch,
       navigateDown,
       navigateUp,
+      RECURRENCE_FREQUENCIES,
+      WEEKLY_DAY_OPTIONS,
+      CUSTOM_INTERVAL_UNITS,
+      recurrenceIntervalSuffix,
+      recurrenceEndDateMin,
+      recurrenceSummary,
+      handleRecurrenceToggle,
+      handleRecurrenceFrequencyChange,
+      handleRecurrenceIntervalChange,
+      handleWeeklyDaysChange,
+      handleMonthlyDayChange,
+      handleRecurrenceCustomUnitChange,
+      handleRecurrenceEndConditionChange,
+      handleRecurrenceOccurrencesChange,
+      handleRecurrenceEndDateChange,
 
       projects,
       isLoadingProjects,
@@ -1985,6 +2716,126 @@ export default {
 
 .remove-tag:hover {
   background-color: rgba(25, 118, 210, 0.1);
+}
+
+.recurrence-section {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+.recurrence-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recurrence-toggle-input {
+  width: 18px;
+  height: 18px;
+}
+
+.recurrence-toggle-label {
+  font-weight: 600;
+  color: #333;
+}
+
+.recurrence-helper-text {
+  margin: 8px 0 16px;
+  font-size: 0.875rem;
+  color: #555;
+}
+
+.recurrence-config {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.recurrence-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recurrence-inline-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recurrence-interval-suffix {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.recurrence-unit-select {
+  max-width: 160px;
+}
+
+.weekday-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weekday-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background-color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.weekday-option input {
+  margin: 0;
+}
+
+.recurrence-radio-group {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.recurrence-secondary-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recurrence-secondary-field .small-input {
+  max-width: 120px;
+}
+
+.secondary-label {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.recurrence-summary {
+  padding: 12px;
+  border-radius: 6px;
+  background-color: #eef5ff;
+  color: #1a3a6b;
+  font-size: 0.9rem;
+}
+
+.summary-label {
+  font-weight: 600;
+  margin-right: 6px;
 }
 
 /* Dropdown scroll styling */
