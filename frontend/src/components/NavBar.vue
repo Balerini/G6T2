@@ -8,8 +8,7 @@
         <div class="navbar-right">
           <router-link to="/" class="navbar-link">Dashboard</router-link>
           <router-link to="/projects" class="navbar-link">Projects</router-link>
-          <router-link to="/" class="navbar-link">Free slot</router-link>
-          <router-link to="" class="navbar-link">My Schedule</router-link>
+          <router-link to="/my-schedule" class="navbar-link">My Schedule</router-link>
           
           <!-- Notification Bell -->
           <div class="notification-wrapper" @click="toggleNotifications">
