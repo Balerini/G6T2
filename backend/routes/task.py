@@ -13,7 +13,7 @@ tasks_bp = Blueprint('tasks', __name__)
 def create_task():
     try:
         task_data = request.get_json()
-        print(f"=== BACKEND TASK CREATION DEBUG ===")
+        print("=== BACKEND TASK CREATION DEBUG ===")
         print(f"Received task data: {task_data}")
         print(f"Priority level received: {task_data.get('priority_level')}")  # Changed to priority_level
         

@@ -162,7 +162,12 @@ def get_team_total_count_tasks(user_id):
         if not user_info:
             return jsonify({'error': 'User not found'}), 404
         
-        if user_info.get('role_num', 4) > 3:
+        role_num = user_info.get('role_num', 4)
+        # Convert to int if it's a string
+        if isinstance(role_num, str):
+            role_num = int(role_num)
+        
+        if role_num > 3:
             return jsonify({'error': 'Unauthorized - Manager access only'}), 403
         
         division_name = user_info.get('division_name')
@@ -218,7 +223,12 @@ def get_team_task_count_by_status(user_id):
         if not user_info:
             return jsonify({'error': 'User not found'}), 404
         
-        if user_info.get('role_num', 4) > 3:
+        role_num = user_info.get('role_num', 4)
+        # Convert to int if it's a string
+        if isinstance(role_num, str):
+            role_num = int(role_num)
+        
+        if role_num > 3:
             return jsonify({'error': 'Unauthorized - Manager access only'}), 403
         
         division_name = user_info.get('division_name')
@@ -272,7 +282,12 @@ def get_team_task_count_by_staff(user_id):
         if not user_info:
             return jsonify({'error': 'User not found'}), 404
         
-        if user_info.get('role_num', 4) > 3:
+        role_num = user_info.get('role_num', 4)
+        # Convert to int if it's a string
+        if isinstance(role_num, str):
+            role_num = int(role_num)
+        
+        if role_num > 3:
             return jsonify({'error': 'Unauthorized - Manager access only'}), 403
         
         division_name = user_info.get('division_name')
@@ -346,7 +361,12 @@ def get_manager_tasks_by_priority(user_id):
         if not user_info:
             return jsonify({'error': 'User not found'}), 404
         
-        if user_info.get('role_num', 4) > 3:
+        role_num = user_info.get('role_num', 4)
+        # Convert to int if it's a string
+        if isinstance(role_num, str):
+            role_num = int(role_num)
+        
+        if role_num > 3:
             return jsonify({'error': 'Unauthorized - Manager access only'}), 403
         
         division_name = user_info.get('division_name')
@@ -430,7 +450,12 @@ def get_manager_pending_tasks_by_age(user_id):
         if not user_info:
             return jsonify({'error': 'User not found'}), 404
         
-        if user_info.get('role_num', 4) > 3:
+        role_num = user_info.get('role_num', 4)
+        # Convert to int if it's a string
+        if isinstance(role_num, str):
+            role_num = int(role_num)
+        
+        if role_num > 3:
             return jsonify({'error': 'Unauthorized - Manager access only'}), 403
         
         division_name = user_info.get('division_name')
@@ -552,7 +577,225 @@ def get_manager_pending_tasks_by_age(user_id):
 
 # =============== NORMAL STAFF WHOSE ROLE_NUM IN DB = 4 ===============
 
-# =============== COUNT TOTAL NUMBER OF TASKS THAT STAFF HAS ===============
-# =============== COUNT TOTAL NUMBER OF TASKS WITH UNIQUE STATUS ===============
-# =============== COUNT TOTAL NUMBER OF TASKS BY PRIORITY ===============
-# =============== PENDING TASKS YET TO BE COMPLETED BY AGE ===============
+# =============== STAFF: COUNT TOTAL NUMBER OF TASKS ===============
+@dashboard_bp.route('/api/dashboard/staff/total-tasks/<user_id>', methods=['GET'])
+def get_staff_total_tasks(user_id):
+    """Get total number of tasks assigned to a staff member"""
+    try:
+        print(f"=== STAFF TOTAL TASKS ENDPOINT ===")
+        print(f"User ID: {user_id}")
+        
+        # Get staff info
+        user_info = get_user_info(user_id)
+        print(f"User info: {user_info}")
+        
+        if not user_info:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # This endpoint is for staff only (role_num = 4)
+        role_num = user_info.get('role_num', 999)
+        if isinstance(role_num, str):
+            role_num = int(role_num)
+        print(f"User role_num: {role_num}")
+        
+        if role_num != 4:
+            return jsonify({'error': f'Unauthorized - Staff access only (your role_num: {role_num})'}), 403
+        
+        # Count tasks assigned to this staff member
+        db = get_firestore_client()
+        tasks_ref = db.collection('Tasks')
+        
+        tasks_query = tasks_ref.where('assigned_to', 'array_contains', user_id)
+        tasks = list(tasks_query.stream())
+        
+        total_count = len(tasks)
+        print(f"Total tasks found: {total_count}")
+        
+        return jsonify({
+            'total_tasks': total_count,
+            'staff_count': 1
+        }), 200
+        
+    except Exception as e:
+        print(f"Error getting staff total tasks: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+# =============== STAFF: COUNT TASKS BY STATUS ===============
+@dashboard_bp.route('/api/dashboard/staff/tasks-by-status/<user_id>', methods=['GET'])
+def get_staff_tasks_by_status(user_id):
+    """Get count of tasks by status for a staff member"""
+    try:
+        user_info = get_user_info(user_id)
+        if not user_info:
+            return jsonify({'error': 'User not found'}), 404
+        
+        role_num = user_info.get('role_num', 999)
+        if isinstance(role_num, str):
+            role_num = int(role_num)
+        
+        if role_num != 4:
+            return jsonify({'error': 'Unauthorized - Staff access only'}), 403
+        
+        db = get_firestore_client()
+        tasks_ref = db.collection('Tasks')
+        
+        tasks_query = tasks_ref.where('assigned_to', 'array_contains', user_id)
+        tasks = tasks_query.stream()
+        
+        status_counts = {}
+        for task in tasks:
+            task_data = task.to_dict()
+            status = task_data.get('task_status', 'Unknown')
+            status_counts[status] = status_counts.get(status, 0) + 1
+        
+        return jsonify({'tasks_by_status': status_counts}), 200
+        
+    except Exception as e:
+        print(f"Error getting staff tasks by status: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+# =============== STAFF: COUNT TASKS BY PRIORITY ===============
+@dashboard_bp.route('/api/dashboard/staff/tasks-by-priority/<user_id>', methods=['GET'])
+def get_staff_tasks_by_priority(user_id):
+    """Get count of tasks by priority for a staff member"""
+    try:
+        user_info = get_user_info(user_id)
+        if not user_info:
+            return jsonify({'error': 'User not found'}), 404
+        
+        role_num = user_info.get('role_num', 999)
+        if isinstance(role_num, str):
+            role_num = int(role_num)
+        
+        if role_num != 4:
+            return jsonify({'error': 'Unauthorized - Staff access only'}), 403
+        
+        def get_priority_category(priority_level):
+            if priority_level is None or priority_level == 'N/A':
+                return 'Others'
+            try:
+                num = int(priority_level)
+                if num >= 8:
+                    return 'High'
+                elif num >= 4:
+                    return 'Medium'
+                else:
+                    return 'Low'
+            except (ValueError, TypeError):
+                return 'Others'
+        
+        db = get_firestore_client()
+        tasks_ref = db.collection('Tasks')
+        
+        tasks_query = tasks_ref.where('assigned_to', 'array_contains', user_id)
+        tasks = tasks_query.stream()
+        
+        priority_counts = {'High': 0, 'Medium': 0, 'Low': 0, 'Others': 0}
+        
+        for task in tasks:
+            task_data = task.to_dict()
+            priority_level = task_data.get('priority_level')
+            category = get_priority_category(priority_level)
+            priority_counts[category] = priority_counts.get(category, 0) + 1
+        
+        if priority_counts['Others'] == 0:
+            del priority_counts['Others']
+        
+        return jsonify({'tasks_by_priority': priority_counts}), 200
+        
+    except Exception as e:
+        print(f"Error getting staff tasks by priority: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+# =============== STAFF: PENDING TASKS BY AGE ===============
+@dashboard_bp.route('/api/dashboard/staff/pending-tasks-by-age/<user_id>', methods=['GET'])
+def get_staff_pending_tasks_by_age(user_id):
+    """Get pending tasks categorized by due date for a staff member"""
+    try:
+        user_info = get_user_info(user_id)
+        if not user_info:
+            return jsonify({'error': 'User not found'}), 404
+        
+        role_num = user_info.get('role_num', 999)
+        if isinstance(role_num, str):
+            role_num = int(role_num)
+        
+        if role_num != 4:
+            return jsonify({'error': 'Unauthorized - Staff access only'}), 403
+        
+        db = get_firestore_client()
+        tasks_ref = db.collection('Tasks')
+        
+        tasks_query = tasks_ref.where('assigned_to', 'array_contains', user_id)
+        tasks = tasks_query.stream()
+        
+        age_categories = {
+            'overdue': [], 'due_today': [], 'due_in_1_day': [], 'due_in_3_days': [],
+            'due_in_a_week': [], 'due_in_2_weeks': [], 'due_in_a_month': [], 'due_later': []
+        }
+        
+        current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        for task in tasks:
+            task_data = task.to_dict()
+            end_date = task_data.get('end_date')
+            if not end_date:
+                continue
+            
+            end_date_normalized = end_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+            days_diff = (end_date_normalized - current_date).days
+            
+            task_detail = {
+                'task_id': task.id,
+                'task_name': task_data.get('task_name', 'Untitled'),
+                'task_status': task_data.get('task_status', 'Unknown'),
+                'priority_level': task_data.get('priority_level', 'N/A'),
+                'proj_name': task_data.get('proj_name', ''),
+                'proj_id': task_data.get('proj_ID'),
+                'end_date': end_date.isoformat() if end_date else None,
+                'days_until_due': days_diff
+            }
+            
+            if days_diff < 0:
+                age_categories['overdue'].append(task_detail)
+            elif days_diff == 0:
+                age_categories['due_today'].append(task_detail)
+            elif days_diff == 1:
+                age_categories['due_in_1_day'].append(task_detail)
+            elif days_diff <= 3:
+                age_categories['due_in_3_days'].append(task_detail)
+            elif days_diff <= 7:
+                age_categories['due_in_a_week'].append(task_detail)
+            elif days_diff <= 14:
+                age_categories['due_in_2_weeks'].append(task_detail)
+            elif days_diff <= 30:
+                age_categories['due_in_a_month'].append(task_detail)
+            else:
+                age_categories['due_later'].append(task_detail)
+        
+        for category in age_categories:
+            age_categories[category].sort(key=lambda x: x['days_until_due'])
+        
+        summary = {
+            'overdue': len(age_categories['overdue']),
+            'due_today': len(age_categories['due_today']),
+            'due_in_1_day': len(age_categories['due_in_1_day']),
+            'due_in_3_days': len(age_categories['due_in_3_days']),
+            'due_in_a_week': len(age_categories['due_in_a_week']),
+            'due_in_2_weeks': len(age_categories['due_in_2_weeks']),
+            'due_in_a_month': len(age_categories['due_in_a_month']),
+            'due_later': len(age_categories['due_later']),
+        }
+        
+        return jsonify({
+            'pending_tasks_by_age': age_categories,
+            'summary': summary
+        }), 200
+        
+    except Exception as e:
+        print(f"Error getting staff pending tasks by age: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
