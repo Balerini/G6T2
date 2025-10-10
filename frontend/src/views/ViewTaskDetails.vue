@@ -366,68 +366,16 @@
     <!-- Edit Task Modal -->
     <EditTask v-if="selectedTask" :visible="showEdit" :task="selectedTask" :users="users" @close="showEdit = false" @saved="onTaskSaved" />
 
-    <!-- Transfer Ownership Modal -->
-    <div v-if="showTransferModal" class="modal-overlay" @click="closeTransferModal">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>Transfer Task Ownership</h3>
-          <button @click="closeTransferModal" class="close-btn">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="transfer-form">
-            <div class="current-owner-info">
-              <h4>Current Owner</h4>
-              <div class="user-info">
-                <div class="user-avatar creator">
-                  {{ getInitials(getCreatorName(task.owner)) }}
-                </div>
-                <div class="user-details">
-                  <p class="user-name">{{ getCreatorName(task.owner) }}</p>
-                  <p class="user-role">Current Owner</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="new-owner-selection">
-              <h4>Select New Owner</h4>
-              <div v-if="transferEligibleUsers.length === 0" class="no-eligible-users">
-                <p>No eligible users found for ownership transfer.</p>
-                <p class="explanation">{{ getTransferRestrictionExplanation() }}</p>
-              </div>
-              <div v-else class="user-selection-list">
-                <div 
-                  v-for="user in transferEligibleUsers" 
-                  :key="user.id" 
-                  class="user-selection-item"
-                  :class="{ selected: selectedNewOwner === user.id }"
-                  @click="selectedNewOwner = user.id"
-                >
-                  <div class="user-avatar assignee">
-                    {{ getInitials(user.name) }}
-                  </div>
-                  <div class="user-details">
-                    <p class="user-name">{{ user.name }}</p>
-                  </div>
-                  <div class="selection-indicator">
-                    {{ selectedNewOwner === user.id ? '✓' : '' }}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="modal-actions">
-              <button @click="closeTransferModal" class="cancel-btn">Cancel</button>
-              <button 
-                @click="showTransferConfirmation" 
-                class="transfer-btn"
-                :disabled="!selectedNewOwner || transferring">
-                {{ transferring ? 'Transferring...' : 'Transfer Ownership' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Transfer Ownership Component -->
+    <TransferOwnership 
+      :visible="showTransferModal"
+      :task="task"
+      :users="users"
+      :taskCollaborators="getTaskCollaborators()"
+      @close="closeTransferModal"
+      @transfer-success="handleTransferSuccess"
+      @transfer-error="handleTransferError"
+    />
 
     <!-- Confirmation Modal -->
     <div v-if="showConfirmationModal" class="modal-overlay" @click="cancelConfirmation">
@@ -465,6 +413,7 @@ import { taskService } from '../services/taskService.js'
 import SubtaskForm from '../components/SubTaskForm.vue'
 import EditTask from '../components/EditTask.vue'
 import EditSubtaskForm from '../components/EditSubtaskForm.vue' 
+import TransferOwnership from '../components/TransferOwnership.vue'
 import { storage } from '../firebase.js'
 import { ref as storageRef, getBlob } from 'firebase/storage'
 
@@ -473,7 +422,8 @@ export default {
   components: {
     SubtaskForm,
     EditTask,
-    EditSubtaskForm
+    EditSubtaskForm,
+    TransferOwnership
   },
   data() {
     return {
@@ -496,10 +446,6 @@ export default {
       showEditSubtaskModal: false,
       selectedSubtask: null,
       showTransferModal: false,
-      selectedNewOwner: null,
-      transferring: false,
-      transferEligibleUsers: [],
-      showConfirmationModal: false,
     }
   },
   created() {
@@ -1149,131 +1095,34 @@ export default {
             currentUser.role_num === 3;
     },
 
-    // Open transfer modal and load eligible users
-    async openTransferModal() {
+    // Open transfer modal
+    openTransferModal() {
       this.showTransferModal = true;
-      this.selectedNewOwner = null;
-      await this.loadTransferEligibleUsers();
     },
 
     // Close transfer modal
     closeTransferModal() {
       this.showTransferModal = false;
-      this.selectedNewOwner = null;
-      this.transferEligibleUsers = [];
     },
 
-    async loadTransferEligibleUsers() {
-      try {
-        const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
-        const currentUserRole = currentUser.role_num;
-        
-        console.log('Current user role:', currentUserRole);
-        
-        // Only get task assignees
-        let eligibleUsers = this.getTaskCollaborators();
-        
-        console.log('Task collaborators:', eligibleUsers);
-        
-        // If task has no assignees, show empty list
-        if (!eligibleUsers || eligibleUsers.length === 0) {
-          console.log('No task collaborators found');
-          this.transferEligibleUsers = [];
-          return;
-        }
-        
-        // Managers (role_num = 3) can only transfer to staff (role_num = 4)
-        if (currentUserRole === 3) {
-          this.transferEligibleUsers = eligibleUsers
-            .filter(user => {
-              const userRole = user.role_num || user.rank || 4;
-              console.log(`User ${user.name} has role_num: ${userRole}`);
-              // Only allow transfer to staff with role_num = 4
-              return userRole === 4 && String(user.id) !== String(currentUser.id);
-            })
-            .sort((a, b) => {
-              const roleA = a.role_num || a.rank || 4;
-              const roleB = b.role_num || b.rank || 4;
-              if (roleA !== roleB) return roleA - roleB;
-              return a.name.localeCompare(b.name);
-            });
-        } else {
-          this.transferEligibleUsers = [];
-        }
-        
-        console.log('Final eligible users:', this.transferEligibleUsers);
-        
-      } catch (error) {
-        console.error('Error loading transfer eligible users:', error);
-        this.transferEligibleUsers = [];
-      }
-    },
-
-    // Get explanation for transfer restrictions
-    getTransferRestrictionExplanation() {
-      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+    // Handle transfer success
+    handleTransferSuccess(data) {
+      // Update local task data
+      this.task.owner = data.newOwnerId;
       
-      if (currentUser.role_num === 3) {
-        return `As a manager, you can only transfer ownership to staff members who are assigned to this task.`;
-      } else {
-        return `Only managers can transfer task ownership.`;
-      }
+      // Show success message
+      this.successMessage = data.message;
+      setTimeout(() => {
+        this.successMessage = '';
+      }, 4000);
     },
 
-    // Transfer ownership
-    async transferOwnership() {
-      if (!this.selectedNewOwner || this.transferring) return;
-      
-      try {
-        this.transferring = true;
-        
-        // Update the task's owner field using the imported service
-        const updateData = {
-          owner: this.selectedNewOwner
-        };
-        
-        // Use the imported taskService directly
-        await taskService.updateTask(this.task.id, updateData);
-        
-        // Update local task data
-        this.task.owner = this.selectedNewOwner;
-        
-        // Show success message
-        this.successMessage = '✅ Task ownership transferred successfully!';
-        this.closeTransferModal();
-        
-        // Clear success message after delay
-        setTimeout(() => {
-          this.successMessage = '';
-        }, 4000);
-        
-      } catch (error) {
-        console.error('Error transferring ownership:', error);
-        this.errorMessage = `❌ Failed to transfer ownership: ${error.message}`;
-        
-        setTimeout(() => {
-          this.errorMessage = '';
-        }, 5000);
-      } finally {
-        this.transferring = false;
-      }
-    },
-
-    // Show confirmation modal
-    showTransferConfirmation() {
-      if (!this.selectedNewOwner || this.transferring) return;
-      this.showConfirmationModal = true;
-    },
-
-    // Cancel confirmation
-    cancelConfirmation() {
-      this.showConfirmationModal = false;
-    },
-
-    // Confirm and transfer
-    async confirmTransferOwnership() {
-      this.showConfirmationModal = false;
-      await this.transferOwnership();
+    // Handle transfer error
+    handleTransferError(message) {
+      this.errorMessage = message;
+      setTimeout(() => {
+        this.errorMessage = '';
+      }, 5000);
     },
 
     // Subtask Modal
@@ -2300,137 +2149,44 @@ export default {
   background: #2563eb;
 }
 
-/* Transfer Ownership Styles */
+/* Transfer Ownership Button - Green Version */
 .transfer-ownership-btn {
-  background: #059669;
+  background: #10b981; /* Green background */
   color: white;
   border: none;
   padding: 8px 16px;
   border-radius: 6px;
-  cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: background-color 0.2s;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  outline: none;
 }
 
 .transfer-ownership-btn:hover {
-  background: #047857;
+  background: #059669; /* Darker green on hover */
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3); /* Green shadow */
 }
 
-.modal-body {
-  padding: 24px;
+.transfer-ownership-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
 }
 
-.transfer-form {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+.transfer-ownership-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3); /* Green focus ring */
 }
 
-.current-owner-info h4,
-.new-owner-selection h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 12px 0;
-}
-
-.no-eligible-users {
-  padding: 20px;
-  background: #fef3c7;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.no-eligible-users p {
-  margin: 0 0 8px 0;
-  color: #92400e;
-}
-
-.explanation {
-  font-size: 14px;
-  font-style: italic;
-}
-
-.user-selection-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.user-selection-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.user-selection-item:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
-}
-
-.user-selection-item.selected {
-  background: #eff6ff;
-  border-color: #3b82f6;
-}
-
-.selection-indicator {
-  margin-left: auto;
-  font-size: 18px;
-  color: #10b981;
-  font-weight: bold;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.cancel-btn {
-  background: #f3f4f6;
-  color: #374151;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.cancel-btn:hover {
-  background: #e5e7eb;
-}
-
-.transfer-btn {
-  background: #3b82f6;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.transfer-btn:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.transfer-btn:disabled {
+.transfer-ownership-btn:disabled {
   background: #9ca3af;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* Edit Subtask Button */
