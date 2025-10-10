@@ -80,7 +80,7 @@
               <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
                 {{ formatStatus(task.task_status) }}
               </div>
-              <button @click="openTransferModal" class="transfer-ownership-btn">
+              <button @click="openTransferModal" class="transfer-ownership-btn" v-if="canTransferOwnership()">
                 🔄 Transfer Ownership
               </button>
               <button @click="openEditModal" class="edit-task-btn" v-if="task">
@@ -123,7 +123,7 @@
                   </div>
                   <div class="user-details">
                     <p class="user-name">{{ getCreatorName(task.owner) }}</p>
-                    <p class="user-role">Creator</p>
+                    <p class="user-role">Owner</p>
                   </div>
                 </div>
                 <p v-else class="info-value empty">Not assigned</p>
@@ -407,7 +407,6 @@
                   </div>
                   <div class="user-details">
                     <p class="user-name">{{ user.name }}</p>
-                    <p class="user-role">{{ user.department || user.division_name }} - Role {{ user.role_num }}</p>
                   </div>
                   <div class="selection-indicator">
                     {{ selectedNewOwner === user.id ? '✓' : '' }}
@@ -815,7 +814,9 @@ export default {
           id: user.id,
           name: user.name,
           email: user.email || '',
-          department: user.department || 'Unknown'
+          department: user.department || 'Unknown',
+          role_num: user.role_num || 4,  // Add this line
+          rank: user.role_num || 4       // Add this line for compatibility
         } : null;
       }).filter(user => user !== null);
     },
@@ -842,9 +843,34 @@ export default {
       this.showEdit = true;
     },
 
-    onTaskSaved(updated) {
+    async onTaskSaved(updated) {
       this.showEdit = false;
       this.task = { ...this.task, ...updated };
+      
+      // Refresh project data to get updated collaborators
+      await this.refreshProjectData();
+      
+      // Show success message
+      this.successMessage = '✅ Task updated successfully!';
+      setTimeout(() => {
+          this.successMessage = '';
+      }, 3000);
+    },
+
+    async refreshProjectData() {
+      try {
+          const allProjects = await projectService.getAllProjects();
+          const updatedProject = allProjects.find(proj => 
+              String(proj.id) === String(this.parentProject.id)
+          );
+          
+          if (updatedProject) {
+              this.parentProject = updatedProject;
+              console.log('Project data refreshed with updated collaborators');
+          }
+      } catch (error) {
+          console.error('Error refreshing project data:', error);
+      }
     },
 
     async loadSubtasks() {
@@ -1089,13 +1115,11 @@ export default {
     },
     // Check if current user can transfer ownership
     canTransferOwnership() {
-      if (!this.task) return false;
-      
       const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
-      const userId = currentUser.id;
       
-      // Only the current owner can transfer ownership
-      return String(this.task.owner) === String(userId);
+      // Check if user is the owner AND has manager role (role_num = 3)
+      return String(this.task.owner) === String(currentUser.id) && 
+            currentUser.role_num === 3;
     },
 
     // Open transfer modal and load eligible users
@@ -1112,48 +1136,45 @@ export default {
       this.transferEligibleUsers = [];
     },
 
-    // Load users eligible for ownership transfer
     async loadTransferEligibleUsers() {
       try {
         const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
         const currentUserRole = currentUser.role_num;
-        const currentUserDept = currentUser.department || currentUser.division_name;
         
-        let eligibleUsers = [];
+        console.log('Current user role:', currentUserRole);
         
-        if (this.parentProject) {
-          // Task has a project - can transfer to any project collaborator
-          eligibleUsers = this.getProjectCollaborators();
-        } else {
-          // Task has no project - can only transfer within same department
-          eligibleUsers = this.users
-            .filter(user => {
-              const userDept = user.department || user.division_name;
-              return userDept === currentUserDept;
-            })
-            .map(user => ({
-              id: user.id,
-              name: user.name,
-              email: user.email || '',
-              department: user.department || user.division_name,
-              role_num: user.role_num || 4
-            }));
+        // Only get task assignees
+        let eligibleUsers = this.getTaskCollaborators();
+        
+        console.log('Task collaborators:', eligibleUsers);
+        
+        // If task has no assignees, show empty list
+        if (!eligibleUsers || eligibleUsers.length === 0) {
+          console.log('No task collaborators found');
+          this.transferEligibleUsers = [];
+          return;
         }
         
-        // Filter by role hierarchy: can only transfer to same level or lower position
-        // Lower role_num = higher position, so filter for role_num >= current user's role_num
-        this.transferEligibleUsers = eligibleUsers
-          .filter(user => {
-            const userRole = user.role_num || user.rank || 4;
-            return userRole >= currentUserRole && String(user.id) !== String(currentUser.id);
-          })
-          .sort((a, b) => {
-            // Sort by role first (lower numbers first), then by name
-            const roleA = a.role_num || a.rank || 4;
-            const roleB = b.role_num || b.rank || 4;
-            if (roleA !== roleB) return roleA - roleB;
-            return a.name.localeCompare(b.name);
-          });
+        // Managers (role_num = 3) can only transfer to staff (role_num = 4)
+        if (currentUserRole === 3) {
+          this.transferEligibleUsers = eligibleUsers
+            .filter(user => {
+              const userRole = user.role_num || user.rank || 4;
+              console.log(`User ${user.name} has role_num: ${userRole}`);
+              // Only allow transfer to staff with role_num = 4
+              return userRole === 4 && String(user.id) !== String(currentUser.id);
+            })
+            .sort((a, b) => {
+              const roleA = a.role_num || a.rank || 4;
+              const roleB = b.role_num || b.rank || 4;
+              if (roleA !== roleB) return roleA - roleB;
+              return a.name.localeCompare(b.name);
+            });
+        } else {
+          this.transferEligibleUsers = [];
+        }
+        
+        console.log('Final eligible users:', this.transferEligibleUsers);
         
       } catch (error) {
         console.error('Error loading transfer eligible users:', error);
@@ -1164,12 +1185,11 @@ export default {
     // Get explanation for transfer restrictions
     getTransferRestrictionExplanation() {
       const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
-      const currentUserRole = currentUser.role_num;
       
-      if (this.parentProject) {
-        return `You can transfer ownership to any project collaborator with role ${currentUserRole} or higher number (lower/equal position).`;
+      if (currentUser.role_num === 3) {
+        return `As a manager, you can only transfer ownership to staff members who are assigned to this task.`;
       } else {
-        return `You can transfer ownership to users in your department (${currentUser.department || currentUser.division_name}) with role ${currentUserRole} or higher number (lower/equal position).`;
+        return `Only managers can transfer task ownership.`;
       }
     },
 
