@@ -32,6 +32,7 @@ def create_subtask():
             'parent_task_id': data['parent_task_id'],
             'project_id': data['project_id'],
             'assigned_to': data.get('assigned_to', []),
+            'owner': data.get('owner'),
             'attachments': data.get('attachments', []),
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
@@ -55,6 +56,7 @@ def create_subtask():
                 'parent_task_id': subtask_data['parent_task_id'],
                 'project_id': subtask_data['project_id'],
                 'assigned_to': subtask_data['assigned_to'],
+                'owner': subtask_data.get('owner'),
                 'attachments': subtask_data['attachments']
             }
         }
@@ -129,6 +131,9 @@ def update_subtask(subtask_id):
             update_data['attachments'] = data['attachments']
         if 'status_history' in data:
             update_data['status_history'] = data['status_history']
+        if 'owner' in data:
+            update_data['owner'] = git sdata['owner']
+        
         
         # Always update the timestamp
         update_data['updatedAt'] = firestore.SERVER_TIMESTAMP
@@ -158,6 +163,7 @@ def update_subtask(subtask_id):
                 'parent_task_id': updated_subtask.get('parent_task_id'),
                 'project_id': updated_subtask.get('project_id'),
                 'assigned_to': updated_subtask.get('assigned_to', []),
+                'owner': updated_subtask.get('owner'),
                 'attachments': updated_subtask.get('attachments', []),
                 'status_history': updated_subtask.get('status_history', [])
             }
