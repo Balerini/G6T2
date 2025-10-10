@@ -10,6 +10,7 @@ from routes.project import projects_bp
 from routes.task import tasks_bp 
 from routes.subtask import subtask_bp
 from routes.dashboard import dashboard_bp
+from services.notification_service import notification_service
 
 def validate_password(password):
     """Validate password requirements"""
@@ -68,6 +69,11 @@ def create_app() -> Flask:
 
     CORS(app, resources={r"/*": {"origins": ["http://localhost:8080", "http://localhost:8081", "http://127.0.0.1:8080", "http://127.0.0.1:8081"]}}, supports_credentials=True)
     get_firebase_app()
+    
+    # Log all incoming requests
+    @app.before_request
+    def log_request():
+        print(f"\n🌐 {request.method} {request.path}")
 
     # Register blueprints here
     # =============== Project routes ===============
@@ -238,7 +244,90 @@ def create_app() -> Flask:
             
         except Exception as e:
             return jsonify({"ok": False, "error": f"Database error: {str(e)}"}), 500
-        
+    
+    # =============== NOTIFICATION ROUTES ===============
+    
+    @app.route("/api/notifications/<user_id>", methods=["GET"])
+    def get_notifications(user_id):
+        """Get notifications for a user"""
+        try:
+            unread_only = request.args.get('unread_only', 'false').lower() == 'true'
+            limit = int(request.args.get('limit', 50))
+            
+            notifications = notification_service.get_user_notifications(
+                user_id=user_id,
+                unread_only=unread_only,
+                limit=limit
+            )
+            
+            return jsonify({
+                "ok": True,
+                "notifications": notifications
+            }), 200
+            
+        except Exception as e:
+            print(f"Error getting notifications: {str(e)}")
+            return jsonify({"ok": False, "error": str(e)}), 500
+    
+    @app.route("/api/notifications/<notification_id>/read", methods=["PUT"])
+    def mark_notification_read(notification_id):
+        """Mark a notification as read"""
+        try:
+            success = notification_service.mark_as_read(notification_id)
+            
+            if success:
+                return jsonify({"ok": True, "message": "Notification marked as read"}), 200
+            else:
+                return jsonify({"ok": False, "error": "Notification not found"}), 404
+                
+        except Exception as e:
+            print(f"Error marking notification as read: {str(e)}")
+            return jsonify({"ok": False, "error": str(e)}), 500
+    
+    @app.route("/api/notifications/<user_id>/mark-all-read", methods=["PUT"])
+    def mark_all_notifications_read(user_id):
+        """Mark all notifications as read for a user"""
+        try:
+            count = notification_service.mark_all_as_read(user_id)
+            
+            return jsonify({
+                "ok": True,
+                "message": f"Marked {count} notifications as read"
+            }), 200
+            
+        except Exception as e:
+            print(f"Error marking all notifications as read: {str(e)}")
+            return jsonify({"ok": False, "error": str(e)}), 500
+    
+    @app.route("/api/notifications/<notification_id>", methods=["DELETE"])
+    def delete_notification(notification_id):
+        """Delete a notification"""
+        try:
+            success = notification_service.delete_notification(notification_id)
+            
+            if success:
+                return jsonify({"ok": True, "message": "Notification deleted"}), 200
+            else:
+                return jsonify({"ok": False, "error": "Notification not found"}), 404
+                
+        except Exception as e:
+            print(f"Error deleting notification: {str(e)}")
+            return jsonify({"ok": False, "error": str(e)}), 500
+    
+    @app.route("/api/notifications/check-deadlines", methods=["POST"])
+    def check_deadlines():
+        """Check for upcoming deadlines and create notifications"""
+        try:
+            notification_service.notify_upcoming_deadlines()
+            
+            return jsonify({
+                "ok": True,
+                "message": "Deadline check completed"
+            }), 200
+            
+        except Exception as e:
+            print(f"Error checking deadlines: {str(e)}")
+            return jsonify({"ok": False, "error": str(e)}), 500
 
     return app
 
