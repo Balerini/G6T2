@@ -71,16 +71,21 @@ def create_subtask():
 @subtask_bp.route('/tasks/<task_id>/subtasks', methods=['GET'])
 def get_task_subtasks(task_id):
     try:
+        print(f"Fetching subtasks for task_id: {task_id}")
         db = get_firestore_client()
-        subtasks = db.collection('subtasks').where('parentTaskId', '==', task_id).get()
+        subtasks = db.collection('subtasks').where('parent_task_id', '==', task_id).get()
+
+        print(f"Found {len(subtasks)} subtasks")
         
         subtasks_list = []
         for subtask in subtasks:
             subtask_data = subtask.to_dict()
             subtask_data['id'] = subtask.id
             subtasks_list.append(subtask_data)
+            print(f"  - Subtask: {subtask_data.get('name')} (ID: {subtask.id})")
         
         return jsonify({'subtasks': subtasks_list}), 200
         
     except Exception as e:
+        print(f"Error fetching subtasks: {str(e)}")
         return jsonify({'error': str(e)}), 500

@@ -123,8 +123,8 @@ export const taskService = {
 
   async getSubtasksByTask(taskId) {
     try {
-      const response = await api.get(`/tasks/${taskId}/subtasks`);
-      return response.data;
+      const response = await api.get(`/api/tasks/${taskId}/subtasks`);
+      return response.data.subtasks || [];
     } catch (error) {
       throw new Error(error.response?.data?.error || 'Failed to fetch subtasks');
     }

@@ -257,6 +257,7 @@
                 </div>
 
                 <div class="accordion-toggle">
+                  <span class="view-details-text">View Details</span>
                   <span class="toggle-icon">{{ expandedSubtask === index ? '▼' : '▶' }}</span>
                 </div>
               </div>
