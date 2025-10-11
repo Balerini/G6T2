@@ -1161,7 +1161,8 @@ const handleSubmit = async () => {
       parent_task_id: props.parentTaskId,
       project_id: props.parentProjectId,
       assigned_to: selectedCollaborators.value.map(collab => collab.id),
-      attachments: uploadedAttachments
+      attachments: uploadedAttachments,
+      owner: userId
     };
     
     console.log('Creating subtask with data:', subtaskData);
