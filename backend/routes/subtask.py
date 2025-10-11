@@ -99,6 +99,23 @@ def update_subtask(subtask_id):
         print(f"=== BACKEND SUBTASK UPDATE DEBUG ===")
         print(f"Updating subtask ID: {subtask_id}")
         print(f"Received update data: {data}")
+
+        # Get user info first, for all updates, not just ownership trf
+        current_user_id = request.headers.get('X-User-Id')
+        current_user_role = request.headers.get('X-User-Role')
+
+        # Validate user info is provided
+        if not current_user_id:
+            return jsonify({'error': 'User authentication required - missing user ID'}), 401
+        
+        if not current_user_role:
+            return jsonify({'error': 'User authentication required - missing user role'}), 401
+        
+        # Validate role is a valid num
+        try:
+            current_user_role = int(current_user_role)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid user role format'}), 400
         
         # Get Firestore client
         db = get_firestore_client()
@@ -110,6 +127,24 @@ def update_subtask(subtask_id):
         if not subtask_doc.exists:
             print(f"Subtask not found: {subtask_id}")
             return jsonify({'error': 'Subtask not found'}), 404
+        
+        subtask_data = subtask_doc.to_dict()
+
+        # Validate ownership transfer
+        if 'owner' in data:
+            # Check if current user is the owner
+            if str(subtask_data.get('owner')) != str(current_user_id):
+                return jsonify({'error': 'Only the subtask owner can transfer ownership'}), 403
+            
+            # Check if current user is a manager
+            if current_user_role != 3:
+                return jsonify({'error': 'Only managers can transfer subtask ownership'}), 403
+            
+            # Check if new owner is in assigned_to list
+            new_owner_id = data['owner']
+            assigned_to = subtask_data.get('assigned_to', [])
+            if str(new_owner_id) not in [str(id) for id in assigned_to]:
+                return jsonify({'error': 'New owner must be assigned to the subtask'}), 400
         
         # Prepare update data
         update_data = {}

@@ -137,7 +137,16 @@ export const taskService = {
 
   async updateSubtask(subtaskId, subtaskData) {
     try {
-      const response = await api.put(`/api/subtasks/${subtaskId}`, subtaskData);
+      // Get current user info from session storage
+      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+
+      // Include user authentication headers 
+      const response = await api.put(`/api/subtasks/${subtaskId}`, subtaskData, {
+        headers: {
+          'X-User-Id': currentUser.id,
+          'X-User-Role': currentUser.role_num || currentUser.rank || 4
+        }
+      });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.error || 'Failed to update subtask');
