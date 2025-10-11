@@ -14,23 +14,14 @@
         {{ errorMessage }}
       </div>
       
-      <!-- Form Header with Close Button -->
       <div class="form-header">
         <h2 class="form-title">Edit Subtask</h2>
         <div class="header-actions">
-          <button 
-            v-if="canTransferOwnership"
-            type="button" 
-            class="transfer-ownership-btn" 
-            @click="openTransferModal"
-            title="Transfer ownership of this subtask"
-          >
-            🔄 Transfer Ownership
-          </button>
+          <!-- Remove the transfer ownership button from here -->
           <button
             type="button" 
             class="close-btn" 
-            @click="handleCancel"
+            @click="handleCancel" 
             title="Close form"
           >
             ×
@@ -131,17 +122,36 @@
           </span>
         </div>
 
-        <!-- Owner (Auto-populated, read-only) -->
+        <!-- Owner with Transfer Ownership -->
         <div class="form-group">
           <label class="form-label" for="owner">Owner</label>
-          <input 
-            id="owner" 
-            v-model="ownerDisplayName" 
-            type="text" 
-            class="form-input readonly-input" 
-            readonly 
-            placeholder="Auto-populated from owner" 
-          />
+          <div class="owner-field-container">
+            <input 
+              id="owner" 
+              v-model="ownerDisplayName" 
+              type="text" 
+              class="form-input readonly-input owner-input" 
+              readonly 
+              placeholder="Auto-populated from owner" 
+            />
+            <button 
+              v-if="canTransferOwnership"
+              type="button" 
+              class="transfer-ownership-btn" 
+              @click="showTransferModal = true"
+              :disabled="isSubmitting"
+              title="Transfer ownership of this subtask"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                <polyline points="17 11 22 6 17 1"/>
+              </svg>
+              Transfer
+            </button>
+          </div>
         </div>
 
         <!-- Assigned To / Collaborators -->
@@ -873,7 +883,8 @@ const handleSubmit = async () => {
       end_date: formData.value.endDate,
       status: formData.value.status,
       assigned_to: selectedCollaborators.value.map(collab => collab.id),
-      attachments: formData.value.attachments
+      attachments: formData.value.attachments,
+      owner: formData.value.owner 
     }
     
     // Check if status changed - if so, add change log
@@ -920,6 +931,7 @@ const handleSubmit = async () => {
 
     // Emit success event with updated data
     emit('subtask-updated', completeUpdatedSubtask)
+    emit('cancel')
 
     // Clear success message after delay
     setTimeout(() => {
@@ -939,20 +951,6 @@ const handleSubmit = async () => {
   }
 }
 
-// Open transfer modal
-const openTransferModal = () => {
-  // Load eligible users (only subtask collaborators)
-  if (selectedCollaborators.value.length === 0) {
-    errorMessage.value = 'Cannot transfer ownership: No collaborators assigned to this subtask.'
-    setTimeout(() => {
-      errorMessage.value = ''
-    }, 3000)
-    return
-  }
-
-  showTransferModal.value = true
-}
-
 // Close transfer modal
 const closeTransferModal = () => {
   showTransferModal.value = false
@@ -960,25 +958,43 @@ const closeTransferModal = () => {
 
 // Transfer ownership event handlers  
 const handleTransferSuccess = (data) => {
-  console.log('🎯 Transfer success:', data)
+  console.log('Transfer success:', data);
   
   // Show success message
-  successMessage.value = data.message || 'Ownership transferred successfully!'
+  successMessage.value = data.message || 'Ownership transferred successfully!';
   
   // Close the transfer modal
-  closeTransferModal()
+  closeTransferModal();
   
-  // Emit the updated subtask with new owner
-  emit('subtask-updated', {
-    ...props.subtask,
-    owner: data.newOwnerId
-  })
+  // UPDATE LOCAL DATA instead of emitting to parent
+  // Update the owner display name to show the new owner
+  if (data.newOwnerId) {
+    // Find the new owner in available staff
+    const newOwner = availableStaff.value.find(staff => 
+      String(staff.id) === String(data.newOwnerId)
+    );
+    
+    if (newOwner) {
+      ownerDisplayName.value = newOwner.name;
+    } else {
+      ownerDisplayName.value = 'Unknown User';
+    }
+    
+    // Update the local subtask owner data
+    formData.value.owner = data.newOwnerId;
+  }
+  
+  // Update canTransferOwnership computed property by triggering reactivity
+  // Since ownership changed, the current user can no longer transfer
   
   // Clear success message after delay
   setTimeout(() => {
-    successMessage.value = ''
-  }, 3000)
-}
+    successMessage.value = '';
+  }, 3000);
+  
+  // DON'T emit subtask-updated here - keep the form open
+  // emit('subtask-updated', { ...props.subtask, owner: data.newOwnerId });
+};
 
 const handleTransferError = (message) => {
   errorMessage.value = message
@@ -1486,5 +1502,55 @@ onMounted(() => {
 .readonly-input:focus {
   box-shadow: none !important;
   border-color: #ced4da !important;
+}
+
+/* Owner field with transfer button */
+.owner-field-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.owner-input {
+  flex: 1;
+}
+
+.transfer-ownership-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background-color: #5d82ee;
+  border: 1px solid #5d82ee;
+  border-radius: 6px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.transfer-ownership-btn:hover:not(:disabled) {
+  background-color: #4864e2;
+  border-color: #4864e2;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3);
+}
+
+.transfer-ownership-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.transfer-ownership-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.transfer-ownership-btn svg {
+  flex-shrink: 0;
 }
 </style>
