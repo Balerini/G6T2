@@ -49,67 +49,121 @@
 
                 <!-- My Tasks View -->
                 <div v-if="activeView === 'my'">
-                    <!-- <p class="coming-soon">Teehee</p> -->
-                    <div class="crm-container">
-                        <div class="header-section">
-                            <div class="container">
-                                <!-- Status Filter Tabs -->
-                                <div class="action-tabs mb-4">
-                                    <button v-for="status in statuses" :key="status" @click="filter = status"
-                                        :class="['tab-btn', { active: filter === status }]">
-                                        {{ status }}
-                                    </button>
-                                </div>
-                                <!-- Sort Filter Tabs -->
-                                <div class="action-tabs flex space-x-2">
-                                    <button v-for="option in sortOptions" :key="option.value"
-                                        @click="sortBy = option.value" :class="[
-                                            'tab-btn',
-                                            { active: sortBy === option.value }]">
-                                        {{ option.label }}
-                                    </button>
-                                </div>
-                            </div>
+                    <div class="filter-sort-bar">
+                        <!-- ✅ Status Filter -->
+                        <div class="filter-group">
+                        <label for="statusFilter">Filter:</label>
+                        <select id="statusFilter" v-model="selectedStatus" @change="applyFilters">
+                            <option value="active">Active</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Unassigned">Unassigned</option>
+                            <option value="Ongoing">Ongoing</option>
+                            <option value="Under Review">Under Review</option>
+                        </select>
                         </div>
-                        <!-- Tasks -->
-                        <div class="tasks-section">
-                            <div class="container">
-                                <div v-if="loading" class="loading-section">
-                                    <div class="container">
-                                        <div class="loading-spinner">Loading Tasks...</div>
-                                    </div>
-                                </div>
-                                <div v-else>
-                                    <div v-if="filteredTasks.length">
-                                        <div v-for="(task, index) in this.filteredTasks" :key="index" class="task-card">
-                                            <task-card :task="task" class="mb-0" @view-task="handleViewTask" />
-                                        </div>
-                                    </div>
-                                    <div v-else class="nofound-section">
-                                        <div class="mt-5">
-                                            <div class="d-flex justify-content-center">
-                                                <svg xmlns="http://www.w3.org/2000/svg" height="100" width="100"
-                                                    fill="currentColor" class="bi bi-clipboard-x" viewBox="0 0 16 16">
-                                                    <path fill-rule="evenodd"
-                                                        d="M6.146 7.146a.5.5 0 0 1 .708 0L8 8.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 9l1.147 1.146a.5.5 0 0 1-.708.708L8 9.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 9 6.146 7.854a.5.5 0 0 1 0-.708" />
-                                                    <path
-                                                        d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z" />
-                                                    <path
-                                                        d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z" />
-                                                </svg>
-                                            </div>
-                                            <h2 class="text-center mt-2">
-                                                No tasks found.
-                                            </h2>
-                                            <p class="text-center">
-                                                There are no tasks found associated with this status.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+
+                        <!-- ✅ Sort Mode Selector -->
+                        <div class="sort-group">
+                        <label>Sort By:</label>
+                        <div class="sort-mode-toggle">
+                            <button
+                            :class="{ active: sortMode === 'dueDate' }"
+                            @click="setSortMode('dueDate')"
+                            >
+                            Due Date
+                            </button>
+                            <button
+                            :class="{ active: sortMode === 'priority' }"
+                            @click="setSortMode('priority')"
+                            >
+                            Priority
+                            </button>
+                        </div>
+                        </div>
+
+                        <!-- ✅ Ascending / Descending toggle -->
+                        <div class="sort-group">
+                        <label>Order:</label>
+                        <div class="sort-toggle">
+                            <button
+                            :class="{ active: sortOrder === 'asc' }"
+                            @click="setSortOrder('asc')"
+                            >
+                            ▲ Asc
+                            </button>
+                            <button
+                            :class="{ active: sortOrder === 'desc' }"
+                            @click="setSortOrder('desc')"
+                            >
+                            ▼ Desc
+                            </button>
+                        </div>
                         </div>
                     </div>
+                    <!-- Tasks -->
+                    <div class="tasks-section">
+                        <div class="container">
+                            <!-- ✅ Loading Spinner -->
+                            <div v-if="loading" class="loading-section">
+                            <div class="container">
+                                <div class="loading-spinner">Loading Tasks...</div>
+                            </div>
+                            </div>
+
+                            <!-- ✅ Tasks Loaded -->
+                            <div v-else>
+                            <!-- ✅ When there are tasks after filtering/sorting -->
+                            <div v-if="filteredAndSortedTasks.length">
+                                <div
+                                v-for="(task, index) in filteredAndSortedTasks"
+                                :key="task.id || index"
+                                class="task-card"
+                                >
+                                <!-- ✅ Uses your TaskCard component -->
+                                <task-card
+                                    :task="task"
+                                    :users="users"
+                                    class="mb-0"
+                                    @view-task="handleViewTask"
+                                />
+                                </div>
+                            </div>
+
+                            <!-- ✅ When no tasks match filter -->
+                            <div v-else class="nofound-section">
+                                <div class="mt-5">
+                                <div class="d-flex justify-content-center">
+                                    <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    height="100"
+                                    width="100"
+                                    fill="currentColor"
+                                    class="bi bi-clipboard-x"
+                                    viewBox="0 0 16 16"
+                                    >
+                                    <path
+                                        fill-rule="evenodd"
+                                        d="M6.146 7.146a.5.5 0 0 1 .708 0L8 8.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 9l1.147 1.146a.5.5 0 0 1-.708.708L8 9.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 9 6.146 7.854a.5.5 0 0 1 0-.708"
+                                    />
+                                    <path
+                                        d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"
+                                    />
+                                    <path
+                                        d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"
+                                    />
+                                    </svg>
+                                </div>
+
+                                <h2 class="text-center mt-2">No tasks found.</h2>
+                                <p class="text-center">
+                                    There are no tasks found associated with this filter or status.
+                                </p>
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+                        </div>
+
                 </div>
             </div>
         </div>
@@ -147,14 +201,9 @@ export default {
             users: [],
             loading: true,
             error: null,
-            filter: "All",
-            statuses: ["All", "Unassigned", "Ongoing", "Under Review", "Completed", "Cancelled"],
-            sortBy: "endDateAsc",
-            sortOptions: [
-                { value: "endDateAsc", label: "Earliest" },
-                { value: "endDateDesc", label: "Latest" },
-                { value: "priority", label: "Priority" }
-            ]
+            selectedStatus: "active",
+            sortMode: "dueDate",    
+            sortOrder: "asc",       
         };
     },
     mounted() {
@@ -185,17 +234,17 @@ export default {
                 const userString = sessionStorage.getItem('user');
                 const userData = JSON.parse(userString);
                 const currentUserId = userData.id;
-                console.log("user = ", userData);
-                console.log("id = ", currentUserId);
+                // console.log("user = ", userData);
+                // console.log("id = ", currentUserId);
 
                 // Fetch tasks for this user
                 this.tasks = await ownTasksService.getTasks(currentUserId);
-                console.log("pulled tasks", this.tasks);
+                // console.log("pulled tasks", this.tasks);
                 if (!this.tasks.length) {
                     this.error = `No tasks found for user ${currentUserId}`;
                 }
             } catch (error) {
-                console.error("Error loading tasks:", error);
+                // console.error("Error loading tasks:", error);
                 this.error = error.message;
             } finally {
                 this.loading = false;
@@ -232,7 +281,7 @@ export default {
         handleViewTask(task) {
             const projectId = task.proj_ID || task.projectId;
             const taskId = task.id || task.task_ID || task.taskId;
-            console.log('Viewing task:', { projectId, taskId, task });
+            // console.log('Viewing task:', { projectId, taskId, task });
 
             // If task has a project, go to project task view
             if (projectId) {
@@ -244,7 +293,16 @@ export default {
         },
         toggleSortOrder() {
             this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
-        }
+        },
+        applyFilters() {
+        // Trigger computed update
+        },
+        setSortOrder(order) {
+        this.sortOrder = order;
+        },
+        setSortMode(mode) {
+        this.sortMode = mode;
+        },
     },
     computed: {
         isManager() {
@@ -294,30 +352,39 @@ export default {
             }
             return false;
         },
-        filteredTasks() {
-            let result = this.tasks;
-
-            // Filter by status
-            if (this.filter !== "All") {
-                result = result.filter(t => t.task_status === this.filter);
-            }
-
-            // Sort by end date
-            result = result.slice().sort((a, b) => {
-                if (this.sortBy === "priority") {
-                    return (b.priority_bucket || 0) - (a.priority_bucket || 0); // high → low
-                }
-                if (this.sortBy === "endDateAsc") {
-                    return new Date(a.end_date) - new Date(b.end_date);
-                }
-                if (this.sortBy === "endDateDesc") {
-                    return new Date(b.end_date) - new Date(a.end_date);
-                }
-                return 0;
-            });
-
-            return result;
+        filteredAndSortedTasks() {
+        let result = [...this.tasks];
+        // excluded completed tasks from all
+        if (this.selectedStatus === "active") {
+            result = result.filter(
+            (task) => task.task_status?.toLowerCase() !== "completed"
+            );
+        } else if (this.selectedStatus) {
+            result = result.filter(
+            (task) =>
+                task.task_status?.toLowerCase() ===
+                this.selectedStatus.toLowerCase()
+            );
         }
+
+        // sort due date
+        if (this.sortMode === "dueDate") {
+            result.sort((a, b) => {
+            const dateA = new Date(a.end_date);
+            const dateB = new Date(b.end_date);
+            return this.sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+            });
+        } else if (this.sortMode === "priority") {
+            // sort priority (1–10)
+            result.sort((a, b) => {
+            return this.sortOrder === "asc"
+                ? a.priority_level - b.priority_level
+                : b.priority_level - a.priority_level;
+            });
+        }
+
+        return result;
+        },
     }
 }
 </script>
@@ -401,6 +468,73 @@ export default {
 
 .tab-btn.active:hover {
     background: #374151;
+}
+
+.filter-sort-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+/* Labels */
+.filter-group label,
+.sort-group label {
+  font-weight: 500;
+  color: #4b5563;
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Dropdown */
+select {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.9rem;
+  background: #f9fafb;
+  color: #111827;
+  cursor: pointer;
+}
+
+select:hover {
+  border-color: #9ca3af;
+}
+
+/* ✅ Shared toggle style (radio-like) */
+.sort-toggle,
+.sort-mode-toggle {
+  display: inline-flex;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.sort-toggle button,
+.sort-mode-toggle button {
+  background: #f9fafb;
+  border: none;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sort-toggle button:hover,
+.sort-mode-toggle button:hover {
+  background: #f3f4f6;
+}
+
+.sort-toggle button.active,
+.sort-mode-toggle button.active {
+  background: #111827;
+  color: white;
 }
 
 .dashboard-section {
