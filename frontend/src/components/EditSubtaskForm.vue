@@ -857,14 +857,28 @@ const handleSubmit = async () => {
     
     // Show success message
     successMessage.value = 'Subtask updated successfully!'
-    
+
+    // Create the complete updated subtask object
+    const completeUpdatedSubtask = {
+      ...props.subtask,
+      ...updatedSubtask,
+      // Ensure these fields are properly updated
+      name: updateData.name,
+      description: updateData.description,
+      start_date: updateData.start_date,
+      end_date: updateData.end_date,
+      status: updateData.status,
+      assigned_to: updateData.assigned_to,
+      attachments: updateData.attachments,
+      status_history: updateData.status_history || props.subtask.status_history
+    }
+
+    // Emit success event with updated data
+    emit('subtask-updated', completeUpdatedSubtask)
+
+    // Clear success message after delay
     setTimeout(() => {
       successMessage.value = ''
-      // Emit success event with updated data
-      emit('subtask-updated', {
-        ...props.subtask,
-        ...updatedSubtask
-      })
     }, 1500)
     
   } catch (error) {
