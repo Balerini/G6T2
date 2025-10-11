@@ -1438,7 +1438,6 @@ export default {
       recurrenceTouched.customUnit = false;
       recurrenceTouched.end = false;
     }
-    }
 
     function deriveWeekdayFromDate(dateString) {
       if (!dateString) {
@@ -2072,7 +2071,6 @@ export default {
       validateField,
       handleSubmit,
       handleClose,
-      getUserName,
       ownerName,
       showTransferModal,
       canTransferOwnership,
