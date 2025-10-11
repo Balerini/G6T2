@@ -40,6 +40,19 @@
       
       <!-- Form -->
       <form class="task-form" @submit.prevent="handleSubmit" novalidate>
+        <!-- Task (Auto-populated, read-only) -->
+        <div class="form-group">
+          <label class="form-label" for="taskId">Task</label>
+          <input 
+            id="taskId" 
+            :value="parentTaskName || 'Loading...'" 
+            type="text" 
+            class="form-input readonly-input" 
+            readonly 
+            placeholder="Parent task name" 
+          />
+        </div>
+
         <!-- Subtask Name -->
         <div class="form-group">
           <label class="form-label" for="taskName">Subtask Name *</label>
@@ -77,6 +90,58 @@
           <span v-if="errors.description" class="error-message">
             {{ errors.description }}
           </span>
+        </div>
+
+        <!-- Start Date -->
+        <div class="form-group">
+          <label class="form-label" for="startDate">Start Date *</label>
+          <input
+            id="startDate"
+            name="startDate"
+            v-model="formData.startDate"
+            type="date"
+            class="form-input"
+            :class="{ 'error': errors.startDate }"
+            @change="validateDates()"
+            @input="clearError('startDate')"
+            @blur="validateField('startDate')"
+          />
+          <span v-if="errors.startDate" class="error-message">
+            {{ errors.startDate }}
+          </span>
+        </div>
+
+        <!-- End Date -->
+        <div class="form-group">
+          <label class="form-label" for="endDate">End Date *</label>
+          <input
+            id="endDate"
+            name="endDate"
+            v-model="formData.endDate"
+            type="date"
+            class="form-input"
+            :class="{ 'error': errors.endDate }"
+            :min="formData.startDate"
+            @change="validateDates()"
+            @input="clearError('endDate')"
+            @blur="validateField('endDate')"
+          />
+          <span v-if="errors.endDate" class="error-message">
+            {{ errors.endDate }}
+          </span>
+        </div>
+
+        <!-- Owner (Auto-populated, read-only) -->
+        <div class="form-group">
+          <label class="form-label" for="owner">Owner</label>
+          <input 
+            id="owner" 
+            v-model="ownerDisplayName" 
+            type="text" 
+            class="form-input readonly-input" 
+            readonly 
+            placeholder="Auto-populated from owner" 
+          />
         </div>
 
         <!-- Assigned To / Collaborators -->
@@ -196,45 +261,6 @@
           </span>
         </div>
 
-        <!-- Start Date -->
-        <div class="form-group">
-          <label class="form-label" for="startDate">Start Date *</label>
-          <input
-            id="startDate"
-            name="startDate"
-            v-model="formData.startDate"
-            type="date"
-            class="form-input"
-            :class="{ 'error': errors.startDate }"
-            @change="validateDates()"
-            @input="clearError('startDate')"
-            @blur="validateField('startDate')"
-          />
-          <span v-if="errors.startDate" class="error-message">
-            {{ errors.startDate }}
-          </span>
-        </div>
-
-        <!-- End Date -->
-        <div class="form-group">
-          <label class="form-label" for="endDate">End Date *</label>
-          <input
-            id="endDate"
-            name="endDate"
-            v-model="formData.endDate"
-            type="date"
-            class="form-input"
-            :class="{ 'error': errors.endDate }"
-            :min="formData.startDate"
-            @change="validateDates()"
-            @input="clearError('endDate')"
-            @blur="validateField('endDate')"
-          />
-          <span v-if="errors.endDate" class="error-message">
-            {{ errors.endDate }}
-          </span>
-        </div>
-
         <!-- Current Attachments (Read-only) -->
         <div class="form-group" v-if="formData.attachments && formData.attachments.length > 0">
           <label class="form-label">Current Attachments</label>
@@ -341,7 +367,8 @@ const formData = ref({
   endDate: '',
   status: '',
   assigned_to: [],
-  attachments: []
+  attachments: [],
+  owner: ''
 })
 
 const errors = ref({})
@@ -350,6 +377,8 @@ const successMessage = ref('')
 const errorMessage = ref('')
 const uploadProgressMessage = ref('')
 const originalStatus = ref('')
+const ownerDisplayName = ref('')
+const parentTaskName = ref('');
 
 // Collaborators data
 const selectedCollaborators = ref([])
@@ -378,6 +407,50 @@ const availableStaff = computed(() => {
   }))
 })
 
+// Get current user from session storage
+const getCurrentUser = () => {
+  try {
+    const userData = sessionStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      return user; // Return the full user object
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
+};
+
+// Get user by ID from available staff
+const getUserById = (userId) => {
+  return availableStaff.value.find(user => String(user.id) === String(userId));
+};
+
+// Add this function to load parent task data
+const loadParentTaskData = async () => {
+  try {
+    // Get parent task ID from the subtask
+    const parentTaskId = props.subtask.parent_task_id;
+    if (parentTaskId) {
+      console.log('Loading parent task with ID:', parentTaskId);
+      const taskData = await taskService.getTaskById(parentTaskId);
+      console.log('Parent task data:', taskData);
+      
+      // Try different possible field names for the task name
+      parentTaskName.value = taskData.name || 
+                           taskData.task_name || 
+                           taskData.taskName || 
+                           taskData.title || 
+                           'Unknown Task';
+      
+      console.log('Final parent task name:', parentTaskName.value);
+    }
+  } catch (error) {
+    console.error('Error loading parent task data:', error);
+    parentTaskName.value = 'Error loading task';
+  }
+};
 
 // Convert available staff to user format for TransferOwnership
 const availableStaffAsUsers = computed(() => {
@@ -456,12 +529,31 @@ const initializeForm = () => {
     endDate: formatDateForInput(props.subtask.end_date),
     status: props.subtask.status || '',
     assigned_to: props.subtask.assigned_to ? [...props.subtask.assigned_to] : [],
-    attachments: props.subtask.attachments ? [...props.subtask.attachments] : []
+    attachments: props.subtask.attachments ? [...props.subtask.attachments] : [],
+    owner: props.subtask.owner || ''  
   }
   
   originalStatus.value = props.subtask.status || ''
+
+  loadParentTaskData();
   
-  // Load selected collaborators
+  // Load owner display name - Add this section
+  if (props.subtask.owner) {
+    const ownerUser = getUserById(props.subtask.owner);
+    if (ownerUser) {
+      ownerDisplayName.value = ownerUser.name || 'Unknown User';
+    } else {
+      // If owner not found in available staff, try to get from current user if it's them
+      const currentUser = getCurrentUser();
+      if (currentUser && String(currentUser.id) === String(props.subtask.owner)) {
+        ownerDisplayName.value = currentUser.name || 'Current User';
+      } else {
+        ownerDisplayName.value = 'Unknown User';
+      }
+    }
+  }
+  
+  // Load selected collaborators (existing code)
   if (props.subtask.assigned_to && props.subtask.assigned_to.length > 0) {
     selectedCollaborators.value = props.subtask.assigned_to
       .map(userId => {
@@ -1382,5 +1474,17 @@ onMounted(() => {
 
 .transfer-ownership-btn:hover {
   background: #047857;
+}
+
+/* Add this to your existing styles */
+.readonly-input {
+  background-color: #f8f9fa !important;
+  color: #6c757d;
+  cursor: default;
+}
+
+.readonly-input:focus {
+  box-shadow: none !important;
+  border-color: #ced4da !important;
 }
 </style>
