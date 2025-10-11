@@ -108,18 +108,47 @@
             </span>
           </div>
 
-          <!-- Created By (Auto-populated, read-only) -->
+          <!-- Owner with Transfer Ownership -->
           <div class="form-group">
-            <label class="form-label" for="createdBy">Created By</label>
-            <input
-              id="createdBy"
-              v-model="ownerName"
-              type="text"
-              class="form-input readonly-input"
-              readonly
-              :placeholder="'Auto-populated from current user'"
-            />
+            <label class="form-label" for="owner">Owner</label>
+            <div class="owner-field-container">
+              <input
+                id="owner"
+                v-model="ownerName"
+                type="text"
+                class="form-input readonly-input owner-input"
+                readonly
+                :placeholder="'Auto-populated from current user'"
+              />
+              <button
+                type="button"
+                class="transfer-ownership-btn"
+                @click="showTransferOwnership = true"
+                :disabled="isSubmitting"
+                title="Transfer ownership of this task"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  <polyline points="17 11 22 6 17 1"/>
+                </svg>
+                Transfer
+              </button>
+            </div>
           </div>
+
+          <!-- Transfer Ownership Component -->
+          <TransferOwnership
+            :visible="showTransferOwnership"
+            :task="task"
+            :users="users"
+            :task-collaborators="localForm.assignee || []"
+            @close="showTransferOwnership = false"
+            @transfer-success="handleTransferSuccess"
+            @transfer-error="handleTransferError"
+          />
 
           <!-- Assigned To -->
           <div class="form-group">
@@ -612,9 +641,13 @@
 import { reactive, ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { taskService } from '@/services/taskService'
 import { fileUploadService } from '@/services/fileUploadService'
+import TransferOwnership from './TransferOwnership.vue'
 
 export default {
   name: 'EditTask',
+  components: {
+    TransferOwnership
+  },
   props: {
     visible: { type: Boolean, default: false },
     task: { type: Object, required: true },
@@ -972,6 +1005,31 @@ export default {
       })
 
       return `${start} - ${end}`
+    }
+
+    // Transfer ownership related data
+    const showTransferOwnership = ref(false)
+
+    // Transfer ownership event handlers
+    const handleTransferSuccess = (payload) => {
+      // Update the local form with the new owner
+      localForm.owner = payload.newOwnerId
+      
+      // Show success toast
+      showToastNotification(payload.message, 'success')
+      
+      // Close the transfer modal
+      showTransferOwnership.value = false
+      
+      // Optionally emit an event to parent component
+      emit('owner-transferred', payload)
+    }
+
+    const handleTransferError = (errorMessage) => {
+      // Show error toast
+      showToastNotification(errorMessage, 'error')
+      
+      // Keep the transfer modal open so user can try again
     }
 
     const attachmentSummary = computed(() => {
@@ -1996,6 +2054,9 @@ export default {
       handleClose,
       getUserName,
       ownerName,
+      showTransferOwnership,
+      handleTransferSuccess,
+      handleTransferError,
     }
   }
 }
@@ -2571,6 +2632,56 @@ export default {
     transform: translateX(0);
     opacity: 1;
   }
+}
+
+/* Owner field with transfer button */
+.owner-field-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.owner-input {
+  flex: 1;
+}
+
+.transfer-ownership-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background-color: #5d82ee; 
+  border: 1px solid #5d82ee;
+  border-radius: 6px;
+  color: white; /* White text for contrast */
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.transfer-ownership-btn:hover:not(:disabled) {
+  background-color: #4864e2; 
+  border-color: #4864e2;
+  transform: translateY(-1px); /* Subtle lift effect */
+  box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3);
+}
+
+.transfer-ownership-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.transfer-ownership-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.transfer-ownership-btn svg {
+  flex-shrink: 0;
 }
 </style>
 
