@@ -352,13 +352,13 @@
 
     <!-- Assigned To -->
     <div class="form-group">
-      <label class="form-label" for="assignedTo">
+      <label class="form-label" for="assigned_to">
         Collaborators
       </label>
 
       <!-- Combined search input with dropdown -->
       <div class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown }">
-        <input id="assignedTo" v-model="userSearch" type="text" class="form-input"
+        <input id="assigned_to" v-model="userSearch" type="text" class="form-input"
           :class="{ 'error': validationErrors.collaborators }"
           :placeholder="isLoadingUsers ? 'Loading users...' : 'Search and select collaborators...'"
           @focus="handleInputFocus; validateField('collaborators', formData.assigned_to)" @blur="handleInputBlur"
@@ -538,7 +538,7 @@ export default {
   setup(props, { emit }) {
     const isSubmitting = ref(false);
     const isUploadingFiles = ref(false);
-    const assignedToInput = ref('');
+    const assigned_toInput = ref('');
     const fileInput = ref(null);
     const dateValidationError = ref('');
     const ownerDisplayName = ref('');
@@ -1066,7 +1066,7 @@ export default {
       showDropdown.value = !showDropdown.value;
       if (showDropdown.value) {
         nextTick(() => {
-          document.getElementById('assignedTo')?.focus();
+          document.getElementById('assigned_to')?.focus();
         });
       }
     };
@@ -1087,23 +1087,34 @@ export default {
 
     const selectUser = (user) => {
       if (isUserSelected(user)) return;
-
+      
+      // Ensure assigned_to is initialized as an array
+      if (!formData.assigned_to) {
+        formData.assigned_to = [];
+      }
+      
       // Clear any pending close timeout
       if (dropdownCloseTimeout.value) {
         clearTimeout(dropdownCloseTimeout.value);
         dropdownCloseTimeout.value = null;
       }
-
+      
       // Add user to selected collaborators
       formData.assigned_to.push({
         id: user.id,
         name: user.name,
         email: user.email
       });
+      
+      // If task was "Unassigned", change it to "Ongoing" when adding collaborators
+      if (formData.task_status === 'Unassigned') {
+        formData.task_status = 'Ongoing';
+      }
 
-      // Validate collaborators after adding (don't mark as touched automatically)
+      // Validate both fields after adding
       validateField('collaborators', formData.assigned_to, false);
-
+      validateField('task_status', formData.task_status, false);
+      
       // Reset search but DON'T close dropdown
       userSearch.value = '';
     };
@@ -1143,11 +1154,22 @@ export default {
       return sgTime.toISOString().split('T')[0];
     };
 
-    // UPDATED: Remove assignee method for dropdown (works with objects now)
     const removeAssignee = (index) => {
       formData.assigned_to.splice(index, 1);
-      // Validate collaborators after removing (don't mark as touched automatically)
+      
+      // If no collaborators left and status is not already "Unassigned", 
+      // optionally change to "Unassigned" (or leave as user's choice)
+      // Uncomment the lines below if you want automatic status change:
+      /*
+      if (formData.assigned_to.length === 0 && formData.taskstatus === 'Ongoing') {
+        formData.taskstatus = 'Unassigned';
+      }
+      */
+      
+      // Validate both fields after removing
+      // Validate both fields after removing
       validateField('collaborators', formData.assigned_to, false);
+      validateField('task_status', formData.task_status, false);
     };
 
     const handleFileUpload = (event) => {
@@ -1318,10 +1340,25 @@ export default {
     };
 
     const validateTaskStatus = (value) => {
-      if (!value || !value.trim()) {
-        return 'Task status is required';
-      }
+      if (!value || !value.trim()) return 'Task status is required';
       return '';
+    };
+
+    const validateUnassignedConstraint = () => {
+      // Ensure assigned_to exists and is an array
+      const collaborators = formData.assigned_to || [];
+      
+      // If task status is "Unassigned", there should be no collaborators
+      if (formData.task_status === 'Unassigned' && collaborators.length > 0) {
+        return 'Unassigned tasks cannot have collaborators. Please remove all collaborators or change the task status.';
+      }
+      
+      // If task has collaborators, it cannot be "Unassigned"
+      if (collaborators.length > 0 && formData.task_status === 'Unassigned') {
+        return 'Tasks with collaborators cannot be set to Unassigned status.';
+      }
+      
+      return null;
     };
 
     const clearRecurrenceValidation = () => {
@@ -1683,10 +1720,6 @@ export default {
         case 'task_desc':
           validationErrors.task_desc = touchedFields.task_desc ? validateTaskDescription(value) : '';
           break;
-        case 'collaborators':
-          // Collaborators optional validation currently not enforced; clear errors when invoked
-          validationErrors.collaborators = '';
-          break;
         case 'proj_name':
           // Project is optional, no validation needed
           validationErrors.proj_name = '';
@@ -1700,9 +1733,6 @@ export default {
           break;
         case 'end_date':
           validationErrors.end_date = touchedFields.end_date ? validateEndDate(value, formData.start_date) : '';
-          break;
-        case 'task_status':
-          validationErrors.task_status = touchedFields.task_status ? validateTaskStatus(value) : '';
           break;
         case 'attachments':
           validationErrors.attachments = touchedFields.attachments ? validateAttachments(value) : '';
@@ -1724,6 +1754,43 @@ export default {
           }
           validateRecurrence(false);
           break;
+
+        case 'task_status': {
+          validationErrors.task_status = touchedFields.task_status ? validateTaskStatus(value) : '';
+          
+          // Add unassigned constraint validation
+          const unassignedError = validateUnassignedConstraint();
+          if (unassignedError) {
+            validationErrors.task_status = unassignedError;
+            // Also show error on collaborators field
+            validationErrors.collaborators = unassignedError;
+          } else if (formData.task_status !== 'Unassigned') {
+            // Clear collaborators error if status is not unassigned
+            if (validationErrors.collaborators && validationErrors.collaborators.includes('Unassigned')) {
+              validationErrors.collaborators = '';
+            }
+          }
+          break;
+        }
+          
+        case 'collaborators': {
+          // Clear basic collaborators validation (since it's optional)
+          validationErrors.collaborators = '';
+          
+          // Add unassigned constraint validation
+          const unassignedCollabError = validateUnassignedConstraint();
+          if (unassignedCollabError) {
+            validationErrors.collaborators = unassignedCollabError;
+            // Also show error on task status field
+            validationErrors.task_status = unassignedCollabError;
+          } else if (formData.assigned_to.length === 0) {
+            // Clear task status error if no collaborators
+            if (validationErrors.taskstatus && validationErrors.taskstatus.includes('Unassigned')) {
+              validationErrors.task_status = '';
+            }
+          }
+          break;
+        }
       }
     };
 
@@ -1783,6 +1850,20 @@ export default {
       validateRecurrence(false);
     });
 
+    // Watch for task status changes to validate unassigned constraint
+    watch(() => formData.task_status, (newStatus) => {
+      if (touchedFields.task_status || touchedFields.collaborators) {
+        validateField('task_status', newStatus, false);
+      }
+    });
+
+    // Watch for collaborators changes to validate unassigned constraint  
+    watch(() => formData.assigned_to?.length || 0, () => {
+      if (touchedFields.collaborators || touchedFields.task_status) {
+        validateField('collaborators', formData.assigned_to, false);
+      }
+    });
+
     onMounted(() => {
       // Get current user using the helper function
       const currentUser = getCurrentUser();
@@ -1830,7 +1911,7 @@ export default {
       fileInput.value.value = '';
     }
 
-    assignedToInput.value = '';
+    assigned_toInput.value = '';
     dateValidationError.value = '';
     clearRecurrenceValidation();
       userSearch.value = '';
@@ -2143,7 +2224,7 @@ export default {
     return {
       // Existing returns
       formData,
-      assignedToInput,
+      assigned_toInput,
       fileInput,
       isSubmitting,
       isUploadingFiles,
