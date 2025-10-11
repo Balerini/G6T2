@@ -80,9 +80,6 @@
             <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
                 {{ formatStatus(task.task_status) }}
             </div>
-              <button @click="openTransferModal" class="transfer-ownership-btn">
-                🔄 Transfer Ownership
-              </button>
               <button @click="openEditModal" class="edit-task-btn" v-if="task">
                 ✏️ Edit Task
               </button>
@@ -365,45 +362,6 @@
 
     <!-- Edit Task Modal -->
     <EditTask v-if="selectedTask" :visible="showEdit" :task="selectedTask" :users="users" @close="showEdit = false" @saved="onTaskSaved" />
-
-    <!-- Transfer Ownership Component -->
-    <TransferOwnership 
-      :visible="showTransferModal"
-      :task="task"
-      :users="users"
-      :taskCollaborators="getTaskCollaborators()"
-      @close="closeTransferModal"
-      @transfer-success="handleTransferSuccess"
-      @transfer-error="handleTransferError"
-    />
-
-    <!-- Confirmation Modal -->
-    <div v-if="showConfirmationModal" class="modal-overlay" @click="cancelConfirmation">
-      <div class="modal-content confirmation-modal" @click.stop>
-        <div class="modal-header">
-          <h3>⚠️ Confirm Transfer</h3>
-        </div>
-        <div class="modal-body">
-          <p class="confirmation-text">
-            Are you sure you want to transfer ownership to 
-            <strong>{{ transferEligibleUsers.find(u => u.id === selectedNewOwner)?.name }}</strong>?
-          </p>
-          <p class="warning-text">
-            Once ownership is transferred, you cannot revert this change.
-          </p>
-          
-          <div class="modal-actions">
-            <button @click="cancelConfirmation" class="cancel-btn">
-              Cancel
-            </button>
-            <button @click="confirmTransferOwnership" class="confirm-btn">
-              Confirm
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
   </div>
 </template>
 
@@ -413,7 +371,6 @@ import { taskService } from '../services/taskService.js'
 import SubtaskForm from '../components/SubTaskForm.vue'
 import EditTask from '../components/EditTask.vue'
 import EditSubtaskForm from '../components/EditSubtaskForm.vue' 
-import TransferOwnership from '../components/TransferOwnership.vue'
 import { storage } from '../firebase.js'
 import { ref as storageRef, getBlob } from 'firebase/storage'
 
@@ -423,7 +380,6 @@ export default {
     SubtaskForm,
     EditTask,
     EditSubtaskForm,
-    TransferOwnership
   },
   data() {
     return {
@@ -445,7 +401,6 @@ export default {
       expandedSubtask: null,
       showEditSubtaskModal: false,
       selectedSubtask: null,
-      showTransferModal: false,
     }
   },
   created() {
@@ -1092,44 +1047,6 @@ export default {
           this.errorMessage = '';
         }, 5000);
       }
-    },
-    // Check if current user can transfer ownership
-    canTransferOwnership() {
-      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
-      
-      // Check if user is the owner AND has manager role (role_num = 3)
-      return String(this.task.owner) === String(currentUser.id) && 
-            currentUser.role_num === 3;
-    },
-
-    // Open transfer modal
-    openTransferModal() {
-      this.showTransferModal = true;
-    },
-
-    // Close transfer modal
-    closeTransferModal() {
-      this.showTransferModal = false;
-    },
-
-    // Handle transfer success
-    handleTransferSuccess(data) {
-      // Update local task data
-      this.task.owner = data.newOwnerId;
-      
-      // Show success message
-      this.successMessage = data.message;
-      setTimeout(() => {
-        this.successMessage = '';
-      }, 4000);
-    },
-
-    // Handle transfer error
-    handleTransferError(message) {
-      this.errorMessage = message;
-      setTimeout(() => {
-        this.errorMessage = '';
-      }, 5000);
     },
 
     // Subtask Modal
@@ -2178,46 +2095,6 @@ export default {
 
 .retry-btn:hover {
   background: #2563eb;
-}
-
-/* Transfer Ownership Button - Green Version */
-.transfer-ownership-btn {
-  background: #10b981; /* Green background */
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-  outline: none;
-}
-
-.transfer-ownership-btn:hover {
-  background: #059669; /* Darker green on hover */
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3); /* Green shadow */
-}
-
-.transfer-ownership-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
-}
-
-.transfer-ownership-btn:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3); /* Green focus ring */
-}
-
-.transfer-ownership-btn:disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 /* Edit Subtask Button */
