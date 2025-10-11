@@ -121,6 +121,7 @@
                 :placeholder="'Auto-populated from current user'"
               />
               <button
+                v-if="canTransferOwnership"
                 type="button"
                 class="transfer-ownership-btn"
                 @click="showTransferModal = true"
@@ -1034,6 +1035,25 @@ export default {
       
       // Keep both modals open so user can try again
     }
+
+    // Add this computed property
+    const canTransferOwnership = computed(() => {
+      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+      
+      // Check if current user is the owner AND has manager role
+      const isOwner = String(localForm.owner) === String(currentUser.id);
+      const isManager = currentUser.role_num === 3;
+      
+      console.log('Transfer permission check:', {
+        currentUserId: currentUser.id,
+        taskOwnerId: localForm.owner,
+        isOwner,
+        isManager,
+        canTransfer: isOwner && isManager
+      });
+      
+      return isOwner && isManager;
+    });
 
     const attachmentSummary = computed(() => {
       const existingCount = existingAttachments.value.length
@@ -2059,6 +2079,7 @@ export default {
       getUserName,
       ownerName,
       showTransferModal,
+      canTransferOwnership,
       handleTransferSuccess,
       handleTransferError,
     }
