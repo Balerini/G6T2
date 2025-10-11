@@ -317,6 +317,31 @@
           </span>
         </div>
 
+        <!-- Status Change History -->
+        <div class="form-group" v-if="props.subtask.status_history && props.subtask.status_history.length > 0">
+          <label class="form-label">Status Change History</label>
+          <div class="status-history-container">
+            <div 
+              v-for="(log, index) in props.subtask.status_history" 
+              :key="`log-${index}`"
+              class="status-history-item"
+            >
+              <div class="status-history-info">
+                <div class="status-change">
+                  <span class="old-status">{{ log.old_status }}</span>
+                  <span class="arrow">→</span>
+                  <span class="new-status">{{ log.new_status }}</span>
+                </div>
+                <div class="status-metadata">
+                  <span class="staff-name">{{ log.staff_name }}</span>
+                  <span class="separator">•</span>
+                  <span class="timestamp">{{ formatTimestamp(log.timestamp) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Form Actions -->
         <div class="form-actions">
           <button type="button" class="btn btn-cancel" @click="handleCancel" :disabled="isSubmitting">
@@ -828,6 +853,39 @@ const getFileIcon = (fileName) => {
     'gif': '🖼️'
   }
   return iconMap[ext] || '📄'
+}
+
+// Format timestamp for display
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return 'Unknown time'
+  
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diffMs = now - date
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+  
+  // Just now
+  if (diffMins < 1) return 'Just now'
+  
+  // Minutes ago
+  if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`
+  
+  // Hours ago
+  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`
+  
+  // Days ago (if less than 7 days)
+  if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`
+  
+  // Otherwise show full date
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 // Check for unsaved changes
@@ -1570,5 +1628,83 @@ onMounted(() => {
 
 .transfer-ownership-btn svg {
   flex-shrink: 0;
+}
+
+/* Status History Styles */
+.status-history-container {
+  margin-top: 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 12px;
+  background-color: #f8f9fa;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.status-history-item {
+  padding: 10px 12px;
+  background-color: #ffffff;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  border-left: 3px solid #3b82f6;
+}
+
+.status-history-item:last-child {
+  margin-bottom: 0;
+}
+
+.status-history-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-change {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.old-status {
+  color: #dc2626;
+  background-color: #fee2e2;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.arrow {
+  color: #666666;
+  font-weight: normal;
+}
+
+.new-status {
+  color: #059669;
+  background-color: #d1fae5;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.status-metadata {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #666666;
+}
+
+.staff-name {
+  font-weight: 500;
+  color: #333333;
+}
+
+.separator {
+  color: #cccccc;
+}
+
+.timestamp {
+  color: #888888;
+  font-style: italic;
 }
 </style>

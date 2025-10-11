@@ -34,6 +34,7 @@ def create_subtask():
             'assigned_to': data.get('assigned_to', []),
             'owner': data.get('owner'),
             'attachments': data.get('attachments', []),
+            'status_history': data.get('status_history', []),
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
         }
@@ -200,7 +201,8 @@ def update_subtask(subtask_id):
                 'assigned_to': updated_subtask.get('assigned_to', []),
                 'owner': updated_subtask.get('owner'),
                 'attachments': updated_subtask.get('attachments', []),
-                'status_history': updated_subtask.get('status_history', [])
+                'status_history': updated_subtask.get('status_history', []),
+                'status_history': subtask_data.get('status_history', [])
             }
         }
         
