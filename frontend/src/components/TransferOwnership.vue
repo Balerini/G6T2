@@ -4,7 +4,7 @@
     <div v-if="visible" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>Transfer Task Ownership</h3>
+          <h3>Transfer {{ isSubtask ? 'Subtask' : 'Task' }} Ownership</h3>
           <button @click="closeModal" class="close-btn">×</button>
         </div>
         <div class="modal-body">
@@ -114,7 +114,11 @@ export default {
     taskCollaborators: {
       type: Array,
       required: true
-    }
+    },
+    isSubtask: {
+    type: Boolean,
+    default: false
+    } 
   },
   data() {
     return {
@@ -234,9 +238,9 @@ export default {
       const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
       
       if (currentUser.role_num === 3) {
-        return `As a manager, you can only transfer ownership to staff members who are assigned to this task.`;
+        return `As a manager, you can only transfer ownership to staff members who are assigned to this ${this.isSubtask ? 'subtask' : 'task'}.`;
       } else {
-        return `Only managers can transfer task ownership.`;
+        return `Only managers can transfer ${this.isSubtask ? 'subtask' : 'task'} ownership.`;
       }
     },
 
@@ -251,14 +255,20 @@ export default {
         const updateData = {
           owner: this.selectedNewOwner
         };
-        
-        // Use the imported taskService directly
-        await taskService.updateTask(this.task.id, updateData);
+
+        // Check if it's a subtask or task
+        if (this.isSubtask) {
+          // Use updateSubtask for subtasks
+          await taskService.updateSubtask(this.task.id, updateData);
+        } else {
+          // Use updateTask for tasks
+          await taskService.updateTask(this.task.id, updateData);
+        }
         
         // Emit success event to parent
         this.$emit('transfer-success', {
           newOwnerId: this.selectedNewOwner,
-          message: 'Task ownership transferred successfully!'
+          message: `${this.isSubtask ? 'Subtask' : 'Task'} ownership transferred successfully!`
         });
         
         // ❌ REMOVE THIS LINE - Don't close the modal automatically

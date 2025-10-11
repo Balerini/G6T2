@@ -40,6 +40,19 @@
       
       <!-- Form -->
       <form class="task-form" @submit.prevent="handleSubmit" novalidate>
+        <!-- Task (Auto-populated, read-only) -->
+        <div class="form-group">
+          <label class="form-label" for="taskId">Task</label>
+          <input 
+            id="taskId" 
+            :value="parentTaskName || 'Loading...'" 
+            type="text" 
+            class="form-input readonly-input" 
+            readonly 
+            placeholder="Parent task name" 
+          />
+        </div>
+
         <!-- Subtask Name -->
         <div class="form-group">
           <label class="form-label" for="taskName">Subtask Name *</label>
@@ -77,6 +90,58 @@
           <span v-if="errors.description" class="error-message">
             {{ errors.description }}
           </span>
+        </div>
+
+        <!-- Start Date -->
+        <div class="form-group">
+          <label class="form-label" for="startDate">Start Date *</label>
+          <input
+            id="startDate"
+            name="startDate"
+            v-model="formData.startDate"
+            type="date"
+            class="form-input"
+            :class="{ 'error': errors.startDate }"
+            @change="validateDates()"
+            @input="clearError('startDate')"
+            @blur="validateField('startDate')"
+          />
+          <span v-if="errors.startDate" class="error-message">
+            {{ errors.startDate }}
+          </span>
+        </div>
+
+        <!-- End Date -->
+        <div class="form-group">
+          <label class="form-label" for="endDate">End Date *</label>
+          <input
+            id="endDate"
+            name="endDate"
+            v-model="formData.endDate"
+            type="date"
+            class="form-input"
+            :class="{ 'error': errors.endDate }"
+            :min="formData.startDate"
+            @change="validateDates()"
+            @input="clearError('endDate')"
+            @blur="validateField('endDate')"
+          />
+          <span v-if="errors.endDate" class="error-message">
+            {{ errors.endDate }}
+          </span>
+        </div>
+
+        <!-- Owner (Auto-populated, read-only) -->
+        <div class="form-group">
+          <label class="form-label" for="owner">Owner</label>
+          <input 
+            id="owner" 
+            v-model="ownerDisplayName" 
+            type="text" 
+            class="form-input readonly-input" 
+            readonly 
+            placeholder="Auto-populated from owner" 
+          />
         </div>
 
         <!-- Assigned To / Collaborators -->
@@ -196,45 +261,6 @@
           </span>
         </div>
 
-        <!-- Start Date -->
-        <div class="form-group">
-          <label class="form-label" for="startDate">Start Date *</label>
-          <input
-            id="startDate"
-            name="startDate"
-            v-model="formData.startDate"
-            type="date"
-            class="form-input"
-            :class="{ 'error': errors.startDate }"
-            @change="validateDates()"
-            @input="clearError('startDate')"
-            @blur="validateField('startDate')"
-          />
-          <span v-if="errors.startDate" class="error-message">
-            {{ errors.startDate }}
-          </span>
-        </div>
-
-        <!-- End Date -->
-        <div class="form-group">
-          <label class="form-label" for="endDate">End Date *</label>
-          <input
-            id="endDate"
-            name="endDate"
-            v-model="formData.endDate"
-            type="date"
-            class="form-input"
-            :class="{ 'error': errors.endDate }"
-            :min="formData.startDate"
-            @change="validateDates()"
-            @input="clearError('endDate')"
-            @blur="validateField('endDate')"
-          />
-          <span v-if="errors.endDate" class="error-message">
-            {{ errors.endDate }}
-          </span>
-        </div>
-
         <!-- Current Attachments (Read-only) -->
         <div class="form-group" v-if="formData.attachments && formData.attachments.length > 0">
           <label class="form-label">Current Attachments</label>
@@ -298,74 +324,16 @@
     </div>
 
     <!-- Transfer Ownership Modal -->
-    <div v-if="showTransferModal" class="transfer-modal-overlay" @click="closeTransferModal">
-      <div class="transfer-modal-content" @click.stop>
-        <div class="transfer-modal-header">
-          <h3>Transfer Subtask Ownership</h3>
-          <button @click="closeTransferModal" class="transfer-close-btn">×</button>
-        </div>
-        <div class="transfer-modal-body">
-          <div class="transfer-form">
-            <div class="current-owner-info">
-              <h4>Current Owner</h4>
-              <div class="owner-display">
-                <div class="owner-avatar">
-                  {{ getInitials(getCurrentOwnerName()) }}
-                </div>
-                <div class="owner-details">
-                  <p class="owner-name">{{ getCurrentOwnerName() }}</p>
-                  <p class="owner-role">Subtask Owner</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="new-owner-selection">
-              <h4>Select New Owner</h4>
-              <p class="transfer-description">
-                You can only transfer ownership to collaborators assigned to this subtask.
-              </p>
-              
-              <div v-if="transferEligibleUsers.length === 0" class="no-eligible-users">
-                <p>No eligible users found for ownership transfer.</p>
-                <p class="explanation">Only subtask collaborators can become the owner.</p>
-              </div>
-
-              <div v-else class="user-selection-list">
-                <div 
-                  v-for="user in transferEligibleUsers" 
-                  :key="user.id" 
-                  class="user-selection-item"
-                  :class="{ selected: selectedNewOwner === user.id }"
-                  @click="selectedNewOwner = user.id"
-                >
-                  <div class="owner-avatar">
-                    {{ getInitials(user.name) }}
-                  </div>
-                  <div class="owner-details">
-                    <p class="owner-name">{{ user.name }}</p>
-                    <p class="owner-role">{{ user.department }}</p>
-                  </div>
-                  <div class="selection-indicator">
-                    {{ selectedNewOwner === user.id ? '✓' : '' }}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="transfer-modal-actions">
-              <button @click="closeTransferModal" class="transfer-cancel-btn">Cancel</button>
-              <button 
-                @click="confirmTransferOwnership" 
-                class="transfer-confirm-btn"
-                :disabled="!selectedNewOwner || isTransferring"
-              >
-                {{ isTransferring ? 'Transferring...' : 'Transfer Ownership' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <TransferOwnership
+      :visible="showTransferModal"
+      :task="props.subtask"
+      :users="availableStaffAsUsers"
+      :task-collaborators="selectedCollaborators"
+      :is-subtask="true"
+      @close="closeTransferModal"
+      @transfer-success="handleTransferSuccess"
+      @transfer-error="handleTransferError"
+    />
   </div>
 </template>
 
@@ -374,6 +342,7 @@
 /* global defineProps, defineEmits */
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { taskService } from '@/services/taskService'
+import TransferOwnership from './TransferOwnership.vue' 
 
 // Props
 const props = defineProps({
@@ -398,7 +367,8 @@ const formData = ref({
   endDate: '',
   status: '',
   assigned_to: [],
-  attachments: []
+  attachments: [],
+  owner: ''
 })
 
 const errors = ref({})
@@ -407,6 +377,8 @@ const successMessage = ref('')
 const errorMessage = ref('')
 const uploadProgressMessage = ref('')
 const originalStatus = ref('')
+const ownerDisplayName = ref('')
+const parentTaskName = ref('');
 
 // Collaborators data
 const selectedCollaborators = ref([])
@@ -419,9 +391,6 @@ const dropdownCloseTimeout = ref(null)
 
 // Transfer ownership data 
 const showTransferModal = ref(false)  
-const selectedNewOwner = ref(null)
-const isTransferring = ref(false)
-const transferEligibleUsers = ref([])
 
 // Available staff from prop
 const availableStaff = computed(() => {
@@ -435,6 +404,63 @@ const availableStaff = computed(() => {
     name: collaborator.name,
     department: collaborator.department || 'Unknown',
     rank: collaborator.rank || 3
+  }))
+})
+
+// Get current user from session storage
+const getCurrentUser = () => {
+  try {
+    const userData = sessionStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      return user; // Return the full user object
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
+};
+
+// Get user by ID from available staff
+const getUserById = (userId) => {
+  return availableStaff.value.find(user => String(user.id) === String(userId));
+};
+
+// Add this function to load parent task data
+const loadParentTaskData = async () => {
+  try {
+    // Get parent task ID from the subtask
+    const parentTaskId = props.subtask.parent_task_id;
+    if (parentTaskId) {
+      console.log('Loading parent task with ID:', parentTaskId);
+      const taskData = await taskService.getTaskById(parentTaskId);
+      console.log('Parent task data:', taskData);
+      
+      // Try different possible field names for the task name
+      parentTaskName.value = taskData.name || 
+                           taskData.task_name || 
+                           taskData.taskName || 
+                           taskData.title || 
+                           'Unknown Task';
+      
+      console.log('Final parent task name:', parentTaskName.value);
+    }
+  } catch (error) {
+    console.error('Error loading parent task data:', error);
+    parentTaskName.value = 'Error loading task';
+  }
+};
+
+// Convert available staff to user format for TransferOwnership
+const availableStaffAsUsers = computed(() => {
+  return availableStaff.value.map(staff => ({
+    id: staff.id,
+    name: staff.name,
+    email: staff.email || '',
+    department: staff.department,
+    role_num: staff.rank,
+    rank: staff.rank
   }))
 })
 
@@ -503,12 +529,31 @@ const initializeForm = () => {
     endDate: formatDateForInput(props.subtask.end_date),
     status: props.subtask.status || '',
     assigned_to: props.subtask.assigned_to ? [...props.subtask.assigned_to] : [],
-    attachments: props.subtask.attachments ? [...props.subtask.attachments] : []
+    attachments: props.subtask.attachments ? [...props.subtask.attachments] : [],
+    owner: props.subtask.owner || ''  
   }
   
   originalStatus.value = props.subtask.status || ''
+
+  loadParentTaskData();
   
-  // Load selected collaborators
+  // Load owner display name - Add this section
+  if (props.subtask.owner) {
+    const ownerUser = getUserById(props.subtask.owner);
+    if (ownerUser) {
+      ownerDisplayName.value = ownerUser.name || 'Unknown User';
+    } else {
+      // If owner not found in available staff, try to get from current user if it's them
+      const currentUser = getCurrentUser();
+      if (currentUser && String(currentUser.id) === String(props.subtask.owner)) {
+        ownerDisplayName.value = currentUser.name || 'Current User';
+      } else {
+        ownerDisplayName.value = 'Unknown User';
+      }
+    }
+  }
+  
+  // Load selected collaborators (existing code)
   if (props.subtask.assigned_to && props.subtask.assigned_to.length > 0) {
     selectedCollaborators.value = props.subtask.assigned_to
       .map(userId => {
@@ -894,25 +939,6 @@ const handleSubmit = async () => {
   }
 }
 
-// Get initials for avatar
-const getInitials = (name) => {
-  if (!name) return 'U'
-  return name
-    .split(' ')
-    .map(word => word.charAt(0))
-    .join('')
-    .substring(0, 2)
-    .toUpperCase()
-}
-
-// Get current owner name
-const getCurrentOwnerName = () => {
-  if (!props.subtask.owner) return 'Unknown'
-  
-  const owner = availableStaff.value.find(u => String(u.id) === String(props.subtask.owner))
-  return owner ? owner.name : 'Unknown User'
-}
-
 // Open transfer modal
 const openTransferModal = () => {
   // Load eligible users (only subtask collaborators)
@@ -924,108 +950,43 @@ const openTransferModal = () => {
     return
   }
 
-  // Get current user info
-  const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
-  const currentUserRole = currentUser.role_num || 4
-
-  // Filter eligible users:
-  // 1. Exclude current owner
-  // 2. Must be subtask collaborators
-  // 3. Must have HIGHER role_num (lower position) - top-down only
-  //    Manager (role 3) can only transfer to Staff (role 4)
-  transferEligibleUsers.value = selectedCollaborators.value.filter(collab => {
-    // Exclude current owner
-    if (String(collab.id) === String(currentUser.id)) return false
-
-    // Find user in available staff to get their role
-    const user = availableStaff.value.find(u => String(u.id) === String(collab.id))
-    if (!user) return false
-    
-    const userRole = user.rank || 4
-
-    // Only allow transfer to users with HIGHER role_num (lower position)
-    // Manager (role 3) can only transfer to Staff (role 4)
-    return userRole > currentUserRole
-  })
-  
-  if (transferEligibleUsers.value.length === 0) {
-    errorMessage.value = 'Cannot transfer ownership: No eligible staff members found. You can only transfer to staff (role 4) assigned to this subtask.'
-    setTimeout(() => {
-      errorMessage.value = ''
-    }, 4000)
-    return
-  }
-  
   showTransferModal.value = true
-  selectedNewOwner.value = null
 }
 
 // Close transfer modal
 const closeTransferModal = () => {
   showTransferModal.value = false
-  selectedNewOwner.value = null
-  transferEligibleUsers.value = []
 }
 
-// Confirm transfer ownership
-const confirmTransferOwnership = async () => {
-  if (!selectedNewOwner.value || isTransferring.value) return
+// Transfer ownership event handlers  
+const handleTransferSuccess = (data) => {
+  console.log('🎯 Transfer success:', data)
   
-  // Get the new owner details
-  const newOwner = transferEligibleUsers.value.find(u => u.id === selectedNewOwner.value)
-  if (!newOwner) return
+  // Show success message
+  successMessage.value = data.message || 'Ownership transferred successfully!'
   
-  // Confirmation dialog
-  const confirmed = confirm(
-    `Are you sure you want to transfer ownership of this subtask to ${newOwner.name}?\n\n` +
-    `This action will make ${newOwner.name} the new owner, and they will have full control over this subtask.`
-  )
+  // Close the transfer modal
+  closeTransferModal()
   
-  if (!confirmed) return
+  // Emit the updated subtask with new owner
+  emit('subtask-updated', {
+    ...props.subtask,
+    owner: data.newOwnerId
+  })
   
-  isTransferring.value = true
+  // Clear success message after delay
+  setTimeout(() => {
+    successMessage.value = ''
+  }, 3000)
+}
+
+const handleTransferError = (message) => {
+  errorMessage.value = message
   
-  try {
-    // Update subtask owner
-    const updateData = {
-      owner: selectedNewOwner.value
-    }
-    
-    await taskService.updateSubtask(props.subtask.id, updateData)
-    
-    // Show success message
-    successMessage.value = `✅ Ownership successfully transferred to ${newOwner.name}!`
-    
-    // Close modal
-    closeTransferModal()
-    
-    // Clear success message and emit update
-    setTimeout(() => {
-      successMessage.value = ''
-      emit('subtask-updated', {
-        ...props.subtask,
-        owner: selectedNewOwner.value
-      })
-    }, 2000)
-    
-  } catch (error) {
-    console.error('Error transferring ownership:', error)
-    
-    // Show error with retry option
-    const retry = confirm(
-      `Failed to transfer ownership: ${error.message}\n\n` +
-      `Would you like to retry?`
-    )
-    
-    if (retry) {
-      // Retry the transfer
-      confirmTransferOwnership()
-    } else {
-      closeTransferModal()
-    }
-  } finally {
-    isTransferring.value = false
-  }
+  // Clear error message after delay
+  setTimeout(() => {
+    errorMessage.value = ''
+  }, 5000)
 }
 
 // Initialize on mount
@@ -1515,223 +1476,15 @@ onMounted(() => {
   background: #047857;
 }
 
-/* Transfer Modal */
-.transfer-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10001;
+/* Add this to your existing styles */
+.readonly-input {
+  background-color: #f8f9fa !important;
+  color: #6c757d;
+  cursor: default;
 }
 
-.transfer-modal-content {
-  background: white;
-  border-radius: 12px;
-  max-width: 500px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-}
-
-.transfer-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.transfer-modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.transfer-close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #6b7280;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.transfer-close-btn:hover {
-  color: #374151;
-}
-
-.transfer-modal-body {
-  padding: 24px;
-}
-
-.transfer-form {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.current-owner-info h4,
-.new-owner-selection h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 12px 0;
-}
-
-.transfer-description {
-  font-size: 14px;
-  color: #6b7280;
-  margin: 0 0 16px 0;
-}
-
-.owner-display {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-}
-
-.owner-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #e0e7ff;
-  color: #3730a3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.owner-details {
-  flex: 1;
-}
-
-.owner-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #111827;
-  margin: 0 0 2px 0;
-}
-
-.owner-role {
-  font-size: 12px;
-  color: #6b7280;
-  margin: 0;
-}
-
-.no-eligible-users {
-  padding: 20px;
-  background: #fef3c7;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.no-eligible-users p {
-  margin: 0 0 8px 0;
-  color: #92400e;
-}
-
-.explanation {
-  font-size: 14px;
-  font-style: italic;
-}
-
-.user-selection-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 250px;
-  overflow-y: auto;
-}
-
-.user-selection-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.user-selection-item:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
-}
-
-.user-selection-item.selected {
-  background: #eff6ff;
-  border-color: #3b82f6;
-}
-
-.selection-indicator {
-  margin-left: auto;
-  font-size: 18px;
-  color: #10b981;
-  font-weight: bold;
-}
-
-.transfer-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.transfer-cancel-btn {
-  background: #f3f4f6;
-  color: #374151;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.transfer-cancel-btn:hover {
-  background: #e5e7eb;
-}
-
-.transfer-confirm-btn {
-  background: #3b82f6;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.transfer-confirm-btn:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.transfer-confirm-btn:disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
+.readonly-input:focus {
+  box-shadow: none !important;
+  border-color: #ced4da !important;
 }
 </style>

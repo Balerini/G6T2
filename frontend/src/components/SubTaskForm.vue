@@ -29,18 +29,16 @@
     
     <!-- Form -->
     <form v-else class="task-form" @submit.prevent="handleSubmit" novalidate>
-      <!-- Project Selection -->
+      <!-- Task (Auto-populated, read-only) -->
       <div class="form-group">
-        <label class="form-label" for="projId">
-          Project
-        </label>
-        <input
-          id="projId"
-          :value="parentProject?.proj_name || 'Loading...'"
-          type="text"
-          class="form-input readonly-input"
-          readonly
-          placeholder="Auto-populated from parent task"
+        <label class="form-label" for="taskId">Task</label>
+        <input 
+          id="taskId" 
+          :value="parentTaskName || 'Loading...'" 
+          type="text" 
+          class="form-input readonly-input" 
+          readonly 
+          placeholder="Parent task name" 
         />
       </div>
 
@@ -79,6 +77,62 @@
         <span v-if="errors.description" class="error-message">
           {{ errors.description }}
         </span>
+      </div>
+
+      <!-- Start Date -->
+      <div class="form-group">
+        <label class="form-label" for="startDate">Start Date *</label>
+        <input
+          id="startDate"
+          v-model="form.startDate"
+          type="date"
+          class="form-input"
+          :class="{ 'error': errors.startDate }"
+          :min="getSubtaskMinStartDate()"
+          :max="getSubtaskMaxStartDate()"
+          @change="validateDates()"
+          @input="clearError('startDate')"
+          @blur="validateField('startDate')"
+        />
+        <span v-if="errors.startDate" class="error-message">
+          {{ errors.startDate }}
+        </span>
+        <div v-if="getDateConstraintInfo()" class="date-constraint-info">
+          {{ getDateConstraintInfo() }}
+        </div>
+      </div>
+
+      <!-- End Date -->
+      <div class="form-group">
+        <label class="form-label" for="endDate">End Date *</label>
+        <input
+          id="endDate"
+          v-model="form.endDate"
+          type="date"
+          class="form-input"
+          :class="{ 'error': errors.endDate }"
+          :min="form.startDate || getSubtaskMinStartDate()"
+          :max="getSubtaskMaxEndDate()"
+          @change="validateDates()"
+          @input="clearError('endDate')"
+          @blur="validateField('endDate')"
+        />
+        <span v-if="errors.endDate" class="error-message">
+          {{ errors.endDate }}
+        </span>
+      </div>
+
+      <!-- Owner (Auto-populated, read-only) -->
+      <div class="form-group">
+        <label class="form-label" for="owner">Owner</label>
+        <input 
+          id="owner" 
+          v-model="ownerDisplayName" 
+          type="text" 
+          class="form-input readonly-input" 
+          readonly 
+          placeholder="Auto-populated from current user" 
+        />
       </div>
 
       <!-- Assigned To -->
@@ -198,49 +252,6 @@
         <!-- Collaborators validation error -->
         <span v-if="errors.collaborators" class="error-message">
           {{ errors.collaborators }}
-        </span>
-      </div>
-
-      <!-- Start Date -->
-      <div class="form-group">
-        <label class="form-label" for="startDate">Start Date *</label>
-        <input
-          id="startDate"
-          v-model="form.startDate"
-          type="date"
-          class="form-input"
-          :class="{ 'error': errors.startDate }"
-          :min="getSubtaskMinStartDate()"
-          :max="getSubtaskMaxStartDate()"
-          @change="validateDates()"
-          @input="clearError('startDate')"
-          @blur="validateField('startDate')"
-        />
-        <span v-if="errors.startDate" class="error-message">
-          {{ errors.startDate }}
-        </span>
-        <div v-if="getDateConstraintInfo()" class="date-constraint-info">
-          {{ getDateConstraintInfo() }}
-        </div>
-      </div>
-
-      <!-- End Date -->
-      <div class="form-group">
-        <label class="form-label" for="endDate">End Date *</label>
-        <input
-          id="endDate"
-          v-model="form.endDate"
-          type="date"
-          class="form-input"
-          :class="{ 'error': errors.endDate }"
-          :min="form.startDate || getSubtaskMinStartDate()"
-          :max="getSubtaskMaxEndDate()"
-          @change="validateDates()"
-          @input="clearError('endDate')"
-          @blur="validateField('endDate')"
-        />
-        <span v-if="errors.endDate" class="error-message">
-          {{ errors.endDate }}
         </span>
       </div>
 
@@ -379,7 +390,8 @@ const form = ref({
   description: '',
   startDate: '',
   endDate: '',
-  status: ''
+  status: '',
+  owner: '',
 })
 
 const errors = ref({})
@@ -390,6 +402,7 @@ const showError = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const uploadProgressMessage = ref('')
+const parentTaskName = ref('');
 
 // Parent task and project data
 const parentTask = ref(null)
@@ -694,6 +707,19 @@ const loadParentTaskData = async () => {
     const taskData = await taskService.getTaskById(props.parentTaskId);
     parentTask.value = taskData;
     console.log('Parent task loaded:', taskData);
+
+    // Try multiple possible field names for the task name
+    parentTaskName.value = taskData.name || 
+                        taskData.task_name || 
+                        taskData.taskName || 
+                        taskData.title || 
+                        taskData.task_title ||
+                        taskData.taskTitle ||
+                        'Unknown Task';
+
+    // Debug: Log what we found
+    console.log('Final parent task name:', parentTaskName.value);
+    console.log('Available task fields:', Object.keys(taskData));
     
     // Load parent project data
     const projectData = await taskService.getProjectById(props.parentProjectId);
@@ -741,6 +767,7 @@ const loadParentTaskData = async () => {
     console.error('Parent Project ID:', props.parentProjectId);
     errorMessage.value = `Failed to load parent task data. Task ID: ${props.parentTaskId}, Project ID: ${props.parentProjectId}. Error: ${error.message}`;
     showError.value = true;
+    parentTaskName.value = 'Error loading task';
   } finally {
     isLoadingParentData.value = false;
   }
@@ -749,6 +776,12 @@ const loadParentTaskData = async () => {
 // Initialize on component mount
 onMounted(() => {
   loadParentTaskData();
+
+  const currentUser = getCurrentUser();
+  if (currentUser) {
+    ownerDisplayName.value = currentUser.name || 'Current User';
+    form.value.owner = currentUser.id;
+  }
 });
 
 // File Attachments Data
@@ -770,6 +803,24 @@ const currentUserRank = computed(() => {
   }
   return 3
 })
+
+// Add this near the top with other refs
+const ownerDisplayName = ref('');
+
+// Add this helper function (copy from createtaskform)
+const getCurrentUser = () => {
+  try {
+    const userData = sessionStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      return user; // Return the full user object
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
+};
 
 // Check if Current user can assign tasks to this staff member
 const canAssignTo = (staff) => {
@@ -1161,7 +1212,8 @@ const handleSubmit = async () => {
       parent_task_id: props.parentTaskId,
       project_id: props.parentProjectId,
       assigned_to: selectedCollaborators.value.map(collab => collab.id),
-      attachments: uploadedAttachments
+      attachments: uploadedAttachments,
+      owner: form.value.owner
     };
     
     console.log('Creating subtask with data:', subtaskData);
