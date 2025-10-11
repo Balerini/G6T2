@@ -644,7 +644,11 @@ const clearError = (fieldName) => {
 
 // Validate form
 const validateForm = () => {  
-  if (!formData.value.name.trim()) {
+
+  // Clear all errors at the start
+  errors.value = {}
+
+  if (!formData.value.name || !formData.value.name.trim()) {
     errors.value.name = 'Subtask name is required'
   }
   
@@ -663,11 +667,15 @@ const validateForm = () => {
   }
   
   // Validate collaborators based on status
-  if (formData.value.status !== 'Unassigned' && selectedCollaborators.value.length === 0) {
-    errors.value.collaborators = 'At least one collaborator is required when status is not "Unassigned"'
+  if (formData.value.status && formData.value.status !== 'Unassigned') {
+    if (selectedCollaborators.value.length === 0) {
+      errors.value.collaborators = 'At least one collaborator is required when status is not "Unassigned"'
+    }
   }
-  
-  return Object.keys(errors.value).length === 0
+
+  const isValid = Object.keys(errors.value).length === 0
+
+  return isValid
 }
 
 // Check if user can assign to staff member
