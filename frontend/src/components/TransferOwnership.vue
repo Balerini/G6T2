@@ -34,7 +34,7 @@
                   :key="user.id" 
                   class="user-selection-item"
                   :class="{ selected: selectedNewOwner === user.id }"
-                  @click="selectedNewOwner = user.id"
+                  @click="selectUser(user.id)"
                 >
                   <div class="user-avatar assignee">
                     {{ getInitials(user.name) }}
@@ -175,22 +175,41 @@ export default {
         const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
         const currentUserRole = currentUser.role_num;
         
-        // Only get task assignees
-        let eligibleUsers = this.taskCollaborators;
+        console.log('Current user:', currentUser);
+        console.log('Task collaborators:', this.taskCollaborators);
+        console.log('All users:', this.users);
         
-        // If task has no assignees, show empty list
-        if (!eligibleUsers || eligibleUsers.length === 0) {
-          this.transferEligibleUsers = [];
-          return;
+        // First, convert collaborator IDs to full user objects from the users array
+        let eligibleUsers = [];
+        
+        if (this.taskCollaborators && this.taskCollaborators.length > 0) {
+          // Map collaborators to full user objects
+          eligibleUsers = this.taskCollaborators.map(collaborator => {
+            // Handle both object format {id, name} and simple ID format
+            const collaboratorId = typeof collaborator === 'object' ? collaborator.id : collaborator;
+            
+            // Find the full user object from the users array (this has the role_num)
+            const fullUser = this.users.find(user => 
+              String(user.id) === String(collaboratorId)
+            );
+            
+            return fullUser;
+          }).filter(user => user !== undefined); // Remove any undefined matches
         }
+        
+        console.log('Eligible users before filtering:', eligibleUsers);
         
         // Managers (role_num = 3) can only transfer to staff (role_num = 4)
         if (currentUserRole === 3) {
           this.transferEligibleUsers = eligibleUsers
             .filter(user => {
               const userRole = user.role_num || user.rank || 4;
-              // Only allow transfer to staff with role_num = 4
-              return userRole === 4 && String(user.id) !== String(currentUser.id);
+              const isStaff = userRole === 4;
+              const isNotCurrentUser = String(user.id) !== String(currentUser.id);
+              
+              console.log(`User ${user.name}: role=${userRole}, isStaff=${isStaff}, isNotCurrentUser=${isNotCurrentUser}`);
+              
+              return isStaff && isNotCurrentUser;
             })
             .sort((a, b) => {
               const roleA = a.role_num || a.rank || 4;
@@ -201,6 +220,8 @@ export default {
         } else {
           this.transferEligibleUsers = [];
         }
+        
+        console.log('Final eligible users:', this.transferEligibleUsers);
         
       } catch (error) {
         console.error('Error loading transfer eligible users:', error);
@@ -237,23 +258,18 @@ export default {
         // Emit success event to parent
         this.$emit('transfer-success', {
           newOwnerId: this.selectedNewOwner,
-          message: '✅ Task ownership transferred successfully!'
+          message: 'Task ownership transferred successfully!'
         });
         
-        this.closeModal();
+        // ❌ REMOVE THIS LINE - Don't close the modal automatically
+        // this.closeModal();
         
       } catch (error) {
         console.error('Error transferring ownership:', error);
-        this.$emit('transfer-error', `❌ Failed to transfer ownership: ${error.message}`);
+        this.$emit('transfer-error', `Failed to transfer ownership: ${error.message}`);
       } finally {
         this.transferring = false;
       }
-    },
-
-    // Show confirmation modal
-    showTransferConfirmation() {
-      if (!this.selectedNewOwner || this.transferring) return;
-      this.showConfirmationModal = true;
     },
 
     // Cancel confirmation
@@ -261,11 +277,29 @@ export default {
       this.showConfirmationModal = false;
     },
 
-    // Confirm and transfer
+    // Add this method if it doesn't exist
+    selectUser(userId) {
+      console.log('🔍 User clicked:', userId);
+      this.selectedNewOwner = userId;
+      console.log('✅ selectedNewOwner set to:', this.selectedNewOwner);
+      console.log('❌ Should NOT transfer automatically yet');
+    },
+
+    showTransferConfirmation() {
+      console.log('🎯 showTransferConfirmation called');
+      if (!this.selectedNewOwner || this.transferring) {
+        console.log('❌ Cannot show confirmation');
+        return;
+      }
+      console.log('✅ Showing confirmation modal');
+      this.showConfirmationModal = true;
+    },
+
     async confirmTransferOwnership() {
+      console.log('🚀 confirmTransferOwnership called - USER CLICKED CONFIRM');
       this.showConfirmationModal = false;
       await this.transferOwnership();
-    }
+    },
   }
 }
 </script>

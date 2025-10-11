@@ -123,7 +123,7 @@
               <button
                 type="button"
                 class="transfer-ownership-btn"
-                @click="showTransferOwnership = true"
+                @click="showTransferModal = true"
                 :disabled="isSubmitting"
                 title="Transfer ownership of this task"
               >
@@ -138,17 +138,6 @@
               </button>
             </div>
           </div>
-
-          <!-- Transfer Ownership Component -->
-          <TransferOwnership
-            :visible="showTransferOwnership"
-            :task="task"
-            :users="users"
-            :task-collaborators="localForm.assignee || []"
-            @close="showTransferOwnership = false"
-            @transfer-success="handleTransferSuccess"
-            @transfer-error="handleTransferError"
-          />
 
           <!-- Assigned To -->
           <div class="form-group">
@@ -628,6 +617,17 @@
           </button>
         </div>
       </form>
+
+      <!-- Transfer Ownership Component -->
+      <TransferOwnership
+        :visible="showTransferModal"
+        :task="task"
+        :users="users"
+        :task-collaborators="localForm.assigned_to || []"
+        @close="showTransferModal = false"
+        @transfer-success="handleTransferSuccess"
+        @transfer-error="handleTransferError"
+      />
     </div>
 
     <!-- Toast Notification -->
@@ -1008,28 +1008,31 @@ export default {
     }
 
     // Transfer ownership related data
-    const showTransferOwnership = ref(false)
+    const showTransferModal = ref(false)
 
-    // Transfer ownership event handlers
-    const handleTransferSuccess = (payload) => {
-      // Update the local form with the new owner
-      localForm.owner = payload.newOwnerId
+    // Transfer ownership event handlers  
+    const handleTransferSuccess = (data) => {
+      // Prevent event bubbling that might trigger parent refresh
+      console.log('🎯 EditTask handleTransferSuccess called');
+      console.log('Data received:', data);
       
-      // Show success toast
-      showToastNotification(payload.message, 'success')
+      // Update the local form with the new owner ID
+      localForm.owner = data.newOwnerId;
       
-      // Close the transfer modal
-      showTransferOwnership.value = false
+      // Show success message
+      showToastNotification(data.message || 'Ownership transferred successfully', 'success');
       
-      // Optionally emit an event to parent component
-      emit('owner-transferred', payload)
+      // Close only the transfer modal, keep EditTask modal open
+      showTransferModal.value = false;
+      
+      console.log('✅ Transfer completed, EditTask modal should remain open');
     }
 
-    const handleTransferError = (errorMessage) => {
-      // Show error toast
-      showToastNotification(errorMessage, 'error')
+    const handleTransferError = (message) => {
+      // Show error message
+      showToastNotification(message, 'error');
       
-      // Keep the transfer modal open so user can try again
+      // Keep both modals open so user can try again
     }
 
     const attachmentSummary = computed(() => {
@@ -1981,11 +1984,12 @@ export default {
 
     // Computed property for displaying the owner name
     const ownerName = computed(() => {
-      if (localForm.owner) {
-        return getUserName(localForm.owner)
-      }
-      return ''
-    })
+      if (!localForm.owner) return '';
+      
+      // Find the user by ID from the users array
+      const owner = props.users.find(user => String(user.id) === String(localForm.owner));
+      return owner ? owner.name : 'Unknown User';
+    });
 
     onMounted(() => {
       document.addEventListener('click', handleOutsideClick);
@@ -2054,7 +2058,7 @@ export default {
       handleClose,
       getUserName,
       ownerName,
-      showTransferOwnership,
+      showTransferModal,
       handleTransferSuccess,
       handleTransferError,
     }
