@@ -1361,7 +1361,7 @@ export default {
       recurrenceTouched.monthlyDay = false;
       recurrenceTouched.customUnit = false;
       recurrenceTouched.end = false;
-    };
+    }
 
     function deriveWeekdayFromDate(dateString) {
       if (!dateString) {
@@ -1921,12 +1921,6 @@ export default {
 
     const handleClose = () => emit('close')
 
-    // Get user name by ID from the users array
-    const getUserName = (userId) => {
-      const user = props.users.find(u => u.id === userId)
-      return user ? user.name : 'Unknown User'
-    }
-
     // Computed property for displaying the owner name
     const ownerName = computed(() => {
       if (localForm.owner) {
@@ -2002,7 +1996,6 @@ export default {
       handleClose,
       getUserName,
       ownerName,
-      getUserName
     }
   }
 }
