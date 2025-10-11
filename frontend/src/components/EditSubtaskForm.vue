@@ -606,6 +606,11 @@ const validateField = (fieldName) => {
     case 'name':
       if (!formData.value.name.trim()) {
         errors.value.name = 'Subtask name is required'
+      } else {
+        // Clear the error if validation passes
+        if (errors.value.name) {
+          delete errors.value.name
+        }
       }
       break
     case 'startDate':
@@ -638,9 +643,7 @@ const clearError = (fieldName) => {
 }
 
 // Validate form
-const validateForm = () => {
-  errors.value = {}
-  
+const validateForm = () => {  
   if (!formData.value.name.trim()) {
     errors.value.name = 'Subtask name is required'
   }
@@ -843,9 +846,16 @@ const handleCancel = () => {
 
 // Handle form submission
 const handleSubmit = async () => {
+  console.log('=== FORM SUBMIT DEBUG ===')
+  console.log('Original subtask name:', props.subtask.name)
+  console.log('Current form name:', formData.value.name)
+  console.log('Form data:', formData.value)
+  console.log('Errors before validation:', errors.value)
+
   errorMessage.value = ''
   
   if (!validateForm()) {
+    console.log('Validation failed, errors:', errors.value)
     // Find the first error field
     const firstErrorField = Object.keys(errors.value)[0]
     const errorMessage = errors.value[firstErrorField]
@@ -868,6 +878,7 @@ const handleSubmit = async () => {
 
     return
   }
+  console.log('Validation passed, proceeding with submit...')
   
   isSubmitting.value = true
   
@@ -884,7 +895,6 @@ const handleSubmit = async () => {
       status: formData.value.status,
       assigned_to: selectedCollaborators.value.map(collab => collab.id),
       attachments: formData.value.attachments,
-      owner: formData.value.owner 
     }
     
     // Check if status changed - if so, add change log
