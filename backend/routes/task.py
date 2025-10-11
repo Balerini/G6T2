@@ -182,18 +182,37 @@ def get_tasks():
         user_id = request.args.get("userId")
         tasks_ref = db.collection("Tasks")
 
-        if user_id:
-            query = tasks_ref.where("assigned_to", "array_contains", user_id)
-            results = query.stream()
-        else:
-            results = tasks_ref.stream()
-
         tasks = []
-        for doc in results:
-            task = doc.to_dict()
-            task["id"] = doc.id
-            tasks.append(task)
-            print(doc.id)
+
+        if user_id:
+            assigned_query = tasks_ref.where("assigned_to", "array_contains", user_id)
+            assigned_results = assigned_query.stream()
+
+            owner_query = tasks_ref.where("owner", "==", user_id)
+            owner_results = owner_query.stream()
+
+            seen_ids = set()
+            for doc in assigned_results:
+                if doc.id not in seen_ids:
+                    task = doc.to_dict()
+                    task["id"] = doc.id
+                    tasks.append(task)
+                    seen_ids.add(doc.id)
+
+            for doc in owner_results:
+                if doc.id not in seen_ids:
+                    task = doc.to_dict()
+                    task["id"] = doc.id
+                    tasks.append(task)
+                    seen_ids.add(doc.id)
+
+        else:
+            # If no user_id provided, return all tasks
+            results = tasks_ref.stream()
+            for doc in results:
+                task = doc.to_dict()
+                task["id"] = doc.id
+                tasks.append(task)
 
         return jsonify(tasks), 200
 
