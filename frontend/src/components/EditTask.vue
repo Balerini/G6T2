@@ -693,11 +693,6 @@ export default {
       return sgTime.toISOString().split('T')[0]
     }
 
-    const getUserName = (userId) => {
-      const user = props.users.find(u => String(u.id) === String(userId));
-      return user ? user.name : 'Unknown User';
-    }
-
     // Helper function to show toast
     const showToastNotification = (message, type = 'success') => {
       // Clear any existing toast
@@ -1442,6 +1437,7 @@ export default {
       recurrenceTouched.monthlyDay = false;
       recurrenceTouched.customUnit = false;
       recurrenceTouched.end = false;
+    }
     }
 
     function deriveWeekdayFromDate(dateString) {
