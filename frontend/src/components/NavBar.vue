@@ -8,8 +8,7 @@
         <div class="navbar-right">
           <router-link :to="dashboardLink" class="navbar-link" exact-active-class="router-link-active">Dashboard</router-link>
           <router-link to="/projects" class="navbar-link">Projects</router-link>
-          <router-link to="/" class="navbar-link">Free slot</router-link>
-          <router-link to="/my-schedule" class="navbar-link">My Schedule</router-link>
+          <a href="/my-schedule" class="navbar-link" @click.prevent="navigateToSchedule">My Schedule</a>
           
           <!-- Notification Bell -->
           <div class="notification-wrapper" @click="toggleNotifications">
@@ -102,6 +101,14 @@
       }
     },
     methods: {
+      navigateToSchedule() {
+        console.log('Navigating to My Schedule');
+        this.$router.push('/my-schedule').catch(err => {
+          console.error('Router navigation to schedule failed:', err);
+          window.location.href = '/my-schedule';
+        });
+      },
+      
       logout() {
         try {
           authService.logout();
