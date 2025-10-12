@@ -361,7 +361,7 @@
     </div>  
 
     <!-- Edit Task Modal -->
-    <EditTask v-if="selectedTask" :visible="showEdit" :task="selectedTask" :users="users" @close="showEdit = false" @saved="onTaskSaved" />
+    <EditTask v-if="selectedTask" :visible="showEdit" :task="selectedTask" :users="users" :parentProject="parentProject" @close="showEdit = false" @saved="onTaskSaved" />
   </div>
 </template>
 
