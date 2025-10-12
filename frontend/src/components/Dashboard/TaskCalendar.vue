@@ -1,10 +1,25 @@
 <template>
     <div>
-        <h3 class="section-title">Task Calendar</h3>
-        <div v-if="loading" class="loading">Loading...</div>
-        <div v-else-if="error" class="error">Error: {{ error }}</div>
-        <div v-else class="calendar-card">
-            <FullCalendar :options="calendarOptions" />
+        <div class="container">
+            <div class="header-section">
+                <h3 class="section-title">Task Calendar</h3>
+
+                <!-- Tab Buttons -->
+                <div class="action-tabs">
+                    <button :class="['tab-btn', { active: activeTab === 'team' }]" @click="activeTab = 'team'">
+                        Team Tasks
+                    </button>
+                    <button :class="['tab-btn', { active: activeTab === 'my' }]" @click="activeTab = 'my'">
+                        My Tasks
+                    </button>
+                </div>
+
+                <div v-if="loading" class="loading">Loading...</div>
+                <div v-else-if="error" class="error">Error: {{ error }}</div>
+                <div v-else class="calendar-card">
+                    <FullCalendar :options="calendarOptions" />
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -26,6 +41,10 @@ export default {
             data: {},
             loading: true,
             error: null,
+            activeTab: 'team',
+            allEvents: [],
+            myEvents: [],
+            currentUserId: null,
             calendarOptions: {
                 plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
                 initialView: 'dayGridMonth',
@@ -45,6 +64,11 @@ export default {
             }
         };
     },
+    watch: {
+        activeTab(newTab) {
+            this.updateCalendarEvents(newTab);
+        }
+    },
     async mounted() {
         try {
             const userStr = sessionStorage.getItem('user');
@@ -55,14 +79,15 @@ export default {
             }
 
             const user = JSON.parse(userStr);
-            const userId = user.id;
-            console.log('TaskCalendar - User ID:', userId);
+            this.currentUserId = user.id;
+            console.log('TaskCalendar - User ID:', this.currentUserId);
 
-            this.data = await dashboardService.getPendingTasksByAgeAndStaffName(userId);
+            this.data = await dashboardService.getPendingTasksByAgeAndStaffName(this.currentUserId);
             console.log('TaskCalendar - Response:', this.data);
 
             if (this.data.pending_tasks_by_age) {
                 this.processCalendarEvents();
+                this.updateCalendarEvents(this.activeTab);
             }
 
             this.loading = false;
@@ -74,7 +99,8 @@ export default {
     },
     methods: {
         processCalendarEvents() {
-            const events = [];
+            const allEvents = [];
+            const myEvents = [];
             const allCategories = this.data.pending_tasks_by_age;
 
             Object.keys(allCategories).forEach(category => {
@@ -97,7 +123,7 @@ export default {
                         color = '#059669';
                     }
 
-                    events.push({
+                    const event = {
                         id: task.task_id,
                         title: task.task_name,
                         start: task.end_date,
@@ -110,18 +136,33 @@ export default {
                             status: task.task_status,
                             daysUntilDue: task.days_until_due,
                             proj_id: task.proj_id,
-                            task_id: task.task_id
+                            task_id: task.task_id,
+                            assigned_to_id: task.assigned_to_id
                         }
-                    });
+                    };
+
+                    allEvents.push(event);
+
+                    // Check if task is assigned to current user
+                    if (task.assigned_to_id === this.currentUserId) {
+                        myEvents.push(event);
+                    }
                 });
             });
 
-            this.calendarOptions.events = events;
+            this.allEvents = allEvents;
+            this.myEvents = myEvents;
+        },
+        updateCalendarEvents(tab) {
+            if (tab === 'team') {
+                this.calendarOptions.events = this.allEvents;
+            } else {
+                this.calendarOptions.events = this.myEvents;
+            }
         },
         handleEventClick(info) {
             const props = info.event.extendedProps;
 
-            // Check if we have the required IDs
             if (props.proj_id && props.task_id) {
                 this.$router.push(`/projects/${props.proj_id}/tasks/${props.task_id}`);
             } else {
@@ -129,7 +170,6 @@ export default {
                 alert('Cannot navigate to task details - missing project or task ID');
             }
         },
-        // Add this helper method to get color for specific status
         getStatusColor(status) {
             const colorMap = {
                 'Not Started': '#f87171',
@@ -137,24 +177,78 @@ export default {
                 'Completed': '#34d399',
                 'Pending': '#fb923c'
             };
-            return colorMap[status] || '#9ca3af'; // gray as default
+            return colorMap[status] || '#9ca3af';
         }
     }
 };
 </script>
 
 <style scoped>
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
 .section-title {
-    font-size: 20px;
-    font-weight: 600;
+    font-size: 2.25rem;
+    line-height: 1.2;
+    font-weight: 800;
     color: #111827;
-    margin-bottom: 20px;
+    margin: 0 0 1.5rem 0;
+}
+
+.header-section {
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 1.5rem 0;
+}
+
+.hero-title {
+    font-size: 2.25rem;
+    line-height: 1.2;
+    font-weight: 800;
+    color: #111827;
+    margin: 0;
+}
+
+.action-tabs {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.tab-btn {
+    padding: 0.625rem 1.25rem;
+    border: 1px solid #374151;
+    background: #fff;
+    color: #374151;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-btn.active {
+    background: #111827;
+    color: #fff;
+    border-color: #111827;
+}
+
+.tab-btn:hover {
+    background: #f9fafb;
+}
+
+.tab-btn.active:hover {
+    background: #374151;
 }
 
 .calendar-card {
     background: white;
     border-radius: 12px;
-    padding: 24px;
+    padding: 2rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     border: 1px solid #e5e7eb;
 }
@@ -162,12 +256,31 @@ export default {
 .loading,
 .error {
     color: #6b7280;
-    font-size: 14px;
-    margin: 10px;
+    font-size: 0.875rem;
+    margin: 1rem 0;
 }
 
 .error {
     color: #dc2626;
+}
+
+@media (max-width: 768px) {
+    .action-tabs {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .tab-btn {
+        width: 100%;
+    }
+
+    .calendar-wrapper {
+        padding: 0;
+    }
+
+    .calendar-card {
+        padding: 1rem;
+    }
 }
 </style>
 

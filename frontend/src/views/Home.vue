@@ -176,6 +176,7 @@ import TasksByStatus from '@/components/Dashboard/TasksByStatus.vue';
 import TasksByStaff from '@/components/Dashboard/TasksByStaff.vue';
 import TasksByPriority from '@/components/Dashboard/TasksByPriority.vue';
 import TaskTimeline from '@/components/Dashboard/TaskTimeline.vue';
+// import TaskCalendar from '@/views/TaskCalendar.vue';
 import AuthService from '@/services/auth.js';
 import TaskCard from '@/components/Projects/TaskCard.vue';
 import { ownTasksService } from '../services/myTaskService.js'

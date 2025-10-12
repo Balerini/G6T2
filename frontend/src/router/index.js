@@ -4,12 +4,13 @@ import authService from '../services/auth';
 import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import Home from '../views/Home.vue';
-import MySchedule from '../views/MySchedule.vue';
+// import MySchedule from '../views/MySchedule.vue';
 import Projects from '../views/Projects.vue';
 import Createtask from '../views/CreateTask.vue'
 import CreateProject from '../views/CreateProject.vue'
 import ViewTaskDetails  from '../views/ViewTaskDetails.vue'
 import Notifications from '../views/Notifications.vue'
+import TaskCalendar from '@/components/Dashboard/TaskCalendar.vue';
 // import ViewOwnTasks from '../views/ViewOwnTasks.vue'
 
 const routes = [
@@ -56,15 +57,9 @@ const routes = [
     meta: { showNav: true }
   },
   {
-    path: '/tasks/:taskId',
-    name: 'viewstandalonetask',
-    component: ViewTaskDetails,
-    meta: { showNav: true }
-  },
-  {
-    path: '/my-schedule',
-    name: 'myschedule',
-    component: MySchedule,
+    path: '/myschedule',
+    name: 'schedule',
+    component: TaskCalendar,
     meta: { showNav: true, requiresAuth: true }
   },
   {
