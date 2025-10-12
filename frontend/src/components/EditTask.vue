@@ -559,9 +559,9 @@
             </div>
           </div>
 
-          <!-- Priority Level -->
-          <div class="form-group">
-            <label class="form-label" for="priorityLevel">
+        <!-- Priority Level -->
+        <div class="form-group">
+          <label class="form-label" for="priorityLevel">
               Priority Level *
             </label>
             <select
@@ -610,6 +610,32 @@
               {{ errors.task_status }}
             </span>
           </div>
+
+          <!-- Status Change History -->
+          <div class="form-group" v-if="statusHistory.length > 0">
+            <label class="form-label">Status Change History</label>
+            <div class="status-history-container">
+              <div
+                v-for="(log, index) in statusHistory"
+                :key="`status-log-${index}-${log.timestamp || 'unknown'}`"
+                class="status-history-item"
+              >
+                <div class="status-history-info">
+                  <div class="status-change">
+                    <span class="old-status">{{ log.old_status || 'Unknown' }}</span>
+                    <span class="arrow">→</span>
+                    <span class="new-status">{{ log.new_status || 'Unknown' }}</span>
+                  </div>
+                  <div class="status-metadata">
+                    <span class="staff-name">{{ log.staff_name || 'Unknown User' }}</span>
+                    <span class="separator">•</span>
+                    <span class="timestamp">{{ formatTimestamp(log.timestamp) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <div class="form-actions">
@@ -690,6 +716,8 @@ export default {
     const newAttachments = ref([])
     const attachmentErrors = ref('')
     const maxAttachments = 3
+    const statusHistory = ref([])
+    const originalStatus = ref(props.task?.task_status || '')
 
     const getCurrentDate = () => {
       const today = new Date()
@@ -911,6 +939,8 @@ export default {
         ? String(t.priority_level)
         : ''
 
+      originalStatus.value = t.task_status || ''
+
       // Reset assigned_to before repopulating
       localForm.assigned_to = []
 
@@ -929,6 +959,10 @@ export default {
       // Sync recurrence details without replacing the reactive object reference
       const normalizedRecurrence = normalizeRecurrence(t.recurrence)
       Object.assign(localForm.recurrence, normalizedRecurrence)
+
+      statusHistory.value = Array.isArray(t.status_history)
+        ? [...t.status_history]
+        : []
 
       existingAttachments.value = Array.isArray(t.attachments)
         ? t.attachments.map(attachment => ({ ...attachment }))
@@ -2064,6 +2098,8 @@ export default {
           ...uploadedAttachments
         ]
 
+        let updatedHistory = statusHistory.value
+
         const payload = {
           proj_name: localForm.proj_name,
           task_ID: localForm.task_ID || props.task?.task_ID || id || '',
@@ -2075,19 +2111,23 @@ export default {
           assigned_to: localForm.assigned_to.map(user => user.id),
           task_status: localForm.task_status || null,
           priority_level: localForm.priority_level ? parseInt(localForm.priority_level, 10) : null,
+          status_history: statusHistory.value,
           attachments: finalAttachments,
           recurrence: buildRecurrencePayload()
         }
 
         // Status change log
-        if ((props.task?.task_status || '') !== (localForm.task_status || '')) {
-          payload.status_log = [
-            {
-              changed_by: 'Current User',
-              timestamp: new Date().toISOString(),
-              new_status: localForm.task_status || 'Unassigned'
-            }
-          ]
+        if ((originalStatus.value || '') !== (localForm.task_status || '')) {
+          const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
+          const changeLog = {
+            timestamp: new Date().toISOString(),
+            old_status: originalStatus.value || 'Unassigned',
+            new_status: localForm.task_status || 'Unassigned',
+            staff_name: currentUser.name || findUserNameById(currentUser.id) || 'Unknown User'
+          }
+          updatedHistory = [...statusHistory.value, changeLog]
+          payload.status_history = updatedHistory
+          payload.status_log = [changeLog]
         }
 
         const updatePromise = taskService.updateTask(id, payload)
@@ -2126,6 +2166,8 @@ export default {
         emit('saved', updated)
 
         if (!deletionError) {
+          statusHistory.value = updatedHistory
+          originalStatus.value = localForm.task_status || ''
           setTimeout(() => {
             handleClose()
           }, 500)
@@ -2142,14 +2184,33 @@ export default {
 
     const handleClose = () => emit('close')
 
+    function findUserNameById(userId) {
+      if (!userId) return null
+      const user = props.users.find(u => String(u.id) === String(userId))
+      return user ? user.name : null
+    }
+
     // Computed property for displaying the owner name
     const ownerName = computed(() => {
       if (!localForm.owner) return '';
-      
+
       // Find the user by ID from the users array
       const owner = props.users.find(user => String(user.id) === String(localForm.owner));
       return owner ? owner.name : 'Unknown User';
     });
+
+    function formatTimestamp(timestamp) {
+      if (!timestamp) return 'Unknown time'
+      const date = new Date(timestamp)
+      if (Number.isNaN(date.getTime())) return timestamp
+      return date.toLocaleString('en-SG', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
 
     onMounted(() => {
       document.addEventListener('click', handleOutsideClick);
@@ -2219,6 +2280,8 @@ export default {
       handleSubmit,
       handleClose,
       ownerName,
+      statusHistory,
+      formatTimestamp,
       showTransferModal,
       canTransferOwnership,
       handleTransferSuccess,
@@ -2378,6 +2441,68 @@ export default {
 
 .remove-tag:hover {
   color: #000000;
+}
+
+.status-history-container {
+  margin-top: 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 12px;
+  background-color: #f8f9fa;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.status-history-item {
+  padding: 10px 12px;
+  background-color: #ffffff;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  border-left: 3px solid #3b82f6;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.1);
+}
+
+.status-history-item:last-child {
+  margin-bottom: 0;
+}
+
+.status-history-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-change {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.status-change .old-status {
+  color: #9ca3af;
+}
+
+.status-change .new-status {
+  color: #2563eb;
+}
+
+.status-change .arrow {
+  color: #6b7280;
+}
+
+.status-metadata {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.status-metadata .separator {
+  color: #d1d5db;
 }
 
 .recurrence-section {
