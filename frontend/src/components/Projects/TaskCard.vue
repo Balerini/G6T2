@@ -11,7 +11,7 @@
       <!-- jh changes -->
       <div class="meta-group">
         <span class="meta-label">Priority:</span>
-        <span class="priority-badge" :class="getPriorityClass(task.priority_bucket)">
+        <span class="priority-badge" :class="getPriorityClass(task.priority_level)">
           {{ formatPriority(task.priority_level) }}
           <!-- {{ formatPriority(task.priority_bucket) }} -->
         </span>
@@ -35,9 +35,12 @@
       </div>
 
       <div class="meta-group">
-        <span class="meta-label">Assigned To:</span>
-        <div class="assignee-list">
+        <span class="meta-label">Collaborators:</span>
+        <div v-if="task.assigned_to.length" class="assignee-list">
           <UserAvatar v-for="userId in task.assigned_to" :key="userId" :user="getUser(userId)" type="assignee" />
+        </div>
+        <div v-else class="assignee-list">
+          None
         </div>
       </div>
 
@@ -139,7 +142,6 @@ export default {
       
       // First try to find by document ID (from backend API)
       let user = this.users.find(u => String(u.id) === String(userId));
-
       // Fallback to user_ID field if it exists
       if (!user) {
         user = this.users.find(u => String(u.user_ID) === String(userId));
@@ -158,7 +160,7 @@ export default {
         );
       }
 
-      return user ? user.name : `User ${userId}`;
+      return user ? user.name : `${userId}`;
     },
     getInitials(name) {
       if (!name) return 'U';

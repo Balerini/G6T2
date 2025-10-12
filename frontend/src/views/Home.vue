@@ -162,7 +162,7 @@
                             </div>
                             </div>
                         </div>
-                        </div>
+                    </div>
 
                 </div>
             </div>
@@ -179,8 +179,9 @@ import TaskTimeline from '@/components/Dashboard/TaskTimeline.vue';
 // import TaskCalendar from '@/views/TaskCalendar.vue';
 import AuthService from '@/services/auth.js';
 import TaskCard from '@/components/Projects/TaskCard.vue';
-import { ownTasksService } from '../services/myTaskService.js'
-import notificationService from '@/services/notificationService'
+import { ownTasksService } from '../services/myTaskService.js';
+import notificationService from '@/services/notificationService';
+import { userAPI } from '../services/api.js'
 // import PendingTasksByAge from '@/components/Dashboard/PendingTasksByAge.vue';
 
 export default {
@@ -219,6 +220,7 @@ export default {
     },
     created() {
         this.loadTaskData();
+        this.fetchUsers();
     },
     watch: {
         $route() {
@@ -249,6 +251,21 @@ export default {
                 this.error = error.message;
             } finally {
                 this.loading = false;
+            }
+        },
+        async fetchUsers() {
+            try {
+            console.log('Fetching all users for avatar display');
+            
+            // Load all users to ensure we have all assignees
+            this.users = await userAPI.getAllUsers();
+            
+            // console.log('Fetched all users:', this.users);
+            // console.log(`Found ${this.users.length} users total`);
+            
+            } catch (error) {
+            console.error('Error fetching users:', error);
+            this.users = [];
             }
         },
 
