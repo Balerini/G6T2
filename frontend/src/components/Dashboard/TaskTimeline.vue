@@ -10,12 +10,14 @@
                     <h4 class="category-title">OVERDUE ({{ getCategoryCount('overdue') }})</h4>
                     <span class="expand-icon">{{ expandedCategories['overdue'] ? '▼' : '▶' }}</span>
                 </div>
-                <div v-if="expandedCategories['overdue'] && data.pending_tasks_by_age.overdue.length === 0" class="empty-state">
+                <div v-if="expandedCategories['overdue'] && data.pending_tasks_by_age.overdue.length === 0"
+                    class="empty-state">
                     No overdue tasks 🎉
                 </div>
                 <div v-if="expandedCategories['overdue'] && data.pending_tasks_by_age.overdue.length > 0"
                     class="task-list">
-                    <div v-for="task in data.pending_tasks_by_age.overdue" :key="task.task_id" class="task-item" @click.stop="navigateToTask(task)">
+                    <div v-for="task in getDisplayedTasks('overdue')" :key="task.task_id" class="task-item"
+                        @click.stop="navigateToTask(task)">
                         <div class="task-header">
                             <div class="task-name">{{ task.task_name }}</div>
                             <span class="task-status" :class="task.task_status.toLowerCase().replace(' ', '-')">
@@ -29,6 +31,9 @@
                                 Math.abs(task.days_until_due) !== 1 ? 's' : '' }}</span>
                         </div>
                     </div>
+                    <button v-if="hasMoreTasks('overdue')" @click.stop="showAllTasks('overdue')" class="view-more-btn">
+                        View {{ getRemainingCount('overdue') }} more tasks
+                    </button>
                 </div>
             </div>
 
@@ -38,12 +43,14 @@
                     <h4 class="category-title">DUE TODAY ({{ getCategoryCount('due_today') }})</h4>
                     <span class="expand-icon">{{ expandedCategories['due_today'] ? '▼' : '▶' }}</span>
                 </div>
-                <div v-if="expandedCategories['due_today'] && data.pending_tasks_by_age.due_today.length === 0" class="empty-state">
+                <div v-if="expandedCategories['due_today'] && data.pending_tasks_by_age.due_today.length === 0"
+                    class="empty-state">
                     No tasks due today
                 </div>
                 <div v-if="expandedCategories['due_today'] && data.pending_tasks_by_age.due_today.length > 0"
                     class="task-list">
-                    <div v-for="task in data.pending_tasks_by_age.due_today" :key="task.task_id" class="task-item" @click.stop="navigateToTask(task)">
+                    <div v-for="task in getDisplayedTasks('due_today')" :key="task.task_id" class="task-item"
+                        @click.stop="navigateToTask(task)">
                         <div class="task-header">
                             <div class="task-name">{{ task.task_name }}</div>
                             <span class="task-status" :class="task.task_status.toLowerCase().replace(' ', '-')">
@@ -56,6 +63,10 @@
                             <span class="meta-item">⏰ Due today</span>
                         </div>
                     </div>
+                    <button v-if="hasMoreTasks('due_today')" @click.stop="showAllTasks('due_today')"
+                        class="view-more-btn">
+                        View {{ getRemainingCount('due_today') }} more tasks
+                    </button>
                 </div>
             </div>
 
@@ -65,12 +76,14 @@
                     <h4 class="category-title">DUE TOMORROW ({{ getCategoryCount('due_in_1_day') }})</h4>
                     <span class="expand-icon">{{ expandedCategories['due_in_1_day'] ? '▼' : '▶' }}</span>
                 </div>
-                <div v-if="expandedCategories['due_in_1_day'] && data.pending_tasks_by_age.due_in_1_day.length === 0" class="empty-state">
+                <div v-if="expandedCategories['due_in_1_day'] && data.pending_tasks_by_age.due_in_1_day.length === 0"
+                    class="empty-state">
                     No tasks due tomorrow
                 </div>
                 <div v-if="expandedCategories['due_in_1_day'] && data.pending_tasks_by_age.due_in_1_day.length > 0"
                     class="task-list">
-                    <div v-for="task in data.pending_tasks_by_age.due_in_1_day" :key="task.task_id" class="task-item" @click.stop="navigateToTask(task)">
+                    <div v-for="task in getDisplayedTasks('due_in_1_day')" :key="task.task_id" class="task-item"
+                        @click.stop="navigateToTask(task)">
                         <div class="task-header">
                             <div class="task-name">{{ task.task_name }}</div>
                             <span class="task-status" :class="task.task_status.toLowerCase().replace(' ', '-')">
@@ -83,6 +96,10 @@
                             <span class="meta-item">⏰ Due in 1 day</span>
                         </div>
                     </div>
+                    <button v-if="hasMoreTasks('due_in_1_day')" @click.stop="showAllTasks('due_in_1_day')"
+                        class="view-more-btn">
+                        View {{ getRemainingCount('due_in_1_day') }} more tasks
+                    </button>
                 </div>
             </div>
 
@@ -92,12 +109,14 @@
                     <h4 class="category-title">DUE IN 2-3 DAYS ({{ getCategoryCount('due_in_3_days') }})</h4>
                     <span class="expand-icon">{{ expandedCategories['due_in_3_days'] ? '▼' : '▶' }}</span>
                 </div>
-                <div v-if="expandedCategories['due_in_3_days'] && data.pending_tasks_by_age.due_in_3_days.length === 0" class="empty-state">
+                <div v-if="expandedCategories['due_in_3_days'] && data.pending_tasks_by_age.due_in_3_days.length === 0"
+                    class="empty-state">
                     No tasks in this range
                 </div>
                 <div v-if="expandedCategories['due_in_3_days'] && data.pending_tasks_by_age.due_in_3_days.length > 0"
                     class="task-list">
-                    <div v-for="task in data.pending_tasks_by_age.due_in_3_days" :key="task.task_id" class="task-item" @click.stop="navigateToTask(task)">
+                    <div v-for="task in getDisplayedTasks('due_in_3_days')" :key="task.task_id" class="task-item"
+                        @click.stop="navigateToTask(task)">
                         <div class="task-header">
                             <div class="task-name">{{ task.task_name }}</div>
                             <span class="task-status" :class="task.task_status.toLowerCase().replace(' ', '-')">
@@ -110,6 +129,10 @@
                             <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
                         </div>
                     </div>
+                    <button v-if="hasMoreTasks('due_in_3_days')" @click.stop="showAllTasks('due_in_3_days')"
+                        class="view-more-btn">
+                        View {{ getRemainingCount('due_in_3_days') }} more tasks
+                    </button>
                 </div>
             </div>
 
@@ -119,12 +142,14 @@
                     <h4 class="category-title">DUE THIS WEEK ({{ getCategoryCount('due_in_a_week') }})</h4>
                     <span class="expand-icon">{{ expandedCategories['due_in_a_week'] ? '▼' : '▶' }}</span>
                 </div>
-                <div v-if="expandedCategories['due_in_a_week'] && data.pending_tasks_by_age.due_in_a_week.length === 0" class="empty-state">
+                <div v-if="expandedCategories['due_in_a_week'] && data.pending_tasks_by_age.due_in_a_week.length === 0"
+                    class="empty-state">
                     No tasks due this week
                 </div>
                 <div v-if="expandedCategories['due_in_a_week'] && data.pending_tasks_by_age.due_in_a_week.length > 0"
                     class="task-list">
-                    <div v-for="task in data.pending_tasks_by_age.due_in_a_week" :key="task.task_id" class="task-item" @click.stop="navigateToTask(task)">
+                    <div v-for="task in getDisplayedTasks('due_in_a_week')" :key="task.task_id" class="task-item"
+                        @click.stop="navigateToTask(task)">
                         <div class="task-header">
                             <div class="task-name">{{ task.task_name }}</div>
                             <span class="task-status" :class="task.task_status.toLowerCase().replace(' ', '-')">
@@ -137,6 +162,10 @@
                             <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
                         </div>
                     </div>
+                    <button v-if="hasMoreTasks('due_in_a_week')" @click.stop="showAllTasks('due_in_a_week')"
+                        class="view-more-btn">
+                        View {{ getRemainingCount('due_in_a_week') }} more tasks
+                    </button>
                 </div>
             </div>
 
@@ -146,12 +175,14 @@
                     <h4 class="category-title">DUE IN 2 WEEKS ({{ getCategoryCount('due_in_2_weeks') }})</h4>
                     <span class="expand-icon">{{ expandedCategories['due_in_2_weeks'] ? '▼' : '▶' }}</span>
                 </div>
-                <div v-if="expandedCategories['due_in_2_weeks'] && data.pending_tasks_by_age.due_in_2_weeks.length === 0" class="empty-state">
+                <div v-if="expandedCategories['due_in_2_weeks'] && data.pending_tasks_by_age.due_in_2_weeks.length === 0"
+                    class="empty-state">
                     No tasks in this range
                 </div>
                 <div v-if="expandedCategories['due_in_2_weeks'] && data.pending_tasks_by_age.due_in_2_weeks.length > 0"
                     class="task-list">
-                    <div v-for="task in data.pending_tasks_by_age.due_in_2_weeks" :key="task.task_id" class="task-item" @click.stop="navigateToTask(task)">
+                    <div v-for="task in getDisplayedTasks('due_in_2_weeks')" :key="task.task_id" class="task-item"
+                        @click.stop="navigateToTask(task)">
                         <div class="task-header">
                             <div class="task-name">{{ task.task_name }}</div>
                             <span class="task-status" :class="task.task_status.toLowerCase().replace(' ', '-')">
@@ -164,6 +195,10 @@
                             <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
                         </div>
                     </div>
+                    <button v-if="hasMoreTasks('due_in_2_weeks')" @click.stop="showAllTasks('due_in_2_weeks')"
+                        class="view-more-btn">
+                        View {{ getRemainingCount('due_in_2_weeks') }} more tasks
+                    </button>
                 </div>
             </div>
 
@@ -173,12 +208,14 @@
                     <h4 class="category-title">DUE THIS MONTH ({{ getCategoryCount('due_in_a_month') }})</h4>
                     <span class="expand-icon">{{ expandedCategories['due_in_a_month'] ? '▼' : '▶' }}</span>
                 </div>
-                <div v-if="expandedCategories['due_in_a_month'] && data.pending_tasks_by_age.due_in_a_month.length === 0" class="empty-state">
+                <div v-if="expandedCategories['due_in_a_month'] && data.pending_tasks_by_age.due_in_a_month.length === 0"
+                    class="empty-state">
                     No tasks due this month
                 </div>
                 <div v-if="expandedCategories['due_in_a_month'] && data.pending_tasks_by_age.due_in_a_month.length > 0"
                     class="task-list">
-                    <div v-for="task in data.pending_tasks_by_age.due_in_a_month" :key="task.task_id" class="task-item" @click.stop="navigateToTask(task)">
+                    <div v-for="task in getDisplayedTasks('due_in_a_month')" :key="task.task_id" class="task-item"
+                        @click.stop="navigateToTask(task)">
                         <div class="task-header">
                             <div class="task-name">{{ task.task_name }}</div>
                             <span class="task-status" :class="task.task_status.toLowerCase().replace(' ', '-')">
@@ -191,6 +228,10 @@
                             <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
                         </div>
                     </div>
+                    <button v-if="hasMoreTasks('due_in_a_month')" @click.stop="showAllTasks('due_in_a_month')"
+                        class="view-more-btn">
+                        View {{ getRemainingCount('due_in_a_month') }} more tasks
+                    </button>
                 </div>
             </div>
 
@@ -200,12 +241,14 @@
                     <h4 class="category-title">DUE MUCH LATER ({{ getCategoryCount('due_later') }})</h4>
                     <span class="expand-icon">{{ expandedCategories['due_later'] ? '▼' : '▶' }}</span>
                 </div>
-                <div v-if="expandedCategories['due_later'] && data.pending_tasks_by_age.due_later.length === 0" class="empty-state">
+                <div v-if="expandedCategories['due_later'] && data.pending_tasks_by_age.due_later.length === 0"
+                    class="empty-state">
                     No tasks in this range
                 </div>
                 <div v-if="expandedCategories['due_later'] && data.pending_tasks_by_age.due_later.length > 0"
                     class="task-list">
-                    <div v-for="task in data.pending_tasks_by_age.due_later" :key="task.task_id" class="task-item" @click.stop="navigateToTask(task)">
+                    <div v-for="task in getDisplayedTasks('due_later')" :key="task.task_id" class="task-item"
+                        @click.stop="navigateToTask(task)">
                         <div class="task-header">
                             <div class="task-name">{{ task.task_name }}</div>
                             <span class="task-status" :class="task.task_status.toLowerCase().replace(' ', '-')">
@@ -218,6 +261,10 @@
                             <span class="meta-item">⏰ Due in {{ task.days_until_due }} days</span>
                         </div>
                     </div>
+                    <button v-if="hasMoreTasks('due_later')" @click.stop="showAllTasks('due_later')"
+                        class="view-more-btn">
+                        View {{ getRemainingCount('due_later') }} more tasks
+                    </button>
                 </div>
             </div>
         </div>
@@ -254,7 +301,9 @@ export default {
                 due_in_2_weeks: false,
                 due_in_a_month: false,
                 due_later: false
-            }
+            },
+            taskLimit: 3,
+            showAllForCategory: {}
         };
     },
     async mounted() {
@@ -294,6 +343,24 @@ export default {
         },
         getCategoryCount(category) {
             return this.data.pending_tasks_by_age[category]?.length || 0;
+        },
+        getDisplayedTasks(category) {
+            const tasks = this.data.pending_tasks_by_age[category] || [];
+            if (this.showAllForCategory[category]) {
+                return tasks;
+            }
+            return tasks.slice(0, this.taskLimit);
+        },
+        hasMoreTasks(category) {
+            const tasks = this.data.pending_tasks_by_age[category] || [];
+            return tasks.length > this.taskLimit && !this.showAllForCategory[category];
+        },
+        getRemainingCount(category) {
+            const tasks = this.data.pending_tasks_by_age[category] || [];
+            return tasks.length - this.taskLimit;
+        },
+        showAllTasks(category) {
+            this.showAllForCategory[category] = true;
         },
         navigateToTask(task) {
             // Navigate to task details page
@@ -496,6 +563,26 @@ export default {
 
 .error {
     color: #dc2626;
+}
+
+.view-more-btn {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    color: #6366f1;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.view-more-btn:hover {
+    background: #e5e7eb;
+    border-color: #6366f1;
+    color: #4f46e5;
 }
 
 @media (max-width: 1024px) {
