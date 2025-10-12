@@ -98,10 +98,10 @@
             <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
                 {{ formatStatus(task.task_status) }}
             </div>
-              <button @click="openEditModal" class="edit-task-btn" v-if="task && isTaskOwner">
+              <button @click="openEditModal" class="edit-task-btn" v-if="task">
                 ✏️ Edit Task
               </button>
-            <button @click="openSubtaskModal" class="add-subtask-btn" v-if="isTaskOwner">
+            <button @click="openSubtaskModal" class="add-subtask-btn">
               + Add Subtask
             </button>
             </div>
@@ -271,7 +271,7 @@
                 </div>
 
                 <!-- Edit Button -->
-                <button @click.stop="openEditSubtaskModal(subtask)" class="edit-subtask-btn" v-if="isTaskOwner">
+                <button @click.stop="openEditSubtaskModal(subtask)" class="edit-subtask-btn">
                   ✏️ Edit Subtask
                 </button>
 

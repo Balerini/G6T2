@@ -144,29 +144,31 @@
           <div class="form-group">
             <label class="form-label" for="assignedTo">
               Collaborators
+              <span v-if="!isTaskOwner" class="label-note">(Only task owner can modify)</span>
             </label>
 
             <!-- Combined search input with dropdown -->
-            <div class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown }">
+            <div class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown && isTaskOwner }">
               <input
                 id="assignedTo"
                 v-model="userSearch"
                 type="text"
                 class="form-input"
                 :class="{ 'input-error': errors.collaborators }"
-                :placeholder="isLoadingUsers ? 'Loading users...' : 'Search and select collaborators...'"
-                @focus="handleInputFocus; clearError('collaborators')"
+                :placeholder="isLoadingUsers ? 'Loading users...' : (isTaskOwner ? 'Search and select collaborators...' : 'Only task owner can modify collaborators')"
+                @focus="isTaskOwner ? handleInputFocus : null; clearError('collaborators')"
                 @blur="handleInputBlur"
                 @input="handleSearchInput"
                 @keydown.enter.prevent="selectFirstMatch"
                 @keydown.escape="closeDropdown"
                 @keydown.arrow-down.prevent="navigateDown"
                 @keydown.arrow-up.prevent="navigateUp"
-                :disabled="isLoadingUsers"
+                :disabled="isLoadingUsers || !isTaskOwner"
               />
 
               <!-- Dropdown icon -->
               <div
+                v-if="isTaskOwner"
                 class="dropdown-toggle-icon"
                 @click="toggleDropdown"
                 :class="{ 'rotated': showDropdown }"
@@ -867,6 +869,19 @@ export default {
       const hasDateError = Boolean(dateValidationError.value);
       const hasAttachmentError = Boolean(attachmentErrors.value);
       return !hasErrors && !hasDateError && !hasAttachmentError;
+    });
+
+    const isTaskOwner = computed(() => {
+      try {
+        const currentUser = getCurrentUser();
+        if (!currentUser || !props.task) {
+          return false;
+        }
+        return String(props.task.owner) === String(currentUser.id);
+      } catch (error) {
+        console.error('Error checking task ownership:', error);
+        return false;
+      }
     });
 
     // Cleanup on unmount
@@ -2163,6 +2178,7 @@ export default {
       filteredUsers,
       roleFilteredUsers,
       isFormValid,
+      isTaskOwner,
       getSelectedProjectInfo,
       getTaskMinStartDate,
       getTaskMaxEndDate,
