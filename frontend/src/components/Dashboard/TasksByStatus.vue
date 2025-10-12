@@ -4,7 +4,11 @@
         <div v-if="loading" class="loading">Loading...</div>
         <div v-else-if="error" class="error">Error: {{ error }}</div>
         <div v-else class="card">
-            <div class="chart-container">
+            <div v-if="hasNoTasks" class="no-tasks-message">
+                <div class="no-tasks-icon">📋</div>
+                <div class="no-tasks-text">No tasks assigned</div>
+            </div>
+            <div v-else class="chart-container">
                 <Pie :data="chartData" :options="chartOptions" />
             </div>
         </div>
@@ -49,6 +53,13 @@ export default {
                 }
             }
         };
+    },
+    computed: {
+        hasNoTasks() {
+            if (!this.data.tasks_by_status) return true;
+            const totalTasks = Object.values(this.data.tasks_by_status).reduce((sum, count) => sum + count, 0);
+            return totalTasks === 0;
+        }
     },
     async mounted() {
         try {
@@ -104,6 +115,27 @@ export default {
     max-width: 400px;
     max-height: 400px;
     margin: 0 auto;
+}
+
+.no-tasks-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.no-tasks-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.no-tasks-text {
+    font-size: 18px;
+    color: #6b7280;
+    font-weight: 500;
 }
 
 .loading,
