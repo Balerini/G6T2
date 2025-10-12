@@ -234,6 +234,7 @@
               >
                 {{ assignee.name }}
                 <button
+                  v-if="isTaskOwner"
                   type="button"
                   class="remove-tag"
                   @click="removeAssignee(index)"
@@ -2290,6 +2291,14 @@ export default {
 
 .form-group { display: flex; flex-direction: column; gap: 8px; }
 .form-label { font-size: 14px; font-weight: 600; color: #000000; }
+
+.label-note {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+  font-style: italic;
+  margin-left: 4px;
+}
 
 .form-input, .form-select, .form-textarea {
   width: 100%;
