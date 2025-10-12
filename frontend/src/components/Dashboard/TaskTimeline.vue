@@ -363,13 +363,34 @@ export default {
             this.showAllForCategory[category] = true;
         },
         navigateToTask(task) {
-            // Navigate to task details page
-            if (task.proj_id) {
-                // Task belongs to a project
-                this.$router.push(`/projects/${task.proj_id}/tasks/${task.task_id}`);
-            } else {
-                // Standalone task
-                this.$router.push(`/tasks/${task.task_id}`);
+            console.log('🔍 Task clicked:', task);
+            console.log('🔍 Task ID:', task.task_id);
+            console.log('🔍 Project ID:', task.proj_id);
+            
+            // Check if task has required IDs
+            if (!task.task_id) {
+                console.error('❌ Task missing task_id:', task);
+                alert('Cannot navigate: Task ID is missing');
+                return;
+            }
+            
+            // Build the target URL with "from" parameter to indicate source
+            const baseUrl = task.proj_id 
+                ? `/projects/${task.proj_id}/tasks/${task.task_id}`
+                : `/tasks/${task.task_id}`;
+            
+            const targetUrl = `${baseUrl}?from=dashboard`;
+            
+            console.log(`🚀 Attempting navigation to: ${targetUrl}`);
+            console.log('🔍 Current route:', this.$route.path);
+            
+            // Use window.location for reliable navigation
+            try {
+                window.location.href = targetUrl;
+                console.log('✅ Navigation initiated');
+            } catch (err) {
+                console.error('❌ Navigation failed:', err);
+                alert(`Failed to navigate to task. URL: ${targetUrl}`);
             }
         }
     }

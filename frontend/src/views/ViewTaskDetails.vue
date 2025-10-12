@@ -22,10 +22,12 @@
       <div class="header-container">
         <div class="breadcrumb">
           <button class="breadcrumb-link" @click="goBack">
-            ← Back to Projects
+            {{ backButtonText }}
           </button>
-          <span class="breadcrumb-separator">/</span>
-          <span class="breadcrumb-current">{{ parentProject ? parentProject.proj_name : '' }}</span>
+          <template v-if="parentProject">
+            <span class="breadcrumb-separator">/</span>
+            <span class="breadcrumb-current">{{ parentProject.proj_name }}</span>
+          </template>
           <span class="breadcrumb-separator">/</span>
           <span class="breadcrumb-current">{{ task ? task.task_name : '' }}</span>
         </div>
@@ -61,6 +63,22 @@
           <div class="banner-content">
             <h1 class="parent-project-title">{{ parentProject.proj_name }}</h1>
             <p class="parent-project-description">{{ parentProject.proj_desc }}</p>
+            
+            <!-- Project Collaborators -->
+            <div v-if="parentProject.collaborators && parentProject.collaborators.length > 0" class="project-collaborators-row">
+              <span class="collaborators-label">Collaborators:</span>
+              <div class="collaborator-avatars">
+                <div v-for="collaboratorId in parentProject.collaborators.slice(0, 6)" :key="collaboratorId" 
+                     class="collaborator-avatar" :title="getUserName(collaboratorId)">
+                  {{ getInitials(getUserName(collaboratorId)) }}
+                </div>
+                <div v-if="parentProject.collaborators.length > 6" class="collaborator-more" 
+                     :title="`${parentProject.collaborators.length - 6} more collaborators`">
+                  +{{ parentProject.collaborators.length - 6 }}
+                </div>
+              </div>
+            </div>
+            
             <div class="parent-project-meta">
               <span class="meta-item">
                 <strong>Status:</strong> {{ formatStatus(parentProject.proj_status) }}
@@ -80,10 +98,10 @@
             <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
                 {{ formatStatus(task.task_status) }}
             </div>
-              <button @click="openEditModal" class="edit-task-btn" v-if="task">
+              <button @click="openEditModal" class="edit-task-btn" v-if="task && isTaskOwner">
                 ✏️ Edit Task
               </button>
-            <button @click="openSubtaskModal" class="add-subtask-btn">
+            <button @click="openSubtaskModal" class="add-subtask-btn" v-if="isTaskOwner">
               + Add Subtask
             </button>
             </div>
@@ -253,7 +271,7 @@
                 </div>
 
                 <!-- Edit Button -->
-                <button @click.stop="openEditSubtaskModal(subtask)" class="edit-subtask-btn">
+                <button @click.stop="openEditSubtaskModal(subtask)" class="edit-subtask-btn" v-if="isTaskOwner">
                   ✏️ Edit Subtask
                 </button>
 
@@ -411,6 +429,35 @@ export default {
       this.loadTaskData()
     }
   },
+  computed: {
+    isTaskOwner() {
+      try {
+        const userStr = sessionStorage.getItem('user');
+        if (!userStr || !this.task) {
+          return false;
+        }
+        const currentUser = JSON.parse(userStr);
+        return String(this.task.owner) === String(currentUser.id);
+      } catch (error) {
+        console.error('Error checking task ownership:', error);
+        return false;
+      }
+    },
+    
+    backButtonText() {
+      const from = this.$route?.query?.from;
+      
+      if (from === 'dashboard') {
+        return '← Back to Dashboard';
+      } else if (from === 'schedule') {
+        return '← Back to My Schedule';
+      } else if (this.parentProject) {
+        return '← Back to Projects';
+      } else {
+        return '← Back to My Tasks';
+      }
+    }
+  },
   methods: {
     async loadTaskData() {
       try {
@@ -536,12 +583,25 @@ export default {
             const isTaskAssignee = this.task.assigned_to?.includes(userId);
             const isTaskCreator = String(this.task.owner) === String(userId);
 
+            console.log('Access Control Debug:', {
+              userId,
+              taskOwner: this.task.owner,
+              taskAssignedTo: this.task.assigned_to,
+              isProjectCollaborator,
+              isTaskAssignee,
+              isTaskCreator,
+              parentProject: !!this.parentProject
+            });
+
             const hasAccess = isProjectCollaborator || isTaskAssignee || isTaskCreator;
 
             if (!hasAccess) {
+              console.error('Access denied for task:', this.task);
               this.error = 'Access denied. You do not have permission to view this task.';
               return;
             }
+            
+            console.log('✅ Access granted to task');
 
             await this.loadSubtasks();
 
@@ -561,7 +621,22 @@ export default {
     },
 
     goBack() {
-      this.$router.push('/projects')
+      // Check where user came from
+      const from = this.$route?.query?.from;
+      
+      if (from === 'dashboard') {
+        // User came from dashboard - go back to dashboard
+        this.$router.push('/');
+      } else if (from === 'schedule') {
+        // User came from My Schedule - go back to My Schedule
+        this.$router.push('/my-schedule');
+      } else if (this.parentProject) {
+        // Task belongs to a project - go back to projects page
+        this.$router.push('/projects');
+      } else {
+        // Standalone task - go back to My Tasks view on dashboard
+        this.$router.push('/?view=my');
+      }
     },
 
     getParentStatusClass(status) {
@@ -1255,6 +1330,164 @@ export default {
   color: #6b7280;
   margin: 0 0 16px 0;
   line-height: 1.6;
+}
+
+.project-collaborators-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+}
+
+.collaborators-label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.collaborator-avatars {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.collaborator-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ffffff !important;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: -4px;
+  position: relative;
+}
+
+.collaborator-avatar:first-child {
+  margin-left: 0;
+}
+
+.collaborator-avatar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.collaborator-avatar:nth-child(1) {
+  background: #6366f1;
+}
+
+.collaborator-avatar:nth-child(2) {
+  background: #8b5cf6;
+}
+
+.collaborator-avatar:nth-child(3) {
+  background: #06b6d4;
+}
+
+.collaborator-avatar:nth-child(4) {
+  background: #10b981;
+}
+
+.collaborator-avatar:nth-child(5) {
+  background: #f59e0b;
+}
+
+.collaborator-avatar:nth-child(6) {
+  background: #ef4444;
+}
+
+/* Tooltip styles */
+.collaborator-avatar::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111827;
+  color: #ffffff;
+  padding: 0.375rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.collaborator-avatar::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #111827;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.collaborator-avatar:hover::after,
+.collaborator-avatar:hover::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+.collaborator-more {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #6b7280;
+  border: 2px solid #ffffff;
+  margin-left: -4px;
+  cursor: pointer;
+  position: relative;
+}
+
+.collaborator-more::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111827;
+  color: #ffffff;
+  padding: 0.375rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.collaborator-more:hover::after {
+  opacity: 1;
+  visibility: visible;
 }
 
 .parent-project-meta {

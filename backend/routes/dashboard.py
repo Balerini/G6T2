@@ -748,13 +748,23 @@ def get_staff_pending_tasks_by_age(user_id):
             end_date_normalized = end_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
             days_diff = (end_date_normalized - current_date).days
             
+            # Get assigned user names
+            assigned_to_names = []
+            if task_data.get('assigned_to'):
+                for user_id in task_data.get('assigned_to', []):
+                    user_doc = db.collection('Users').document(user_id).get()
+                    if user_doc.exists:
+                        assigned_to_names.append(user_doc.to_dict().get('name', 'Unknown'))
+            
             task_detail = {
                 'task_id': task.id,
                 'task_name': task_data.get('task_name', 'Untitled'),
                 'task_status': task_data.get('task_status', 'Unknown'),
                 'priority_level': task_data.get('priority_level', 'N/A'),
                 'proj_name': task_data.get('proj_name', ''),
-                'proj_id': task_data.get('proj_ID'),
+                'proj_id': task_data.get('proj_ID'),  # Backend uses proj_ID
+                'assigned_to_name': ', '.join(assigned_to_names) if assigned_to_names else 'Unassigned',
+                'assigned_to_id': user_id,  # The user this task is assigned to (current user for staff endpoint)
                 'end_date': end_date.isoformat() if end_date else None,
                 'days_until_due': days_diff
             }
