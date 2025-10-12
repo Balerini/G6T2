@@ -360,7 +360,7 @@
 
 <script setup>
 /* eslint-disable no-undef */
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { taskService } from '@/services/taskService'
 import { fileUploadService } from '@/services/fileUploadService'
 
@@ -536,6 +536,23 @@ const getDateConstraintInfo = () => {
 
 // Validate dates with cascading logic
 // Validate dates with cascading logic
+const validateUnassignedConstraint = () => {
+  // Ensure assigned collaborators exist
+  const collaborators = selectedCollaborators.value || [];
+  
+  // Rule 1: If subtask status is "Unassigned", there should be no collaborators
+  if (form.value.status === 'Unassigned' && collaborators.length > 0) {
+    return 'Unassigned subtasks cannot have collaborators. Please remove all collaborators or change the status.';
+  }
+  
+  // Rule 2: If subtask status is NOT "Unassigned", must have at least 1 collaborator
+  if (form.value.status && form.value.status !== 'Unassigned' && collaborators.length === 0) {
+    return `Subtasks with status "${form.value.status}" must have at least 1 person assigned.`;
+  }
+  
+  return null;
+};
+
 const validateDates = () => {
   // Clear previous date errors
   if (errors.value.startDate) delete errors.value.startDate
@@ -1095,11 +1112,24 @@ const validateField = (fieldName) => {
         validateDates()
       }
       break
-    case 'status':
+    case 'status': {
       if (!form.value.status) {
         errors.value.status = 'Status is required'
       }
-      break
+      
+      // Check unassigned constraint
+      const constraintError = validateUnassignedConstraint();
+      if (constraintError) {
+        errors.value.status = constraintError;
+        errors.value.collaborators = constraintError;
+      } else if (form.value.status !== 'Unassigned') {
+        // Clear collaborators error if status is not unassigned
+        if (errors.value.collaborators && errors.value.collaborators.includes('Unassigned')) {
+          delete errors.value.collaborators;
+        }
+      }
+      break;
+    }
   }
 }
 
@@ -1128,9 +1158,11 @@ const validateForm = () => {
     errors.value.status = 'Status is required'
   }
 
-  // Validate collaborators based on status    
-  if (form.value.status !== 'Unassigned' && selectedCollaborators.value.length === 0) {
-  errors.value.collaborators = 'At least one collaborator is required when status is not "Unassigned"'
+  // Check unassigned constraint  
+  const constraintError = validateUnassignedConstraint();
+  if (constraintError) {
+    errors.value.status = constraintError;
+    errors.value.collaborators = constraintError;
   }
 
   // Validate max 3 attachments
@@ -1140,6 +1172,39 @@ const validateForm = () => {
 
   return Object.keys(errors.value).length === 0
 }
+
+// Watch for changes to status or collaborators for real-time validation
+watch(() => form.value.status, () => {
+  const constraintError = validateUnassignedConstraint();
+  if (constraintError) {
+    errors.value.status = constraintError;
+    errors.value.collaborators = constraintError;
+  } else {
+    // Clear constraint errors if valid
+    if (errors.value.status && errors.value.status.includes('must have at least')) {
+      delete errors.value.status;
+    }
+    if (errors.value.collaborators && errors.value.collaborators.includes('must have at least')) {
+      delete errors.value.collaborators;
+    }
+  }
+})
+
+watch(() => selectedCollaborators.value.length, () => {
+  const constraintError = validateUnassignedConstraint();
+  if (constraintError) {
+    errors.value.status = constraintError;
+    errors.value.collaborators = constraintError;
+  } else {
+    // Clear constraint errors if valid
+    if (errors.value.status && errors.value.status.includes('must have at least')) {
+      delete errors.value.status;
+    }
+    if (errors.value.collaborators && errors.value.collaborators.includes('must have at least')) {
+      delete errors.value.collaborators;
+    }
+  }
+})
 
 const handleSubmit = async () => {
   showSuccess.value = false

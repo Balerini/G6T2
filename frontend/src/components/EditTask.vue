@@ -988,6 +988,39 @@ export default {
       validateRecurrence(false)
     })
 
+    // Watch for changes to task_status or assigned_to to validate constraint
+    watch(() => localForm.task_status, () => {
+      const constraintError = validateUnassignedConstraint();
+      if (constraintError) {
+        errors.task_status = constraintError;
+        errors.collaborators = constraintError;
+      } else {
+        // Clear constraint errors if valid
+        if (errors.task_status && errors.task_status.includes('must have at least')) {
+          errors.task_status = '';
+        }
+        if (errors.collaborators && errors.collaborators.includes('must have at least')) {
+          errors.collaborators = '';
+        }
+      }
+    })
+
+    watch(() => localForm.assigned_to.length, () => {
+      const constraintError = validateUnassignedConstraint();
+      if (constraintError) {
+        errors.task_status = constraintError;
+        errors.collaborators = constraintError;
+      } else {
+        // Clear constraint errors if valid
+        if (errors.task_status && errors.task_status.includes('must have at least')) {
+          errors.task_status = '';
+        }
+        if (errors.collaborators && errors.collaborators.includes('must have at least')) {
+          errors.collaborators = '';
+        }
+      }
+    })
+
     const getSelectedProjectInfo = () => {
       if (!props.task) {
         return { startDate: null, endDate: null, name: null }
@@ -1467,6 +1500,23 @@ export default {
       return '';
     };
 
+    const validateUnassignedConstraint = () => {
+      // Ensure assigned_to exists and is an array
+      const collaborators = localForm.assigned_to || [];
+      
+      // Rule 1: If task status is "Unassigned", there should be no collaborators
+      if (localForm.task_status === 'Unassigned' && collaborators.length > 0) {
+        return 'Unassigned tasks cannot have collaborators. Please remove all collaborators or change the task status.';
+      }
+      
+      // Rule 2: If task status is NOT "Unassigned", must have at least 1 collaborator
+      if (localForm.task_status && localForm.task_status !== 'Unassigned' && collaborators.length === 0) {
+        return `Tasks with status "${localForm.task_status}" must have at least 1 person assigned.`;
+      }
+      
+      return null;
+    };
+
     const validatePriorityLevel = (value) => {
       if (!value || value === '') {
         return 'Priority level is required';
@@ -1881,15 +1931,41 @@ export default {
         case 'end_date':
           errors.end_date = validateEndDate(value, localForm.start_date);
           break;
-        case 'task_status':
+        case 'task_status': {
           errors.task_status = validateTaskStatus(value);
+          
+          // Check unassigned constraint
+          const unassignedError = validateUnassignedConstraint();
+          if (unassignedError) {
+            errors.task_status = unassignedError;
+            errors.collaborators = unassignedError;
+          } else if (localForm.task_status !== 'Unassigned') {
+            // Clear collaborators error if status is not unassigned
+            if (errors.collaborators && errors.collaborators.includes('Unassigned')) {
+              errors.collaborators = '';
+            }
+          }
           break;
+        }
         case 'priority_level':
           errors.priority_level = validatePriorityLevel(value);
           break;
-        case 'collaborators':
+        case 'collaborators': {
           errors.collaborators = validateCollaborators(value);
+          
+          // Check unassigned constraint
+          const unassignedCollabError = validateUnassignedConstraint();
+          if (unassignedCollabError) {
+            errors.collaborators = unassignedCollabError;
+            errors.task_status = unassignedCollabError;
+          } else if (localForm.assigned_to.length === 0) {
+            // Clear task status error if no collaborators
+            if (errors.task_status && errors.task_status.includes('Unassigned')) {
+              errors.task_status = '';
+            }
+          }
           break;
+        }
         case 'recurrence':
           validateRecurrence(true);
           break;

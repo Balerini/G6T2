@@ -1366,14 +1366,14 @@ export default {
       // Ensure assigned_to exists and is an array
       const collaborators = formData.assigned_to || [];
       
-      // If task status is "Unassigned", there should be no collaborators
+      // Rule 1: If task status is "Unassigned", there should be no collaborators
       if (formData.task_status === 'Unassigned' && collaborators.length > 0) {
         return 'Unassigned tasks cannot have collaborators. Please remove all collaborators or change the task status.';
       }
       
-      // If task has collaborators, it cannot be "Unassigned"
-      if (collaborators.length > 0 && formData.task_status === 'Unassigned') {
-        return 'Tasks with collaborators cannot be set to Unassigned status.';
+      // Rule 2: If task status is NOT "Unassigned", must have at least 1 collaborator
+      if (formData.task_status && formData.task_status !== 'Unassigned' && collaborators.length === 0) {
+        return `Tasks with status "${formData.task_status}" must have at least 1 person assigned.`;
       }
       
       return null;
