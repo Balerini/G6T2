@@ -1598,7 +1598,7 @@ export default {
       } else if (formData.recurrence.endCondition === 'onDate') {
         formData.recurrence.endAfterOccurrences = '';
         if (!formData.recurrence.endDate) {
-          formData.recurrence.endDate = formData.start_date || getCurrentDate();
+          formData.recurrence.endDate = getCurrentDate();
         }
       } else {
         formData.recurrence.endAfterOccurrences = '';
