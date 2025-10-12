@@ -18,11 +18,20 @@
                         v-if="isManager" 
                         class="tab-btn" 
                         :class="{ active: activeView === 'team' }" 
-                        @click="activeView = 'team'"
+                        @click="switchTab('team')"
                     >
                         Team Tasks
                     </button>
-                    <button class="tab-btn" :class="{ active: activeView === 'my' }" @click="activeView = 'my'">
+                    <!-- Show My Dashboard for staff -->
+                    <button 
+                        v-if="!isManager"
+                        class="tab-btn" 
+                        :class="{ active: activeView === 'mydashboard' }" 
+                        @click="switchTab('mydashboard')"
+                    >
+                        My Dashboard
+                    </button>
+                    <button class="tab-btn" :class="{ active: activeView === 'my' }" @click="switchTab('my')">
                         My Tasks
                     </button>
                 </div>
@@ -45,6 +54,18 @@
                     <hr>
                     <!-- Only show TasksByStaff for managers -->
                     <TasksByStaff v-if="isManager" />
+                </div>
+
+                <!-- My Dashboard View (for staff) -->
+                <div v-if="activeView === 'mydashboard'">
+                    <TotalTaskCount />
+                    <hr>
+                    <div class="charts-grid">
+                        <TasksByStatus />
+                        <TasksByPriority />
+                    </div>
+                    <hr>
+                    <TaskTimeline />
                 </div>
 
                 <!-- My Tasks View -->
@@ -198,7 +219,7 @@ export default {
     data() {
         return {
             currentUser: null,
-            activeView: 'team',
+            activeView: this.getDefaultView(),
             tasks: [],
             users: [],
             loading: true,
@@ -217,17 +238,45 @@ export default {
         if (AuthService.checkAuthStatus()) {
             this.currentUser = AuthService.getCurrentUser();
         }
+        
+        // Set active view from query parameter if present
+        const view = this.$route.query.view;
+        if (view === 'team' || view === 'my' || view === 'mydashboard') {
+            this.activeView = view;
+        }
     },
     created() {
         this.loadTaskData();
         this.fetchUsers();
     },
     watch: {
-        $route() {
+        $route(to) {
+            // Set active view from query parameter
+            const view = to.query.view;
+            if (view === 'team' || view === 'my' || view === 'mydashboard') {
+                this.activeView = view;
+            }
             this.loadTaskData();
         }
     },
     methods: {
+        getDefaultView() {
+            // Get current user to determine default view
+            const user = AuthService.getCurrentUser();
+            
+            // Staff (role_num = 4) start on My Dashboard
+            // Managers/Directors start on Team Tasks
+            if (user && user.role_num === 4) {
+                return 'mydashboard';
+            } else {
+                return 'team';
+            }
+        },
+        switchTab(view) {
+            this.activeView = view;
+            // Update URL query parameter
+            this.$router.replace({ query: { view } });
+        },
         async loadTaskData() {
             try {
                 this.loading = true;

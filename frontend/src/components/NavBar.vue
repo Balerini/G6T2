@@ -6,10 +6,10 @@
         </router-link>
         
         <div class="navbar-right">
-          <router-link to="/" class="navbar-link">Dashboard</router-link>
+          <router-link :to="dashboardLink" class="navbar-link" exact-active-class="router-link-active">Dashboard</router-link>
           <router-link to="/projects" class="navbar-link">Projects</router-link>
           <router-link to="/" class="navbar-link">Free slot</router-link>
-          <router-link to="/myschedule" class="navbar-link">My Schedule</router-link>
+          <router-link to="/my-schedule" class="navbar-link">My Schedule</router-link>
           
           <!-- Notification Bell -->
           <div class="notification-wrapper" @click="toggleNotifications">
@@ -87,12 +87,33 @@
       recentNotifications() {
         // Show only the 5 most recent notifications in dropdown
         return this.notifications.slice(0, 5)
+      },
+      dashboardLink() {
+        // Get current user
+        const user = authService.getCurrentUser()
+        
+        // For staff (role_num = 4), show My Dashboard view
+        // For managers/directors (role_num < 4), show Team Tasks view
+        if (user && user.role_num === 4) {
+          return '/?view=mydashboard'
+        } else {
+          return '/?view=team'
+        }
       }
     },
     methods: {
       logout() {
-        authService.logout();
-        this.$router.push('/login');
+        try {
+          authService.logout();
+          this.$router.push('/login').catch(err => {
+            // Handle navigation error (e.g., already on login page)
+            console.log('Navigation after logout:', err);
+          });
+        } catch (error) {
+          console.error('Error during logout:', error);
+          // Force redirect to login even if there's an error
+          window.location.href = '/login';
+        }
       },
       
       async loadNotifications() {

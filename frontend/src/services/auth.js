@@ -17,12 +17,27 @@ class AuthService {
 
   // Logout user
   logout() {
-    this.isLoggedIn = false;
-    this.user = null;
-    sessionStorage.removeItem('isLoggedIn');
-    sessionStorage.removeItem('user');
-    
-    console.log('User logged out and session cleared');
+    try {
+      this.isLoggedIn = false;
+      this.user = null;
+      sessionStorage.removeItem('isLoggedIn');
+      sessionStorage.removeItem('user');
+      
+      console.log('User logged out and session cleared');
+      return true;
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Force clear even if there's an error
+      this.isLoggedIn = false;
+      this.user = null;
+      // Try to clear session storage even if it fails
+      try {
+        sessionStorage.clear();
+      } catch (e) {
+        console.error('Failed to clear session storage:', e);
+      }
+      return false;
+    }
   }
 
   // Check if user is logged in
