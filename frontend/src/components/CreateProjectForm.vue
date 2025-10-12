@@ -73,7 +73,7 @@
               placeholder="Auto-populated from current user" />
           </div>
 
-          <!-- Collaborators - MATCHING CREATETASKFORM EXACTLY -->
+          <!-- Collaborators -->
           <div class="form-group">
             <label class="form-label" for="collaborators">
               Collaborators (minimum 1 required) *
@@ -83,7 +83,7 @@
             <div class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown }">
               <input id="collaborators" v-model="userSearch" type="text" class="form-input"
                 :class="{ 'error': validationErrors.collaborators }"
-                :placeholder="isLoadingUsers ? 'Loading users...' : 'Search and select collaborators...'"
+                :placeholder="isLoadingUsers ? 'Loading users...' : 'Search and select collaborators from any department...'"
                 @focus="handleInputFocus(); validateField('collaborators', formData.assignedto)" @blur="handleInputBlur"
                 @input="handleSearchInput" @keydown.enter.prevent="selectFirstMatch" @keydown.escape="closeDropdown"
                 @keydown.arrow-down.prevent="navigateDown" @keydown.arrow-up.prevent="navigateUp"
@@ -98,7 +98,7 @@
               <div v-if="showDropdown" class="dropdown-list" @mousedown.prevent @click.prevent>
                 <!-- Loading state -->
                 <div v-if="isLoadingUsers" class="dropdown-item loading">
-                  Loading users...
+                  Loading users from all departments...
                 </div>
 
                 <!-- No results found -->
@@ -119,7 +119,7 @@
                   }" @mousedown.prevent="selectUser(user)" @mouseenter="highlightedIndex = index">
                   <div class="user-info">
                     <span class="user-name">{{ user.name }}</span>
-                    <span v-if="user.email" class="user-email">{{ user.email }}</span>
+                    <span v-if="user.email" class="user-email">{{ user.email }} • {{ user.division_name }}</span>
                   </div>
                   <span v-if="isUserSelected(user)" class="selected-indicator">✓</span>
                 </div>
@@ -175,7 +175,7 @@ export default {
       dateValidationError: '',
       currentUser: null,
 
-      // User management - matching CreateTaskForm
+      // User management
       users: [],
       userSearch: '',
       showDropdown: false,
@@ -189,7 +189,7 @@ export default {
         start_date: '',
         end_date: '',
         owner: '',
-        assignedto: [] // Matching CreateTaskForm structure
+        assignedto: []
       },
       validationErrors: {
         proj_name: '',
@@ -226,40 +226,23 @@ export default {
         this.formData.assignedto.length > 0
     },
 
-    // Matching CreateTaskForm filtering logic exactly
+    // Updated filtering logic - NO role_num or division filtering
     filteredUsers() {
       let filtered = this.users.filter(user => {
-        // Filter out already selected users
+        // Only filter out already selected users
         const isAlreadySelected = this.formData.assignedto.some(assignee =>
           assignee.id === user.id
         )
         return !isAlreadySelected
       })
 
-      // Filter by role_num - only show users with same or lower role (higher or equal role_num)
-      if (this.currentUser && this.currentUser.role_num !== undefined) {
-        const currentUserRoleNum = this.currentUser.role_num
-        console.log('Current user role_num:', currentUserRoleNum)
-
-        filtered = filtered.filter(user => {
-          // Only show users whose role_num is >= current user's role_num
-          // (higher role_num = lower role/authority)
-          const userRoleNum = user.role_num
-          const isEligible = userRoleNum !== undefined && userRoleNum >= currentUserRoleNum
-
-          if (!isEligible) {
-            console.log(`Filtering out ${user.name} - role_num ${userRoleNum} is lower (higher authority) than current user's ${currentUserRoleNum}`)
-          }
-
-          return isEligible
-        })
-      }
-
+      // Search filtering only
       if (this.userSearch.trim()) {
         const searchTerm = this.userSearch.toLowerCase().trim()
         filtered = filtered.filter(user => {
           return user.name.toLowerCase().includes(searchTerm) ||
-            (user.email && user.email.toLowerCase().includes(searchTerm))
+            (user.email && user.email.toLowerCase().includes(searchTerm)) ||
+            (user.division_name && user.division_name.toLowerCase().includes(searchTerm))
         })
       }
 
@@ -284,7 +267,7 @@ export default {
         email: this.currentUser.email || ''
       })
 
-      // Load users from same division
+      // Load ALL users from ALL departments
       await this.loadUsers()
     } else {
       console.warn('No current user found!')
@@ -297,25 +280,20 @@ export default {
       return today.toISOString().split('T')[0]
     },
 
-    // Load users from same division - matching CreateTaskForm
+    // Load ALL users from database - NO FILTERING
     async loadUsers() {
-      if (!this.currentUser?.division_name) {
-        console.log('No division name available')
-        return
-      }
-
       this.isLoadingUsers = true
       try {
-        console.log(`Loading users from ${this.currentUser.division_name} division...`)
+        console.log('Fetching all users from database...')
 
+        // Get ALL users from the database
         const allUsers = await userAPI.getAllUsers()
 
-        // Filter by same division only
-        this.users = allUsers.filter(user =>
-          user.division_name === this.currentUser.division_name
-        )
+        // NO filtering - store all users
+        this.users = allUsers
 
-        console.log(`Found ${this.users.length} users in ${this.currentUser.division_name} division`)
+        console.log(`Loaded ${this.users.length} users from all departments`)
+        console.log('Users:', this.users.map(u => `${u.name} (${u.division_name})`).join(', '))
 
       } catch (error) {
         console.error('Error loading users:', error)
@@ -325,7 +303,7 @@ export default {
       }
     },
 
-    // Dropdown methods - matching CreateTaskForm exactly
+    // Dropdown methods
     handleInputFocus() {
       if (!this.isLoadingUsers) {
         this.showDropdown = true
@@ -392,7 +370,8 @@ export default {
       this.formData.assignedto.push({
         id: user.id,
         name: user.name,
-        email: user.email || ''
+        email: user.email || '',
+        division_name: user.division_name || ''
       })
 
       // Validate collaborators after adding
@@ -433,7 +412,7 @@ export default {
       this.validateField('collaborators', this.formData.assignedto, false)
     },
 
-    // Validation methods (existing ones)
+    // Validation methods
     validateProjectName(value) {
       if (!value || !value.trim()) {
         return 'Project name is required'
@@ -646,7 +625,6 @@ export default {
   flex-grow: 1;
 }
 
-/* Close Button - Removed circle/border styling */
 .close-button {
   display: flex;
   align-items: center;
@@ -680,7 +658,7 @@ export default {
   padding: 1.5rem;
 }
 
-/* Form Styles - Matching CreateTaskForm exactly */
+/* Form Styles */
 .project-form {
   display: flex;
   flex-direction: column;
@@ -759,7 +737,7 @@ export default {
   margin-top: 4px;
 }
 
-/* Collaborators Section - EXACT CreateTaskForm Styles */
+/* Collaborators Section */
 .search-dropdown-container {
   position: relative;
   display: flex;
@@ -912,10 +890,6 @@ export default {
 
 .status-message.info {
   color: #3b82f6;
-}
-
-.status-message.warning {
-  color: #856404;
 }
 
 /* Form Actions */

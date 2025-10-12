@@ -49,30 +49,16 @@
               <label for="projectName" class="form-label">
                 Project Name <span class="required">*</span>
               </label>
-              <input
-                id="projectName"
-                v-model="formData.proj_name"
-                type="text"
-                class="form-input"
-                :class="{ error: errors.proj_name }"
-                placeholder="Enter project name"
-                required
-                maxlength="100"
-              />
+              <input id="projectName" v-model="formData.proj_name" type="text" class="form-input"
+                :class="{ error: errors.proj_name }" placeholder="Enter project name" required maxlength="100" />
               <span v-if="errors.proj_name" class="error-message">{{ errors.proj_name }}</span>
             </div>
 
             <!-- Project Description -->
             <div class="form-group full-width">
               <label for="projectDesc" class="form-label">Project Description</label>
-              <textarea
-                id="projectDesc"
-                v-model="formData.proj_desc"
-                class="form-textarea"
-                placeholder="Enter project description (optional)"
-                rows="4"
-                maxlength="500"
-              ></textarea>
+              <textarea id="projectDesc" v-model="formData.proj_desc" class="form-textarea"
+                placeholder="Enter project description (optional)" rows="4" maxlength="500"></textarea>
               <div class="char-count">{{ (formData.proj_desc || '').length }}/500 characters</div>
             </div>
 
@@ -81,15 +67,8 @@
               <label for="startDate" class="form-label">
                 Start Date <span class="required">*</span>
               </label>
-              <input
-                id="startDate"
-                v-model="formData.start_date"
-                type="date"
-                class="form-input"
-                :class="{ error: errors.start_date }"
-                :min="todayDate"
-                required
-              />
+              <input id="startDate" v-model="formData.start_date" type="date" class="form-input"
+                :class="{ error: errors.start_date }" :min="todayDate" required />
               <span v-if="errors.start_date" class="error-message">{{ errors.start_date }}</span>
             </div>
 
@@ -98,16 +77,54 @@
               <label for="endDate" class="form-label">
                 End Date <span class="required">*</span>
               </label>
-              <input
-                id="endDate"
-                v-model="formData.end_date"
-                type="date"
-                class="form-input"
-                :class="{ error: errors.end_date }"
-                :min="formData.start_date || todayDate"
-                required
-              />
+              <input id="endDate" v-model="formData.end_date" type="date" class="form-input"
+                :class="{ error: errors.end_date }" :min="formData.start_date || todayDate" required />
               <span v-if="errors.end_date" class="error-message">{{ errors.end_date }}</span>
+            </div>
+
+            <!-- Collaborators Selection -->
+            <div class="form-group full-width">
+              <label for="collaborators" class="form-label">
+                Collaborators <span class="optional">(Optional)</span>
+              </label>
+              <div class="collaborators-section">
+                <div class="search-box">
+                  <input v-model="collaboratorSearch" type="text" placeholder="Search users by name or email..."
+                    class="form-input search-input" @focus="showUserDropdown = true" />
+                  <span class="search-icon">🔍</span>
+                </div>
+
+                <!-- User Dropdown -->
+                <div v-if="showUserDropdown && filteredUsers.length > 0" class="user-dropdown">
+                  <div v-for="user in filteredUsers" :key="user.id" @click="addCollaborator(user)" class="user-item">
+                    <div class="user-info">
+                      <div class="user-name">{{ user.name }}</div>
+                      <div class="user-details">
+                        {{ user.email }} • {{ user.division_name }}
+                      </div>
+                    </div>
+                    <div class="add-icon">+</div>
+                  </div>
+                </div>
+
+                <!-- Selected Collaborators -->
+                <div v-if="selectedCollaborators.length > 0" class="selected-collaborators">
+                  <div class="selected-label">Selected Collaborators:</div>
+                  <div class="collaborator-chips">
+                    <div v-for="collab in selectedCollaborators" :key="collab.id" class="collaborator-chip">
+                      <span class="chip-name">{{ collab.name }}</span>
+                      <span class="chip-dept">{{ collab.division_name }}</span>
+                      <button type="button" @click="removeCollaborator(collab.id)" class="chip-remove">
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="collaborator-note">
+                  💡 You will be automatically added as a collaborator when the project is created.
+                </div>
+              </div>
             </div>
           </div>
 
@@ -128,8 +145,9 @@
           <h3>Project Information</h3>
           <ul>
             <li><strong>Status:</strong> Will be automatically calculated based on tasks added to the project</li>
-            <li><strong>Collaborators:</strong> Will be shown based on users assigned to project tasks</li>
-            <li><strong>Division:</strong> Project will be associated with {{ currentUser?.division_name || 'your' }} department</li>
+            <li><strong>Collaborators:</strong> You can invite any user from the organization to collaborate on this
+              project</li>
+            <li><strong>Creator:</strong> You will be automatically added as a collaborator and project owner</li>
           </ul>
         </div>
       </div>
@@ -141,6 +159,7 @@
 console.log('CreateProject.vue script loading...')
 
 import { authAPI, projectAPI } from '../services/api.js'
+import { projectService } from '../services/projectService.js'
 
 export default {
   name: 'CreateProject',
@@ -157,9 +176,14 @@ export default {
         end_date: '',
         proj_status: 'Not Started',
         owner: '',
-        division_name: ''
+        division_name: '',
+        collaborators: []
       },
-      errors: {}
+      errors: {},
+      allUsers: [],
+      selectedCollaborators: [],
+      collaboratorSearch: '',
+      showUserDropdown: false
     }
   },
   computed: {
@@ -173,6 +197,26 @@ export default {
         this.formData.end_date &&
         !Object.keys(this.errors).length
       )
+    },
+    filteredUsers() {
+      if (!this.collaboratorSearch.trim()) {
+        return this.allUsers.filter(user =>
+          user.id !== this.currentUser?.id &&
+          !this.selectedCollaborators.some(collab => collab.id === user.id)
+        )
+      }
+
+      const search = this.collaboratorSearch.toLowerCase()
+      return this.allUsers.filter(user => {
+        const isNotCurrentUser = user.id !== this.currentUser?.id
+        const isNotSelected = !this.selectedCollaborators.some(collab => collab.id === user.id)
+        const matchesSearch =
+          user.name?.toLowerCase().includes(search) ||
+          user.email?.toLowerCase().includes(search) ||
+          user.division_name?.toLowerCase().includes(search)
+
+        return isNotCurrentUser && isNotSelected && matchesSearch
+      })
     }
   },
   watch: {
@@ -181,7 +225,6 @@ export default {
     },
     'formData.start_date'() {
       this.validateStartDate()
-      // Revalidate end date when start date changes
       if (this.formData.end_date) {
         this.validateEndDate()
       }
@@ -191,7 +234,6 @@ export default {
     }
   },
   async created() {
-    // Check authentication using your authAPI
     if (!authAPI.isLoggedIn()) {
       this.$router.push('/login')
       return
@@ -203,49 +245,86 @@ export default {
       return
     }
 
-    // Set default form values
     this.formData.owner = this.currentUser.id || this.currentUser.user_ID
     this.formData.division_name = this.currentUser.division_name
+
+    await this.loadAllUsers()
+  },
+  mounted() {
+    document.addEventListener('click', this.handleClickOutside)
+  },
+  beforeUnmount() {
+    document.removeEventListener('click', this.handleClickOutside)
   },
   methods: {
+    async loadAllUsers() {
+      try {
+        this.allUsers = await projectService.getAllUsersUnfiltered()
+        console.log('Loaded all users:', this.allUsers.length)
+      } catch (error) {
+        console.error('Error loading users:', error)
+        this.errorMessage = 'Failed to load users'
+      }
+    },
+    addCollaborator(user) {
+      if (!this.selectedCollaborators.some(collab => collab.id === user.id)) {
+        this.selectedCollaborators.push(user)
+        this.collaboratorSearch = ''
+        this.showUserDropdown = false
+      }
+    },
+    removeCollaborator(userId) {
+      this.selectedCollaborators = this.selectedCollaborators.filter(
+        collab => collab.id !== userId
+      )
+    },
+    handleClickOutside(event) {
+      const dropdown = this.$el.querySelector('.user-dropdown')
+      const searchBox = this.$el.querySelector('.search-box')
+
+      if (dropdown && searchBox &&
+        !dropdown.contains(event.target) &&
+        !searchBox.contains(event.target)) {
+        this.showUserDropdown = false
+      }
+    },
     validateProjectName() {
       if (!this.formData.proj_name.trim()) {
-        this.$set(this.errors, 'proj_name', 'Project name is required')
+        this.errors.proj_name = 'Project name is required'
       } else if (this.formData.proj_name.trim().length < 3) {
-        this.$set(this.errors, 'proj_name', 'Project name must be at least 3 characters')
+        this.errors.proj_name = 'Project name must be at least 3 characters'
       } else {
-        this.$delete(this.errors, 'proj_name')
+        delete this.errors.proj_name
       }
     },
     validateStartDate() {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const startDate = new Date(this.formData.start_date)
-      
+
       if (!this.formData.start_date) {
-        this.$set(this.errors, 'start_date', 'Start date is required')
+        this.errors.start_date = 'Start date is required'
       } else if (startDate < today) {
-        this.$set(this.errors, 'start_date', 'Start date cannot be before today')
+        this.errors.start_date = 'Start date cannot be before today'
       } else {
-        this.$delete(this.errors, 'start_date')
+        delete this.errors.start_date
       }
     },
     validateEndDate() {
       const startDate = new Date(this.formData.start_date)
       const endDate = new Date(this.formData.end_date)
-      
+
       if (!this.formData.end_date) {
-        this.$set(this.errors, 'end_date', 'End date is required')
+        this.errors.end_date = 'End date is required'
       } else if (!this.formData.start_date) {
-        this.$set(this.errors, 'end_date', 'Please select start date first')
+        this.errors.end_date = 'Please select start date first'
       } else if (endDate < startDate) {
-        this.$set(this.errors, 'end_date', 'End date cannot be before start date')
+        this.errors.end_date = 'End date cannot be before start date'
       } else {
-        this.$delete(this.errors, 'end_date')
+        delete this.errors.end_date
       }
     },
     async createProject() {
-      // Final validation
       this.validateProjectName()
       this.validateStartDate()
       this.validateEndDate()
@@ -259,7 +338,8 @@ export default {
       this.errorMessage = ''
 
       try {
-        // Prepare project data
+        const collaboratorIds = this.selectedCollaborators.map(collab => collab.id)
+
         const projectData = {
           proj_name: this.formData.proj_name.trim(),
           proj_desc: this.formData.proj_desc.trim() || '',
@@ -267,28 +347,25 @@ export default {
           end_date: this.formData.end_date,
           proj_status: 'Not Started',
           owner: this.currentUser.id || this.currentUser.user_ID,
-          division_name: this.currentUser.division_name
+          division_name: this.currentUser.division_name,
+          collaborators: collaboratorIds
         }
 
         console.log('Creating project with data:', projectData)
-        
-        // Create project via API
+
         const createdProject = await projectAPI.createProject(projectData)
-        
+
         console.log('Project created successfully:', createdProject)
-        
-        // Show success message
+
         this.successMessage = `Project "${projectData.proj_name}" created successfully!`
-        
-        // Redirect to projects page after delay
+
         setTimeout(() => {
           this.$router.push('/projects?refresh=true')
         }, 2000)
 
       } catch (error) {
         console.error('Error creating project:', error)
-        
-        // Handle specific error messages from backend
+
         if (error.message) {
           this.errorMessage = error.message
         } else if (error.error) {
@@ -314,7 +391,7 @@ export default {
 </script>
 
 <style scoped>
-/* Toast Styles (reused from projects-view-page) */
+/* Toast Styles */
 .toast {
   position: fixed;
   top: 20px;
@@ -415,9 +492,11 @@ export default {
     transform: translateX(100%) scale(0.8);
     opacity: 0;
   }
+
   50% {
     transform: translateX(-10px) scale(1.05);
   }
+
   100% {
     transform: translateX(0) scale(1);
     opacity: 1;
@@ -529,6 +608,11 @@ export default {
   color: #ef4444;
 }
 
+.optional {
+  color: #6b7280;
+  font-weight: 400;
+}
+
 .form-input,
 .form-textarea {
   border: 2px solid #e5e7eb;
@@ -565,6 +649,151 @@ export default {
   color: #ef4444;
   font-size: 0.75rem;
   margin-top: 0.25rem;
+}
+
+/* Collaborators Section */
+.collaborators-section {
+  position: relative;
+}
+
+.search-box {
+  position: relative;
+}
+
+.search-input {
+  padding-right: 2.5rem;
+}
+
+.search-icon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 1rem;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-top: 0.25rem;
+}
+
+.user-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.user-item:last-child {
+  border-bottom: none;
+}
+
+.user-item:hover {
+  background-color: #f9fafb;
+}
+
+.user-info {
+  flex: 1;
+}
+
+.user-name {
+  font-weight: 600;
+  color: #111827;
+  font-size: 0.875rem;
+  margin-bottom: 0.125rem;
+}
+
+.user-details {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.add-icon {
+  color: #3b82f6;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.selected-collaborators {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+
+.selected-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.75rem;
+}
+
+.collaborator-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.collaborator-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.chip-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.chip-dept {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.chip-remove:hover {
+  background-color: #fef2f2;
+}
+
+.collaborator-note {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-style: italic;
 }
 
 .form-actions {
