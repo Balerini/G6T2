@@ -188,7 +188,7 @@
 
                 <!-- No results found -->
                 <div
-                  v-else-if="filteredUsers.length === 0 && userSearch"
+                  v-else-if="roleFilteredUsers.length === 0 && userSearch"
                   class="dropdown-item no-results"
                 >
                   No users found matching "{{ userSearch }}"
@@ -196,15 +196,15 @@
 
                 <!-- Show all users when no search -->
                 <div
-                  v-else-if="filteredUsers.length === 0 && !userSearch"
+                  v-else-if="roleFilteredUsers.length === 0 && !userSearch"
                   class="dropdown-item no-results"
                 >
-                  No more users available
+                  No available collaborators to select
                 </div>
 
                 <!-- User options -->
                 <div
-                  v-for="(user, index) in filteredUsers"
+                  v-for="(user, index) in roleFilteredUsers"
                   :key="`user-${index}-${user.id || user.name || 'unknown'}`"
                   class="dropdown-item"
                   :class="{
@@ -652,7 +652,8 @@ export default {
   props: {
     visible: { type: Boolean, default: false },
     task: { type: Object, required: true },
-    users: { type: Array, default: () => [] }
+    users: { type: Array, default: () => [] },
+    parentProject: { type: Object, default: null }
   },
   emits: ['close', 'saved', 'error'],
   setup(props, { emit }) {
@@ -798,6 +799,25 @@ export default {
         return !isAlreadySelected;
       });
 
+      // Filter to project collaborators if task belongs to a project
+      console.log('🔍 Edit Task - Debug:', {
+        hasProjectName: !!localForm.proj_name,
+        hasParentProject: !!props.parentProject,
+        projectName: localForm.proj_name,
+        collaborators: props.parentProject?.collaborators
+      });
+      
+      if (localForm.proj_name && props.parentProject) {
+        const projectCollaboratorIds = props.parentProject.collaborators || [];
+        
+        console.log('🔍 Edit Task - Project collaborators:', projectCollaboratorIds);
+        console.log('📋 Edit Task - Total users available:', filtered.length);
+        filtered = filtered.filter(user => projectCollaboratorIds.includes(user.id));
+        console.log('✅ Edit Task - Filtered to project collaborators only:', filtered.length);
+      } else {
+        console.log('⚠️ Edit Task - No project or collaborators, showing all users');
+      }
+
       if (userSearch.value.trim()) {
         const searchTerm = userSearch.value.toLowerCase().trim();
         filtered = filtered.filter(user =>
@@ -807,6 +827,39 @@ export default {
       }
 
       return filtered.slice(0, 20);
+    });
+
+    const getCurrentUser = () => {
+      try {
+        const userData = sessionStorage.getItem('user');
+        if (userData) {
+          const user = JSON.parse(userData);
+          return user;
+        }
+        return null;
+      } catch (error) {
+        console.error('Error getting current user:', error);
+        return null;
+      }
+    };
+
+    const roleFilteredUsers = computed(() => {
+      // If task belongs to a project, allow all project collaborators (no role restriction)
+      if (localForm.proj_name && props.parentProject) {
+        console.log('📁 Edit Task - Project selected, allowing all collaborators');
+        return filteredUsers.value;
+      }
+      
+      // For standalone tasks, apply role hierarchy
+      const currentUser = getCurrentUser();
+      if (!currentUser || !currentUser.role_num) {
+        return filteredUsers.value;
+      }
+
+      console.log('📝 Edit Task - Standalone task, applying role hierarchy');
+      return filteredUsers.value.filter(user => {
+        return user.role_num >= currentUser.role_num;
+      });
     });
 
     const isFormValid = computed(() => {
@@ -1242,8 +1295,8 @@ export default {
     };
 
     const selectFirstMatch = () => {
-      if (filteredUsers.value.length > 0) {
-        selectUser(filteredUsers.value[0]);
+      if (roleFilteredUsers.value.length > 0) {
+        selectUser(roleFilteredUsers.value[0]);
       }
     };
 
@@ -1253,7 +1306,7 @@ export default {
         return;
       }
 
-      if (highlightedIndex.value < filteredUsers.value.length - 1) {
+      if (highlightedIndex.value < roleFilteredUsers.value.length - 1) {
         highlightedIndex.value++;
       }
     };
@@ -2032,6 +2085,7 @@ export default {
       isLoadingUsers,
       highlightedIndex,
       filteredUsers,
+      roleFilteredUsers,
       isFormValid,
       getSelectedProjectInfo,
       getTaskMinStartDate,

@@ -969,7 +969,12 @@ export default {
             typeof collab === 'string' ? collab : collab.id
           );
 
+          console.log('Project collaborators:', projectCollaboratorIds);
+          console.log('Total users available:', filtered.length);
           filtered = filtered.filter(user => projectCollaboratorIds.includes(user.id));
+          console.log(' Filtered to project collaborators only:', filtered.length);
+        } else {
+          console.log('No project selected or no collaborators defined - showing all users');
         }
       }
 
@@ -985,11 +990,24 @@ export default {
     });
 
     const roleFilteredUsers = computed(() => {
+      // Check if a project is selected
+      const projectInfo = getSelectedProjectInfo();
+      const hasProject = projectInfo && projectInfo.name;
+      
+      // If a project is selected, allow all project collaborators (no role restriction)
+      // Project collaborators should be able to assign any other collaborator
+      if (hasProject) {
+        console.log('📁 Project selected - allowing all project collaborators');
+        return filteredUsers.value;
+      }
+      
+      // For standalone tasks (no project), apply role hierarchy
       const currentUser = getCurrentUser();
       if (!currentUser || !currentUser.role_num) {
         return filteredUsers.value; // No role info, allow all
       }
 
+      console.log('📝 Standalone task - applying role hierarchy');
       return filteredUsers.value.filter(user => {
         // Current user can assign to users with role_num >= their own role_num
         // (Higher role_num = lower hierarchy, 4=staff, 1=CEO)
