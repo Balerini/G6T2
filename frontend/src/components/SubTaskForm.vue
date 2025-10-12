@@ -124,7 +124,7 @@
 
       <!-- Owner (Auto-populated, read-only) -->
       <div class="form-group">
-        <label class="form-label" for="owner">Owner</label>
+        <label class="form-label" for="owner">Subtask Owner</label>
         <input 
           id="owner" 
           v-model="ownerDisplayName" 

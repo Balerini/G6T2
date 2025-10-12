@@ -124,7 +124,7 @@
 
         <!-- Owner with Transfer Ownership -->
         <div class="form-group">
-          <label class="form-label" for="owner">Owner</label>
+          <label class="form-label" for="owner">Subtask Owner</label>
           <div class="owner-field-container">
             <input 
               id="owner" 
@@ -158,6 +158,7 @@
         <div class="form-group">
           <label class="form-label" for="assignedTo">
             Collaborators (Optional)
+            <span v-if="!isSubtaskOwner" class="label-note">(Only subtask owner can modify)</span>
           </label>
           
           <!-- Show message when no collaborators are available -->
@@ -166,7 +167,7 @@
           </div>
 
           <!-- Combined search input with dropdown -->
-          <div v-else class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown }">
+          <div v-else class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown && isSubtaskOwner }">
             <input
               id="assignedTo"
               name="assignedTo"
@@ -174,18 +175,20 @@
               type="text"
               class="form-input"
               :class="{ 'error': errors.collaborators }"
-              placeholder="Search and select collaborators..."
-              @focus="handleInputFocus"
+              :placeholder="isSubtaskOwner ? 'Search and select collaborators...' : 'Only subtask owner can modify collaborators'"
+              @focus="isSubtaskOwner ? handleInputFocus : null"
               @blur="handleInputBlur"
               @input="handleSearchInput"
               @keydown.enter.prevent="selectFirstMatch"
               @keydown.escape="closeDropdown"
               @keydown.arrow-down.prevent="navigateDown"
               @keydown.arrow-up.prevent="navigateUp"
+              :disabled="!isSubtaskOwner"
             />
             
             <!-- Dropdown icon -->
             <div 
+              v-if="isSubtaskOwner"
               class="dropdown-toggle-icon" 
               @click="toggleDropdown"
               :class="{ 'rotated': showDropdown }"
@@ -250,6 +253,7 @@
             >
               {{ collaborator.name }} ({{ collaborator.department }})
               <button 
+                v-if="isSubtaskOwner"
                 type="button" 
                 class="remove-tag" 
                 @click="removeCollaborator(index)"
@@ -532,6 +536,20 @@ const currentUserRank = computed(() => {
 })
 
 // Check if current user can transfer ownership  
+const isSubtaskOwner = computed(() => {
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
+      const userId = currentUser.id
+      return String(props.subtask.owner) === String(userId)
+    } catch (error) {
+      console.error('Error checking subtask ownership:', error)
+      return false
+    }
+  }
+  return false
+})
+
 const canTransferOwnership = computed(() => {
   if (typeof window !== 'undefined' && window.sessionStorage) {
     try {
@@ -542,11 +560,11 @@ const canTransferOwnership = computed(() => {
       // Rule 1: Must be the owner of the subtask
       const isOwner = String(props.subtask.owner) === String(userId)
 
-      // Rule 2: Must be a manager (role_num 3 only)
-      const isManager = userRole === 3
+      // Rule 2: Must be a manager or director (role_num 2 or 3)
+      const canTransfer = userRole === 2 || userRole === 3
 
-      //Both conditions must be true 
-      return isOwner && isManager
+      // Both conditions must be true 
+      return isOwner && canTransfer
     } catch (error) {
       console.error('Error checking transfer permission:', error)
       return false
@@ -1192,6 +1210,14 @@ onMounted(() => {
   font-weight: 600;
   color: #000000;
   margin-bottom: 4px;
+}
+
+.label-note {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+  font-style: italic;
+  margin-left: 4px;
 }
 
 .form-input,
