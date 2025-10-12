@@ -1767,7 +1767,7 @@ export default {
       } else if (localForm.recurrence.endCondition === 'onDate') {
         localForm.recurrence.endAfterOccurrences = '';
         if (!localForm.recurrence.endDate) {
-          localForm.recurrence.endDate = localForm.start_date || getCurrentDate();
+          localForm.recurrence.endDate = getCurrentDate();
         }
       } else {
         localForm.recurrence.endAfterOccurrences = '';
