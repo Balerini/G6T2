@@ -15,7 +15,7 @@
         </div>
 
         <!-- Calendar Content -->
-        <div v-if="loading" class="loading-state">
+                <div v-if="loading" class="loading-state">
             <div class="loading-spinner"></div>
             <p>Loading your schedule...</p>
         </div>
@@ -23,7 +23,39 @@
             <span class="error-icon">⚠️</span>
             <p>{{ error }}</p>
         </div>
-        <div v-else class="calendar-card">
+        <div v-else class="calendar-card" :class="{ 'calendar-with-tabs': isManager }">
+            <!-- Color Legend -->
+            <div class="calendar-legend">
+                <span class="legend-title">Color Legend:</span>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: #dc2626;"></span>
+                        <span class="legend-label">Overdue</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: #ea580c;"></span>
+                        <span class="legend-label">Due Today</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: #ca8a04;"></span>
+                        <span class="legend-label">Due Tomorrow</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: #d97706;"></span>
+                        <span class="legend-label">Due in 2-3 days</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: #2563eb;"></span>
+                        <span class="legend-label">Due in 4-7 days</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: #059669;"></span>
+                        <span class="legend-label">Due later (7+ days)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Calendar Grid -->
             <FullCalendar :options="calendarOptions" />
         </div>
     </div>
@@ -158,9 +190,14 @@ export default {
                         color = '#059669';
                     }
 
+                    // Add OVERDUE label for overdue tasks
+                    const taskTitle = task.days_until_due < 0 
+                        ? `[OVERDUE] ${task.task_name}` 
+                        : task.task_name;
+
                     const event = {
                         id: task.task_id,
-                        title: task.task_name,
+                        title: taskTitle,
                         start: task.end_date,
                         allDay: true,
                         backgroundColor: color,
@@ -283,10 +320,56 @@ export default {
 
 .calendar-card {
     background: white;
-    border-radius: 0 12px 12px 12px;
+    border-radius: 12px;
     padding: 2rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     border: 1px solid #e5e7eb;
+}
+
+.calendar-card.calendar-with-tabs {
+    border-radius: 0 12px 12px 12px;
+}
+
+.calendar-legend {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 1rem 1.5rem;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.legend-title {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.875rem;
+}
+
+.legend-items {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.legend-label {
+    font-size: 0.875rem;
+    color: #6b7280;
 }
 
 .loading-state,
@@ -354,6 +437,22 @@ export default {
     .calendar-card {
         padding: 1rem;
         border-radius: 12px;
+    }
+
+    .calendar-card.calendar-with-tabs {
+        border-radius: 0 12px 12px 12px;
+    }
+
+    .calendar-legend {
+        padding: 0.75rem 1rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .legend-items {
+        gap: 1rem;
     }
 }
 </style>
