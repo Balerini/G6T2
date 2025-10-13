@@ -440,10 +440,10 @@ def get_manager_tasks_by_priority(user_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-# =============== MANAGERS: PENDING TASKS BY AGE AND TASK NAME BASED ON TASK START DATE ===============
+# =============== MANAGERS: PENDING TASKS BY AGE (DEDUPLICATED WITH COMBINED ASSIGNEES) ===============
 @dashboard_bp.route('/api/dashboard/manager/pending-tasks-by-age/<user_id>', methods=['GET'])
 def get_manager_pending_tasks_by_age(user_id):
-    """Get pending tasks categorized by due date with task details and assignee"""
+    """Get pending tasks categorized by due date with task details and combined assignees"""
     try:
         # Get manager info
         user_info = get_user_info(user_id)
@@ -477,17 +477,8 @@ def get_manager_pending_tasks_by_age(user_id):
         db = get_firestore_client()
         tasks_ref = db.collection('Tasks')
         
-        # Categories for task age with task details
-        age_categories = {
-            'overdue': [],
-            'due_today': [],
-            'due_in_1_day': [],
-            'due_in_3_days': [],
-            'due_in_a_week': [],
-            'due_in_2_weeks': [],
-            'due_in_a_month': [],
-            'due_later': [],
-        }
+        # Use a dictionary to track unique tasks by task_id
+        unique_tasks = {}
         
         current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         
@@ -497,12 +488,9 @@ def get_manager_pending_tasks_by_age(user_id):
             tasks = tasks_query.stream()
             
             for task in tasks:
+                task_id = task.id
                 task_data = task.to_dict()
                 status = task_data.get('task_status', '')
-                
-                # # Only count pending tasks (Not Started or In Progress)
-                # if status not in ['Not Started', 'In Progress']:
-                #     continue
                 
                 end_date = task_data.get('end_date')
                 if not end_date:
@@ -514,38 +502,67 @@ def get_manager_pending_tasks_by_age(user_id):
                 # Calculate days difference (positive = future, negative = past)
                 days_diff = (end_date_normalized - current_date).days
                 
-                # Create task detail object
-                task_detail = {
-                    'task_id': task.id,
-                    'task_name': task_data.get('task_name', 'Untitled'),
-                    'task_status': status,
-                    'priority_level': task_data.get('priority_level', 'N/A'),
-                    'assigned_to_id': staff_id,
-                    'assigned_to_name': staff_info[staff_id]['name'],
-                    'assigned_to_role': staff_info[staff_id]['role_name'],
-                    'proj_name': task_data.get('proj_name', ''),
-                    'proj_id': task_data.get('proj_ID'),
-                    'end_date': end_date.isoformat() if end_date else None,
-                    'days_until_due': days_diff
-                }
-                
-                # Categorize by days until due
-                if days_diff < 0:
-                    age_categories['overdue'].append(task_detail)
-                elif days_diff == 0:
-                    age_categories['due_today'].append(task_detail)
-                elif days_diff == 1:
-                    age_categories['due_in_1_day'].append(task_detail)
-                elif days_diff <= 3:
-                    age_categories['due_in_3_days'].append(task_detail)
-                elif days_diff <= 7:
-                    age_categories['due_in_a_week'].append(task_detail)
-                elif days_diff <= 14:
-                    age_categories['due_in_2_weeks'].append(task_detail)
-                elif days_diff <= 30:
-                    age_categories['due_in_a_month'].append(task_detail)
-                elif days_diff > 30: 
-                    age_categories['due_later'].append(task_detail)
+                # If task already exists, just add this assignee
+                if task_id in unique_tasks:
+                    # Add assignee to the list if not already there
+                    assignee_info = {
+                        'id': staff_id,
+                        'name': staff_info[staff_id]['name'],
+                        'role': staff_info[staff_id]['role_name']
+                    }
+                    # Check if this assignee is already in the list
+                    if not any(a['id'] == staff_id for a in unique_tasks[task_id]['assigned_to']):
+                        unique_tasks[task_id]['assigned_to'].append(assignee_info)
+                else:
+                    # Create new task entry with assignees as a list
+                    unique_tasks[task_id] = {
+                        'task_id': task_id,
+                        'task_name': task_data.get('task_name', 'Untitled'),
+                        'task_status': status,
+                        'priority_level': task_data.get('priority_level', 'N/A'),
+                        'assigned_to': [{
+                            'id': staff_id,
+                            'name': staff_info[staff_id]['name'],
+                            'role': staff_info[staff_id]['role_name']
+                        }],
+                        'proj_name': task_data.get('proj_name', ''),
+                        'proj_id': task_data.get('proj_ID'),
+                        'end_date': end_date.isoformat() if end_date else None,
+                        'days_until_due': days_diff
+                    }
+        
+        # Categories for task age
+        age_categories = {
+            'overdue': [],
+            'due_today': [],
+            'due_in_1_day': [],
+            'due_in_3_days': [],
+            'due_in_a_week': [],
+            'due_in_2_weeks': [],
+            'due_in_a_month': [],
+            'due_later': [],
+        }
+        
+        # Categorize tasks by days until due
+        for task_detail in unique_tasks.values():
+            days_diff = task_detail['days_until_due']
+            
+            if days_diff < 0:
+                age_categories['overdue'].append(task_detail)
+            elif days_diff == 0:
+                age_categories['due_today'].append(task_detail)
+            elif days_diff == 1:
+                age_categories['due_in_1_day'].append(task_detail)
+            elif days_diff <= 3:
+                age_categories['due_in_3_days'].append(task_detail)
+            elif days_diff <= 7:
+                age_categories['due_in_a_week'].append(task_detail)
+            elif days_diff <= 14:
+                age_categories['due_in_2_weeks'].append(task_detail)
+            elif days_diff <= 30:
+                age_categories['due_in_a_month'].append(task_detail)
+            elif days_diff > 30: 
+                age_categories['due_later'].append(task_detail)
         
         # Sort tasks within each category by due date (earliest first)
         for category in age_categories:
@@ -573,7 +590,6 @@ def get_manager_pending_tasks_by_age(user_id):
         print(f"Error getting pending tasks by age: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 # =============== NORMAL STAFF WHOSE ROLE_NUM IN DB = 4 ===============
 
