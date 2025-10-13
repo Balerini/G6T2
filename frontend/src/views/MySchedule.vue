@@ -4,13 +4,12 @@
     <div class="header-section">
       <div class="container">
         <div class="header-content">
-          <div>
-            <h1 class="hero-title">📅 My Schedule</h1>
-            <p class="hero-subtitle">View and manage your tasks</p>
-          </div>
-          <div class="division-badge" v-if="currentUser">
-            <span class="badge-icon">🏢</span>
-            {{ currentUser.division_name }} Department
+
+          <div class="title-section">
+            <h1 class="hero-title">📆 Schedule</h1>
+            <div class="division-badge" v-if="currentUser">
+              {{ currentUser.division_name }} Department
+            </div>
           </div>
         </div>
       </div>
@@ -75,8 +74,14 @@ export default {
   flex-wrap: wrap;
 }
 
+.title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .hero-title {
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   line-height: 1.2;
   font-weight: 800;
   color: #111827;
@@ -91,16 +96,13 @@ export default {
 }
 
 .division-badge {
-  background: #f3f4f6;
-  color: #374151;
-  padding: 0.75rem 1.25rem;
+  background: #e0f2fe;
+  color: #0277bd;
+  padding: 0.25rem 0.75rem;
   border-radius: 12px;
   font-size: 0.875rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid #e5e7eb;
+  font-weight: 500;
+  align-self: flex-start;
 }
 
 .badge-icon {

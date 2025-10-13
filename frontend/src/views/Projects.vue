@@ -5,7 +5,7 @@
       <div class="container">
         <div class="header-content">
           <div class="title-section">
-            <h1 class="hero-title">Projects</h1>
+            <h1 class="hero-title">🧑‍💻 Projects</h1>
             <div class="division-badge" v-if="currentUser">
               {{ currentUser.division_name }} Department
             </div>
