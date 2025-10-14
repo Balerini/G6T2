@@ -282,7 +282,6 @@ export default {
                 this.loading = true;
                 this.error = null;
 
-                // Replace with however you store logged-in user
                 const userString = sessionStorage.getItem('user');
                 const userData = JSON.parse(userString);
                 const currentUserId = userData.id;
