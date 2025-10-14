@@ -8,8 +8,9 @@ import MySchedule from '../views/MySchedule.vue';
 import Projects from '../views/Projects.vue';
 import Createtask from '../views/CreateTask.vue'
 import CreateProject from '../views/CreateProject.vue'
-import ViewTaskDetails  from '../views/ViewTaskDetails.vue'
+import ViewTaskDetails from '../views/ViewTaskDetails.vue'
 import Notifications from '../views/Notifications.vue'
+import ViewProject from '../views/ViewProjectDetails.vue';
 // import ViewOwnTasks from '../views/ViewOwnTasks.vue'
 
 const routes = [
@@ -35,6 +36,12 @@ const routes = [
     path: '/projects',
     name: 'projects',
     component: Projects,
+    meta: { showNav: true, requiresAuth: true }
+  },
+  {
+    path: '/projects/:project_id',
+    name: 'ViewProject',
+    component: ViewProject,
     meta: { showNav: true, requiresAuth: true }
   },
   {
@@ -94,10 +101,10 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   // Check if route requires authentication
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  
+
   // Check if user is logged in
   const isLoggedIn = authService.checkAuthStatus();
-  
+
   if (requiresAuth && !isLoggedIn) {
     // Redirect to login if trying to access protected route without being logged in
     next('/login');

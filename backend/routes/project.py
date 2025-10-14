@@ -194,7 +194,7 @@ def get_all_projects_with_tasks():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-# =============== GET SINGLE PROJECT WITH TASKS (EXISTING) ===============
+# =============== GET SINGLE PROJECT BY ID ===============
 @projects_bp.route('/api/projects/<project_id>', methods=['GET'])
 def get_project_with_tasks(project_id):
     try:
@@ -241,12 +241,166 @@ def get_project_with_tasks(project_id):
                 task_data['updatedAt'] = task_data['updatedAt'].isoformat()
             
             task_list.append(task_data)
-        
+
         project_data['tasks'] = task_list
         return jsonify(project_data), 200
 
     except Exception as e:
         print(f"Error fetching project: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+    
+# =============== GET ALL PROJECT BY ID'S COLLABORATORS TASKS SCHEDULE  - VIEW TEAM MEMBER'S SCHEDULE & WORKLOAD ===============
+@projects_bp.route('/api/projects/<project_id>/team-schedule', methods=['GET'])
+def get_project_team_schedule(project_id):
+    try:
+        db = get_firestore_client()
+        
+        # Get project details
+        project_ref = db.collection('Projects').document(project_id)
+        project_doc = project_ref.get()
+
+        if not project_doc.exists:
+            return jsonify({'error': 'Project not found'}), 404
+            
+        project_data = project_doc.to_dict()
+        collaborator_ids = project_data.get('collaborators', [])
+        
+        if not collaborator_ids:
+            return jsonify({
+                'project': {
+                    'id': project_id,
+                    'proj_name': project_data.get('proj_name', 'Unknown'),
+                    'start_date': project_data.get('start_date').isoformat() if project_data.get('start_date') else None,
+                    'end_date': project_data.get('end_date').isoformat() if project_data.get('end_date') else None
+                },
+                'collaborators': [],
+                'timeline_summary': {
+                    'earliest_task': None,
+                    'latest_task': None,
+                    'total_tasks': 0,
+                    'tasks_by_status': {}
+                }
+            }), 200
+
+        # Get all tasks for this project
+        tasks_ref = db.collection('Tasks')
+        tasks_query = tasks_ref.where('proj_ID', '==', project_id)
+        all_tasks = list(tasks_query.stream())
+        
+        # Organize tasks by user
+        tasks_by_user = {}
+        earliest_date = None
+        latest_date = None
+        status_counts = {}
+        
+        for task_doc in all_tasks:
+            task_data = task_doc.to_dict()
+            assigned_users = task_data.get('assigned_to', [])
+            
+            # Count task statuses
+            status = task_data.get('task_status', 'Not Started')
+            status_counts[status] = status_counts.get(status, 0) + 1
+            
+            # Track date range
+            if task_data.get('start_date'):
+                if not earliest_date or task_data['start_date'] < earliest_date:
+                    earliest_date = task_data['start_date']
+            if task_data.get('end_date'):
+                if not latest_date or task_data['end_date'] > latest_date:
+                    latest_date = task_data['end_date']
+            
+            # Add task to each assigned user
+            for user_id in assigned_users:
+                if user_id not in tasks_by_user:
+                    tasks_by_user[user_id] = []
+                
+                # Check if task is overdue
+                is_overdue = False
+                if task_data.get('end_date') and status not in ['Completed', 'Cancelled']:
+                    from datetime import datetime
+                    import pytz
+                    sg_tz = pytz.timezone('Asia/Singapore')
+                    now = datetime.now(sg_tz)
+                    is_overdue = task_data['end_date'] < now
+                
+                task_info = {
+                    'task_id': task_data.get('task_ID'),
+                    'firestore_id': task_doc.id,
+                    'task_name': task_data.get('task_name', 'Untitled Task'),
+                    'task_desc': task_data.get('task_desc', ''),
+                    'start_date': task_data.get('start_date').isoformat() if task_data.get('start_date') else None,
+                    'end_date': task_data.get('end_date').isoformat() if task_data.get('end_date') else None,
+                    'task_status': status,
+                    'priority_level': task_data.get('priority_level', 'Medium'),
+                    'completion_percentage': task_data.get('completion_percentage', 0),
+                    'is_overdue': is_overdue,
+                    'task_owner': task_data.get('task_owner')
+                }
+                tasks_by_user[user_id].append(task_info)
+        
+        # Get user details and build collaborator list
+        users_ref = db.collection('Users')
+        collaborators_list = []
+        
+        for user_id in collaborator_ids:
+            user_doc = users_ref.document(user_id).get()
+            if not user_doc.exists:
+                continue
+                
+            user_data = user_doc.to_dict()
+            user_tasks = tasks_by_user.get(user_id, [])
+            
+            # Sort tasks by start date (earliest first)
+            user_tasks.sort(key=lambda t: t['start_date'] if t['start_date'] else '9999-12-31')
+            
+            # Calculate task statistics for this user
+            completed = sum(1 for t in user_tasks if t['task_status'] == 'Completed')
+            in_progress = sum(1 for t in user_tasks if t['task_status'] == 'In Progress')
+            not_started = sum(1 for t in user_tasks if t['task_status'] == 'Not Started')
+            
+            collaborator_info = {
+                'user_id': user_id,
+                'name': user_data.get('name', 'Unknown User'),
+                'email': user_data.get('email', ''),
+                'profile_picture': user_data.get('profile_picture', ''),
+                'total_tasks': len(user_tasks),
+                'completed_tasks': completed,
+                'in_progress_tasks': in_progress,
+                'not_started_tasks': not_started,
+                'overdue_tasks': sum(1 for t in user_tasks if t['is_overdue']),
+                'tasks': user_tasks
+            }
+            collaborators_list.append(collaborator_info)
+        
+        # Sort collaborators by total tasks (busiest first) or alphabetically
+        collaborators_list.sort(key=lambda c: (-c['total_tasks'], c['name']))
+        
+        # Build response
+        response = {
+            'project': {
+                'id': project_id,
+                'proj_name': project_data.get('proj_name', 'Unknown'),
+                'proj_desc': project_data.get('proj_desc', ''),
+                'start_date': project_data.get('start_date').isoformat() if project_data.get('start_date') else None,
+                'end_date': project_data.get('end_date').isoformat() if project_data.get('end_date') else None,
+                'proj_status': project_data.get('proj_status', 'Active')
+            },
+            'collaborators': collaborators_list,
+            'timeline_summary': {
+                'earliest_task': earliest_date.isoformat() if earliest_date else None,
+                'latest_task': latest_date.isoformat() if latest_date else None,
+                'total_tasks': len(all_tasks),
+                'tasks_by_status': status_counts,
+                'total_collaborators': len(collaborators_list)
+            }
+        }
+        
+        return jsonify(response), 200
+
+    except Exception as e:
+        print(f"Error fetching team schedule: {str(e)}")
+        import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     
@@ -492,7 +646,7 @@ def create_project():
 
         # ================== SEND EMAILS TO COLLABORATORS ==================
         try:
-            from email_service import email_service  # import the singleton instance
+            from services.email_service import email_service  # import the singleton instance
 
             # Get creator's info (for the "Created by" field)
             creator_doc = db.collection('Users').document(owner_id).get()
@@ -534,144 +688,144 @@ def create_project():
         print(f"Error creating project: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
-# =============== UPDATE PROJECT ===============
-@projects_bp.route('/api/projects/<project_id>', methods=['PUT'])
-def update_project(project_id):
-    """Update an existing project"""
-    try:
-        db = get_firestore_client()
+    
+# # =============== UPDATE PROJECT ===============
+# @projects_bp.route('/api/projects/<project_id>', methods=['PUT'])
+# def update_project(project_id):
+#     """Update an existing project"""
+#     try:
+#         db = get_firestore_client()
         
-        # Check if project exists
-        doc_ref = db.collection('Projects').document(project_id)
-        doc = doc_ref.get()
+#         # Check if project exists
+#         doc_ref = db.collection('Projects').document(project_id)
+#         doc = doc_ref.get()
         
-        if not doc.exists:
-            return jsonify({'error': 'Project not found'}), 404
+#         if not doc.exists:
+#             return jsonify({'error': 'Project not found'}), 404
         
-        # Get request data
-        update_data = request.get_json()
+#         # Get request data
+#         update_data = request.get_json()
         
-        if not update_data:
-            return jsonify({'error': 'No data provided'}), 400
+#         if not update_data:
+#             return jsonify({'error': 'No data provided'}), 400
         
-        # Prepare update data
-        firestore_update = {
-            'updatedAt': firestore.SERVER_TIMESTAMP
-        }
+#         # Prepare update data
+#         firestore_update = {
+#             'updatedAt': firestore.SERVER_TIMESTAMP
+#         }
         
-        # Update project name if provided
-        if 'proj_name' in update_data:
-            if len(update_data['proj_name'].strip()) < 3:
-                return jsonify({'error': 'Project name must be at least 3 characters'}), 400
-            firestore_update['proj_name'] = update_data['proj_name'].strip()
+#         # Update project name if provided
+#         if 'proj_name' in update_data:
+#             if len(update_data['proj_name'].strip()) < 3:
+#                 return jsonify({'error': 'Project name must be at least 3 characters'}), 400
+#             firestore_update['proj_name'] = update_data['proj_name'].strip()
         
-        # Update description if provided
-        if 'proj_desc' in update_data:
-            firestore_update['proj_desc'] = update_data['proj_desc'].strip()
+#         # Update description if provided
+#         if 'proj_desc' in update_data:
+#             firestore_update['proj_desc'] = update_data['proj_desc'].strip()
         
-        # Update dates if provided
-        if 'start_date' in update_data or 'end_date' in update_data:
-            existing_data = doc.to_dict()
+#         # Update dates if provided
+#         if 'start_date' in update_data or 'end_date' in update_data:
+#             existing_data = doc.to_dict()
             
-            try:
-                start_date = None
-                end_date = None
+#             try:
+#                 start_date = None
+#                 end_date = None
                 
-                if 'start_date' in update_data:
-                    start_date = datetime.fromisoformat(update_data['start_date'].replace('Z', '+00:00'))
-                    firestore_update['start_date'] = start_date
-                else:
-                    start_date = existing_data.get('start_date')
+#                 if 'start_date' in update_data:
+#                     start_date = datetime.fromisoformat(update_data['start_date'].replace('Z', '+00:00'))
+#                     firestore_update['start_date'] = start_date
+#                 else:
+#                     start_date = existing_data.get('start_date')
                 
-                if 'end_date' in update_data:
-                    end_date = datetime.fromisoformat(update_data['end_date'].replace('Z', '+00:00'))
-                    firestore_update['end_date'] = end_date
-                else:
-                    end_date = existing_data.get('end_date')
+#                 if 'end_date' in update_data:
+#                     end_date = datetime.fromisoformat(update_data['end_date'].replace('Z', '+00:00'))
+#                     firestore_update['end_date'] = end_date
+#                 else:
+#                     end_date = existing_data.get('end_date')
                 
-                # Validate dates
-                if start_date and end_date and end_date <= start_date:
-                    return jsonify({'error': 'End date must be after start date'}), 400
+#                 # Validate dates
+#                 if start_date and end_date and end_date <= start_date:
+#                     return jsonify({'error': 'End date must be after start date'}), 400
                     
-            except ValueError as e:
-                return jsonify({'error': f'Invalid date format: {str(e)}'}), 400
+#             except ValueError as e:
+#                 return jsonify({'error': f'Invalid date format: {str(e)}'}), 400
         
-        # Update status if provided
-        if 'proj_status' in update_data:
-            valid_statuses = ['Not Started', 'In Progress', 'Completed', 'On Hold']
-            if update_data['proj_status'] in valid_statuses:
-                firestore_update['proj_status'] = update_data['proj_status']
+#         # Update status if provided
+#         if 'proj_status' in update_data:
+#             valid_statuses = ['Not Started', 'In Progress', 'Completed', 'On Hold']
+#             if update_data['proj_status'] in valid_statuses:
+#                 firestore_update['proj_status'] = update_data['proj_status']
         
-        # Update the document
-        doc_ref.update(firestore_update)
+#         # Update the document
+#         doc_ref.update(firestore_update)
         
-        # Get updated project
-        updated_doc = doc_ref.get()
-        updated_project = updated_doc.to_dict()
-        updated_project['id'] = project_id
+#         # Get updated project
+#         updated_doc = doc_ref.get()
+#         updated_project = updated_doc.to_dict()
+#         updated_project['id'] = project_id
         
-        # Convert timestamps for response
-        if 'start_date' in updated_project and updated_project['start_date']:
-            updated_project['start_date'] = updated_project['start_date'].isoformat()
-        if 'end_date' in updated_project and updated_project['end_date']:
-            updated_project['end_date'] = updated_project['end_date'].isoformat()
-        if 'createdAt' in updated_project and updated_project['createdAt']:
-            updated_project['createdAt'] = updated_project['createdAt'].isoformat()
-        if 'updatedAt' in updated_project and updated_project['updatedAt']:
-            updated_project['updatedAt'] = updated_project['updatedAt'].isoformat()
+#         # Convert timestamps for response
+#         if 'start_date' in updated_project and updated_project['start_date']:
+#             updated_project['start_date'] = updated_project['start_date'].isoformat()
+#         if 'end_date' in updated_project and updated_project['end_date']:
+#             updated_project['end_date'] = updated_project['end_date'].isoformat()
+#         if 'createdAt' in updated_project and updated_project['createdAt']:
+#             updated_project['createdAt'] = updated_project['createdAt'].isoformat()
+#         if 'updatedAt' in updated_project and updated_project['updatedAt']:
+#             updated_project['updatedAt'] = updated_project['updatedAt'].isoformat()
         
-        print(f"Project {project_id} updated successfully")
+#         print(f"Project {project_id} updated successfully")
         
-        return jsonify({
-            'message': 'Project updated successfully',
-            'project': updated_project
-        }), 200
+#         return jsonify({
+#             'message': 'Project updated successfully',
+#             'project': updated_project
+#         }), 200
         
-    except Exception as e:
-        print(f"Error updating project: {str(e)}")
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         print(f"Error updating project: {str(e)}")
+#         traceback.print_exc()
+#         return jsonify({'error': str(e)}), 500
 
 
-# =============== DELETE PROJECT ===============
-@projects_bp.route('/api/projects/<project_id>', methods=['DELETE'])
-def delete_project(project_id):
-    """Delete a project and all its associated tasks"""
-    try:
-        db = get_firestore_client()
+# # =============== DELETE PROJECT ===============
+# @projects_bp.route('/api/projects/<project_id>', methods=['DELETE'])
+# def delete_project(project_id):
+#     """Delete a project and all its associated tasks"""
+#     try:
+#         db = get_firestore_client()
         
-        # Check if project exists
-        project_ref = db.collection('Projects').document(project_id)
-        project_doc = project_ref.get()
+#         # Check if project exists
+#         project_ref = db.collection('Projects').document(project_id)
+#         project_doc = project_ref.get()
         
-        if not project_doc.exists:
-            return jsonify({'error': 'Project not found'}), 404
+#         if not project_doc.exists:
+#             return jsonify({'error': 'Project not found'}), 404
         
-        project_data = project_doc.to_dict()
-        project_name = project_data.get('proj_name', 'Unknown')
+#         project_data = project_doc.to_dict()
+#         project_name = project_data.get('proj_name', 'Unknown')
         
-        # Get all tasks associated with this project
-        tasks_ref = db.collection('Tasks')
-        tasks_query = tasks_ref.where('proj_ID', '==', project_id)
-        tasks = tasks_query.stream()
+#         # Get all tasks associated with this project
+#         tasks_ref = db.collection('Tasks')
+#         tasks_query = tasks_ref.where('proj_ID', '==', project_id)
+#         tasks = tasks_query.stream()
         
-        # Delete all associated tasks
-        deleted_task_count = 0
-        for task in tasks:
-            task.reference.delete()
-            deleted_task_count += 1
+#         # Delete all associated tasks
+#         deleted_task_count = 0
+#         for task in tasks:
+#             task.reference.delete()
+#             deleted_task_count += 1
         
-        # Delete the project
-        project_ref.delete()
+#         # Delete the project
+#         project_ref.delete()
         
-        print(f"Project '{project_name}' and {deleted_task_count} associated tasks deleted successfully")
+#         print(f"Project '{project_name}' and {deleted_task_count} associated tasks deleted successfully")
         
-        return jsonify({
-            'message': f'Project "{project_name}" and {deleted_task_count} associated tasks deleted successfully'
-        }), 200
+#         return jsonify({
+#             'message': f'Project "{project_name}" and {deleted_task_count} associated tasks deleted successfully'
+#         }), 200
         
-    except Exception as e:
-        print(f"Error deleting project: {str(e)}")
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         print(f"Error deleting project: {str(e)}")
+#         traceback.print_exc()
+#         return jsonify({'error': str(e)}), 500

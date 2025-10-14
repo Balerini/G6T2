@@ -124,7 +124,7 @@
         </div>
 
         <!-- UPDATE: Change from filteredProjects to sortedProjects -->
-        <ProjectList v-else :projects="sortedProjects" :users="users" @edit-project="handleEditProject"
+        <ProjectList v-else :projects="sortedProjects" :users="users"
           @view-task="handleViewTask" @add-task="handleAddTask" />
       </div>
     </div>
@@ -606,11 +606,6 @@ export default {
     navigateToCreateTask() {
       this.selectedProject = null; // No pre-selected project
       this.showCreateTaskForm = true;
-    },
-
-    handleEditProject(project) {
-      console.log('Edit project:', project);
-      // edit project logic here
     },
 
     handleViewTask(task) {
