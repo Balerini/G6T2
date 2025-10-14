@@ -51,7 +51,7 @@
         </div>
       </div> -->
 
-      <button class="view-btn" @click="$emit('view-task', task)">View Details</button>
+      <button class="view-btn" @click="$emit('view-task', task)">View Task</button>
     </div>
   </div>
 </template>
