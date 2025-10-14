@@ -28,7 +28,7 @@ export const projectService = {
     }
   },
 
-  // ============== Get single project (with tasks included) ==============
+  // ============== Get project by id ==============
   async getProject(projectId) {
     try {
       const response = await api.get(`/api/projects/${projectId}`);
@@ -36,6 +36,18 @@ export const projectService = {
       return response.data;
     } catch (error) {
       console.error('Error in getProject:', error);
+      throw new Error(error.response?.data?.error || 'Failed to fetch project');
+    }
+  },
+
+  // ============== Get schedule of collaborators by project by id ==============
+  async getProjectById(projectId) {
+    try {
+      const response = await api.get(`/api/projects/${projectId}/team-schedule`);
+      console.log('Get project by id response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error in getProjectById:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch project');
     }
   },

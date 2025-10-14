@@ -114,11 +114,16 @@
                     <p>No tasks found for this project.</p>
                 </div>
             </div>
+
+            <div>
+                <ViewProjectTeamSchedule :projectId="projectId"/> 
+            </div>
         </div>
     </div>
 </template>
 
 <script>
+import ViewProjectTeamSchedule from '@/components/ViewProjectTeamSchedule.vue';
 import { projectService } from '../services/projectService.js';
 
 export default {
@@ -131,6 +136,9 @@ export default {
             projectId: null,
             usersMap: {} // Map of userId -> user object
         };
+    },
+    components: {
+        ViewProjectTeamSchedule
     },
     computed: {
         allTasks() {
