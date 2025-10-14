@@ -720,9 +720,14 @@ export default {
     const originalStatus = ref(props.task?.task_status || '')
 
     const getCurrentDate = () => {
-      const today = new Date()
-      const sgTime = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Singapore' }))
-      return sgTime.toISOString().split('T')[0]
+      return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' })
+    }
+
+    const toDate = (value) => {
+      if (!value) {
+        return null
+      }
+      return new Date(`${value}T00:00:00`)
     }
 
     // Helper function to show toast
@@ -814,6 +819,38 @@ export default {
       priority_level: '',
       recurrence: createDefaultRecurrence()
     })
+
+    const getRecurrenceEndDateMinValue = () => {
+      const today = getCurrentDate()
+      const startDate = localForm.start_date
+
+      if (startDate) {
+        const start = toDate(startDate)
+        const todayDate = toDate(today)
+        if (start && todayDate && start > todayDate) {
+          return startDate
+        }
+      }
+
+      return today
+    }
+
+    const ensureRecurrenceEndDateMin = () => {
+      if (
+        localForm.recurrence.endCondition !== 'onDate' ||
+        !localForm.recurrence.endDate
+      ) {
+        return
+      }
+
+      const minDate = getRecurrenceEndDateMinValue()
+      const currentEnd = toDate(localForm.recurrence.endDate)
+      const min = toDate(minDate)
+
+      if (currentEnd && min && currentEnd < min) {
+        localForm.recurrence.endDate = minDate
+      }
+    }
 
     // Dropdown-related reactive data
     const userSearch = ref('')
@@ -984,6 +1021,7 @@ export default {
           localForm.recurrence.monthlyDay = deriveDefaultMonthlyDay()
         }
         validateRecurrence(false)
+        ensureRecurrenceEndDateMin()
       }
 
       // Clear errors when form is populated
@@ -1034,6 +1072,8 @@ export default {
       ) {
         localForm.recurrence.endDate = newStart
       }
+
+      ensureRecurrenceEndDateMin()
 
       validateRecurrence(false)
     })
@@ -1676,6 +1716,7 @@ export default {
           endError = 'Occurrences must be at least 1';
         }
       } else if (localForm.recurrence.endCondition === 'onDate') {
+        const minDate = getRecurrenceEndDateMinValue();
         if (!localForm.recurrence.endDate) {
           endError = 'Select an end date';
         } else if (
@@ -1683,6 +1724,16 @@ export default {
           new Date(localForm.recurrence.endDate) < new Date(localForm.start_date)
         ) {
           endError = 'End date must be on or after the start date';
+        } else if (
+          localForm.recurrence.endDate &&
+          new Date(localForm.recurrence.endDate) < new Date(minDate)
+        ) {
+          const formattedMin = new Date(minDate).toLocaleDateString('en-SG', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+          endError = `End date cannot be before ${formattedMin}`;
         }
       } else if (!localForm.recurrence.endCondition) {
         endError = 'Choose how the recurrence ends';
@@ -1800,8 +1851,11 @@ export default {
         localForm.recurrence.endDate = '';
       } else if (localForm.recurrence.endCondition === 'onDate') {
         localForm.recurrence.endAfterOccurrences = '';
+        const minDate = getRecurrenceEndDateMinValue();
         if (!localForm.recurrence.endDate) {
-          localForm.recurrence.endDate = getCurrentDate();
+          localForm.recurrence.endDate = minDate;
+        } else {
+          ensureRecurrenceEndDateMin();
         }
       } else {
         localForm.recurrence.endAfterOccurrences = '';
@@ -1823,6 +1877,7 @@ export default {
 
     const handleRecurrenceEndDateChange = () => {
       recurrenceTouched.end = true;
+      ensureRecurrenceEndDateMin();
       validateRecurrence(false);
     };
 
@@ -1841,7 +1896,7 @@ export default {
       }
     });
 
-    const recurrenceEndDateMin = computed(() => localForm.start_date || getCurrentDate());
+    const recurrenceEndDateMin = computed(() => getRecurrenceEndDateMinValue());
 
     const recurrenceSummary = computed(() => {
       if (!localForm.recurrence.enabled || !localForm.recurrence.frequency) {
