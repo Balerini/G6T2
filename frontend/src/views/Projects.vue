@@ -22,7 +22,7 @@
 
         <div class="action-tabs">
           <button class="tab-btn" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
-            All Projects ({{ currentUser?.division_name || 'My Division' }})
+            All Projects
           </button>
           <button class="tab-btn" :class="{ active: activeTab === 'standalone' }" @click="activeTab = 'standalone'">
             Standalone Tasks
@@ -889,9 +889,12 @@ export default {
     },
 
     setSortOrder(order) {
-      console.log(`Setting sort order to: ${order}`);
+      // console.log(`Setting sort order to: ${order}`);
       this.sortOrder = order;
-    }
+    },
+    setSortMode(mode) {
+      this.sortMode = mode;
+    },
   }
 }
 </script>

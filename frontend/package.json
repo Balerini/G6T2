@@ -15,7 +15,7 @@
     "@fullcalendar/vue3": "^6.1.19",
     "@infectoone/vue-ganttastic": "^2.3.2",
     "axios": "^1.12.2",
-    "chart.js": "^4.5.0",
+    "chart.js": "^4.5.1",
     "core-js": "^3.8.3",
     "firebase": "^12.3.0",
     "frappe-gantt": "^1.0.4",
