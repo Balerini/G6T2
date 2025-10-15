@@ -22,17 +22,6 @@
         </div>
 
         <div class="form-group">
-          <label for="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            v-model="password"
-            placeholder="••••••••"
-            class="form-control"
-          />
-        </div>
-
-        <div class="form-group">
           <div class="password-header">
             <label for="password">Password</label>
             <router-link to="/forgot-password" class="forgot-link">Forgot password?</router-link>
