@@ -1,8 +1,19 @@
 <template>
   <div class="team-schedule-container">
     <div class="schedule-header">
-      <h3 class="schedule-title">📅 Team Schedule</h3>
-      <p class="schedule-subtitle">Project timeline and task assignments</p>
+      <div class="header-top">
+        <div class="title-section">
+          <h3 class="schedule-title">📅 Team Schedule</h3>
+          <p class="schedule-subtitle">Project timeline and task assignments</p>
+        </div>
+        <button @click="downloadSchedule" class="download-btn" title="Download Team Schedule">
+          <svg class="download-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div v-if="loading" class="loading-state">
@@ -100,6 +111,7 @@ export default {
     const loading = ref(true);
     const error = ref(null);
     const teamMembers = ref([]);
+    const projectName = ref('Project');
 
     const getInitials = (name) => {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -273,10 +285,27 @@ export default {
         // Get project data - this should return the structure from your JSON
         const projectData = await projectService.getProjectById(props.projectId);
 
+        console.log('Project data received:', projectData);
+
         if (!projectData || !projectData.collaborators) {
           teamMembers.value = [];
           return;
         }
+
+        // Store the project name from the correct structure
+        if (projectData.project && projectData.project.proj_name) {
+          projectName.value = projectData.project.proj_name;
+        } else if (projectData.proj_name) {
+          projectName.value = projectData.proj_name;
+        } else if (projectData.project_name) {
+          projectName.value = projectData.project_name;
+        } else if (projectData.name) {
+          projectName.value = projectData.name;
+        } else if (projectData.title) {
+          projectName.value = projectData.title;
+        }
+
+        console.log('Project name set to:', projectName.value);
 
         // Extract collaborators array from the response
         const collaborators = projectData.collaborators;
@@ -363,15 +392,15 @@ export default {
               end: task.end_date,
               status: task.task_status,
               row: task.assignedRow,
-              ganttBarConfig: {
+            ganttBarConfig: {
                 id: task.task_id,
                 label: task.task_name,
                 style: {
                   backgroundColor: getTaskColor(task.task_status),
                   color: '#fff'
                 },
-              },
-            })),
+            },
+          })),
           };
         });
 
@@ -398,10 +427,49 @@ export default {
       return colors[status] || '#60a5fa';
     };
 
+    const downloadSchedule = () => {
+      try {
+        console.log('Current project name:', projectName.value);
+        
+        // Clean project name for filename (remove special characters)
+        const cleanProjectName = projectName.value.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-');
+        
+        console.log('Clean project name for filename:', cleanProjectName);
+        
+        // Create a CSV content for the team schedule
+        let csvContent = "Team Member,Task Name,Start Date,End Date,Status,Project\n";
+        
+        teamMembers.value.forEach(member => {
+          member.bars.forEach(task => {
+            const startDate = new Date(task.start).toLocaleDateString();
+            const endDate = new Date(task.end).toLocaleDateString();
+            csvContent += `"${member.name}","${task.ganttBarConfig.label}","${startDate}","${endDate}","${task.status}","${task.ganttBarConfig.project || 'N/A'}"\n`;
+          });
+        });
+        
+        // Create and download the file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${cleanProjectName}-schedule.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('✅ Team schedule downloaded successfully');
+      } catch (error) {
+        console.error('❌ Error downloading team schedule:', error);
+        alert('Failed to download team schedule. Please try again.');
+      }
+    };
+
     return {
       loading,
       error,
       teamMembers,
+      projectName,
       timelineDates,
       getInitials,
       formatDate,
@@ -413,7 +481,8 @@ export default {
       getTooltip,
       previousMonth,
       nextMonth,
-      getCurrentMonthDisplay
+      getCurrentMonthDisplay,
+      downloadSchedule
     };
   },
 };
@@ -431,7 +500,25 @@ export default {
 
 .schedule-header {
   margin-bottom: 2rem;
+}
+
+.header-top {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 1rem;
+  position: relative;
+}
+
+.title-section {
   text-align: center;
+  flex: 1;
+}
+
+.download-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 .schedule-title {
@@ -439,6 +526,64 @@ export default {
   font-weight: 700;
   color: #111827;
   margin: 0 0 0.5rem 0;
+}
+
+.download-btn {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.download-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.download-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.download-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  transition: transform 0.2s ease;
+}
+
+.download-btn:hover .download-icon {
+  transform: translateY(2px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .header-top {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .title-section {
+    text-align: center;
+  }
+  
+  .download-btn {
+    position: static;
+    margin-top: 0.5rem;
+  }
 }
 
 .schedule-subtitle {
