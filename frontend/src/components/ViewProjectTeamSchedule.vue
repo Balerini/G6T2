@@ -60,7 +60,7 @@
               <div class="member-details">
                 <span class="member-name">{{ member.name }}</span>
                 <span class="member-task-count">{{ member.bars.length }} task{{ member.bars.length !== 1 ? 's' : ''
-                  }}</span>
+                }}</span>
               </div>
             </div>
 
@@ -136,12 +136,11 @@ export default {
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
 
-      // Add some days from previous and next month for context
+      // Start from the first day of the month (removed the Sunday alignment)
       const startDate = new Date(firstDay);
-      startDate.setDate(startDate.getDate() - firstDay.getDay()); // Start from Sunday
 
+      // End on the last day of the month (removed the Saturday alignment)
       const endDate = new Date(lastDay);
-      endDate.setDate(endDate.getDate() + (6 - lastDay.getDay())); // End on Saturday
 
       const timeline = [];
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -187,34 +186,63 @@ export default {
     };
 
     const getBarStyle = (bar) => {
-      const startDate = new Date(bar.start).toISOString().split('T')[0];
-      const endDate = new Date(bar.end).toISOString().split('T')[0];
+      // Normalize dates to remove time components
+      const taskStart = new Date(bar.start);
+      taskStart.setHours(0, 0, 0, 0);
 
-      const startIndex = timelineDates.value.indexOf(startDate);
-      const endIndex = timelineDates.value.indexOf(endDate);
+      const taskEnd = new Date(bar.end);
+      taskEnd.setHours(0, 0, 0, 0);
 
-      if (startIndex === -1 && endIndex === -1) {
+      // Get the first and last dates in the visible timeline
+      const timelineStart = new Date(timelineDates.value[0]);
+      timelineStart.setHours(0, 0, 0, 0);
+
+      const timelineEnd = new Date(timelineDates.value[timelineDates.value.length - 1]);
+      timelineEnd.setHours(0, 0, 0, 0);
+
+      // Check if task is completely outside the visible timeline
+      if (taskEnd < timelineStart || taskStart > timelineEnd) {
         return { display: 'none' };
       }
 
       const cellWidth = 40;
       let left, width;
 
-      // Handle tasks that start before or end after the visible timeline
-      if (startIndex === -1 && endIndex >= 0) {
-        // Task starts before visible timeline
-        left = 0;
-        width = (endIndex + 1) * cellWidth;
-      } else if (startIndex >= 0 && endIndex === -1) {
-        // Task ends after visible timeline
-        left = startIndex * cellWidth;
-        width = (timelineDates.value.length - startIndex) * cellWidth;
-      } else if (startIndex >= 0 && endIndex >= 0) {
-        // Task is within visible timeline
-        left = startIndex * cellWidth;
-        width = (endIndex - startIndex + 1) * cellWidth;
+      // Find the actual start and end positions
+      const startDateStr = taskStart < timelineStart ? timelineDates.value[0] : bar.start;
+      const endDateStr = taskEnd > timelineEnd ? timelineDates.value[timelineDates.value.length - 1] : bar.end;
+
+      const startIndex = timelineDates.value.indexOf(startDateStr);
+      const endIndex = timelineDates.value.indexOf(endDateStr);
+
+      if (startIndex === -1 || endIndex === -1) {
+        // Fallback: calculate position based on date comparison
+        let calculatedStartIndex = 0;
+        let calculatedEndIndex = timelineDates.value.length - 1;
+
+        for (let i = 0; i < timelineDates.value.length; i++) {
+          const currentDate = new Date(timelineDates.value[i]);
+          currentDate.setHours(0, 0, 0, 0);
+
+          if (taskStart <= currentDate && calculatedStartIndex === 0) {
+            calculatedStartIndex = i;
+          }
+          if (taskEnd >= currentDate) {
+            calculatedEndIndex = i;
+          }
+        }
+
+        left = calculatedStartIndex * cellWidth;
+        width = (calculatedEndIndex - calculatedStartIndex + 1) * cellWidth;
       } else {
-        return { display: 'none' };
+        left = startIndex * cellWidth;
+        // The +1 ensures the end date is inclusive (covers the full day)
+        width = (endIndex - startIndex + 1) * cellWidth;
+      }
+
+      // Ensure minimum width for visibility
+      if (width < 20) {
+        width = 20;
       }
 
       // Use the row assignment from the bar object
