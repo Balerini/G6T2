@@ -32,6 +32,20 @@
           />
         </div>
 
+        <div class="form-group">
+          <div class="password-header">
+            <label for="password">Password</label>
+            <router-link to="/forgot-password" class="forgot-link">Forgot password?</router-link>
+          </div>
+          <input
+            type="password"
+            id="password"
+            v-model="password"
+            placeholder="••••••••"
+            class="form-control"
+          />
+        </div>
+
         <div v-if="error" class="error-message">
           {{ error }}
         </div>
@@ -293,5 +307,23 @@ label {
   .brand {
     text-align: center;
   }
+}
+
+.password-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.375rem;
+}
+
+.forgot-link {
+  font-size: 0.875rem;
+  color: #4f46e5;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
 }
 </style>

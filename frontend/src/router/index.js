@@ -11,6 +11,8 @@ import CreateProject from '../views/CreateProject.vue'
 import ViewTaskDetails from '../views/ViewTaskDetails.vue'
 import Notifications from '../views/Notifications.vue'
 import ViewProject from '../views/ViewProjectDetails.vue';
+import ForgotPassword from '@/components/ForgotPassword.vue';
+import ResetPassword from '@/components/ResetPassword.vue';
 // import ViewOwnTasks from '../views/ViewOwnTasks.vue'
 
 const routes = [
@@ -89,7 +91,18 @@ const routes = [
   {
     path: '/:pathMatch(.*)*',
     redirect: '/'
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: ForgotPassword
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: ResetPassword
   }
+
 ]
 
 const router = createRouter({
