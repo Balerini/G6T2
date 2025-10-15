@@ -436,14 +436,16 @@ export default {
         
         console.log('Clean project name for filename:', cleanProjectName);
         
-        // Create a CSV content for the team schedule
-        let csvContent = "Team Member,Task Name,Start Date,End Date,Status,Project\n";
+        // Create a CSV content for the team schedule with project name at top
+        let csvContent = `Project: ${projectName.value}\n`;
+        csvContent += `Generated: ${new Date().toLocaleDateString()}\n\n`;
+        csvContent += "Team Member,Task Name,Start Date,End Date,Status\n";
         
         teamMembers.value.forEach(member => {
           member.bars.forEach(task => {
             const startDate = new Date(task.start).toLocaleDateString();
             const endDate = new Date(task.end).toLocaleDateString();
-            csvContent += `"${member.name}","${task.ganttBarConfig.label}","${startDate}","${endDate}","${task.status}","${task.ganttBarConfig.project || 'N/A'}"\n`;
+            csvContent += `"${member.name}","${task.ganttBarConfig.label}","${startDate}","${endDate}","${task.status}"\n`;
           });
         });
         
