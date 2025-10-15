@@ -52,7 +52,8 @@
 
         <!-- Rows -->
         <div class="gantt-rows">
-          <div v-for="(member, index) in teamMembers" :key="index" class="gantt-row">
+          <div v-for="(member, index) in teamMembers" :key="index" class="gantt-row"
+            :style="{ minHeight: (member.rowCount * 28 + 16) + 'px' }">
             <!-- Member Info -->
             <div class="member-info">
               <div class="member-avatar">{{ getInitials(member.name) }}</div>
@@ -120,31 +121,9 @@ export default {
     const generateTimeline = (tasks) => {
       allTasks.value = tasks;
 
-      if (!tasks || tasks.length === 0) {
-        updateTimelineForCurrentMonth();
-        return;
-      }
-
-      // Find earliest and latest dates from all tasks
-      let earliestDate = null;
-      let latestDate = null;
-
-      tasks.forEach(task => {
-        const startDate = new Date(task.start_date);
-        const endDate = new Date(task.end_date);
-
-        if (!earliestDate || startDate < earliestDate) {
-          earliestDate = startDate;
-        }
-        if (!latestDate || endDate > latestDate) {
-          latestDate = endDate;
-        }
-      });
-
-      // Set current month to the earliest task's month
-      if (earliestDate) {
-        currentMonth.value = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
-      }
+      // Set current month to today's date by default
+      const today = new Date();
+      currentMonth.value = new Date(today.getFullYear(), today.getMonth(), 1);
 
       updateTimelineForCurrentMonth();
     };
@@ -207,7 +186,7 @@ export default {
       return dateStr === today;
     };
 
-    const getBarStyle = (bar, barIndex) => {
+    const getBarStyle = (bar) => {
       const startDate = new Date(bar.start).toISOString().split('T')[0];
       const endDate = new Date(bar.end).toISOString().split('T')[0];
 
@@ -238,8 +217,8 @@ export default {
         return { display: 'none' };
       }
 
-      // Stack multiple tasks vertically
-      const top = 8 + (barIndex % 2) * 28; // Alternate between two rows
+      // Use the row assignment from the bar object
+      const top = 8 + (bar.row || 0) * 28;
 
       return {
         left: `${left}px`,
@@ -277,6 +256,66 @@ export default {
         // Collect all tasks for timeline generation
         const allTasksList = [];
 
+        // Helper function to check if two date ranges overlap
+        const datesOverlap = (start1, end1, start2, end2) => {
+          return start1 <= end2 && start2 <= end1;
+        };
+
+        // Helper function to assign rows to tasks to avoid overlap
+        const assignTaskRows = (tasks) => {
+          if (tasks.length === 0) return [];
+
+          // Sort tasks by start date
+          const sortedTasks = [...tasks].sort((a, b) =>
+            new Date(a.start_date) - new Date(b.start_date)
+          );
+
+          // Track which rows are occupied and until when
+          const rows = [];
+
+          sortedTasks.forEach(task => {
+            const taskStart = new Date(task.start_date);
+            const taskEnd = new Date(task.end_date);
+
+            // Find the first available row
+            let assignedRow = 0;
+            let rowFound = false;
+
+            for (let i = 0; i < rows.length; i++) {
+              // Check if this row is free for our task
+              let canUseRow = true;
+              for (const occupiedTask of rows[i]) {
+                if (datesOverlap(taskStart, taskEnd,
+                  new Date(occupiedTask.start_date),
+                  new Date(occupiedTask.end_date))) {
+                  canUseRow = false;
+                  break;
+                }
+              }
+
+              if (canUseRow) {
+                assignedRow = i;
+                rowFound = true;
+                rows[i].push(task);
+                break;
+              }
+            }
+
+            // If no row was available, create a new one
+            if (!rowFound) {
+              assignedRow = rows.length;
+              rows.push([task]);
+            }
+
+            task.assignedRow = assignedRow;
+          });
+
+          // Calculate the total height needed
+          const maxRow = Math.max(...sortedTasks.map(t => t.assignedRow), 0);
+
+          return { tasks: sortedTasks, rowCount: maxRow + 1 };
+        };
+
         // Process each collaborator and their tasks
         teamMembers.value = collaborators.map(collaborator => {
           const tasks = collaborator.tasks || [];
@@ -284,13 +323,18 @@ export default {
           // Add tasks to the all tasks list for timeline generation
           allTasksList.push(...tasks);
 
+          // Assign rows to avoid overlaps
+          const { tasks: arrangedTasks, rowCount } = assignTaskRows(tasks);
+
           return {
             name: collaborator.name,
             email: collaborator.email,
-            bars: tasks.map(task => ({
+            rowCount: rowCount,
+            bars: arrangedTasks.map(task => ({
               start: task.start_date,
               end: task.end_date,
               status: task.task_status,
+              row: task.assignedRow,
               ganttBarConfig: {
                 id: task.task_id,
                 label: task.task_name,
@@ -632,14 +676,15 @@ export default {
   position: relative;
   min-width: 600px;
   overflow: visible;
+  height: 100%;
 }
 
 .grid-cell {
   width: 40px;
   min-width: 40px;
-  height: 60px;
-  border-right: 1px solid #f3f4f6;
   background: white;
+  border-right: 1px solid #f3f4f6;
+  height: 100%;
 }
 
 .grid-cell.weekend {
