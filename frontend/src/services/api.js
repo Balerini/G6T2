@@ -63,6 +63,35 @@ export const authAPI = {
   // Check if user is logged in
   isLoggedIn: () => {
     return !!localStorage.getItem('user')
+  },
+
+  // Forgot Password - Send reset link
+  forgotPassword: async (email) => {
+    try {
+      const response = await api.post('/api/auth/forgot-password', {
+        email
+      })
+      console.log('Forgot password response:', response);
+      return response.data
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      throw error.response?.data || { error: 'Failed to send reset link' }
+    }
+  },
+
+  // Reset Password - Set new password with token
+  resetPassword: async (token, newPassword) => {
+    try {
+      const response = await api.post('/api/auth/reset-password', {
+        token,
+        newPassword
+      })
+      console.log('Reset password response:', response);
+      return response.data
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error.response?.data || { error: 'Failed to reset password' }
+    }
   }
 }
 
