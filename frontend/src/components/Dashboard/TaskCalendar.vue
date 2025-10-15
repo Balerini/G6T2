@@ -190,10 +190,9 @@ export default {
                         color = '#059669';
                     }
 
-                    // Add OVERDUE label for overdue tasks
-                    const taskTitle = task.days_until_due < 0 
-                        ? `[OVERDUE] ${task.task_name}` 
-                        : task.task_name;
+                    // Include project name in task title if available with visual distinction
+                    const projectPrefix = task.proj_name ? `[${task.proj_name}] ` : '';
+                    const taskTitle = `${projectPrefix}${task.task_name}`;
 
                     const event = {
                         id: task.task_id,
