@@ -1166,10 +1166,46 @@ export default {
 
     // Keep all your existing functions
     const getCurrentDate = () => {
-      // Get current date in Singapore timezone
-      const today = new Date();
-      const sgTime = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Singapore" }));
-      return sgTime.toISOString().split('T')[0];
+      return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' });
+    };
+
+    const toDate = (value) => {
+      if (!value) {
+        return null;
+      }
+      return new Date(`${value}T00:00:00`);
+    };
+
+    const getRecurrenceEndDateMinValue = () => {
+      const today = getCurrentDate();
+      const startDate = formData.start_date;
+
+      if (startDate) {
+        const start = toDate(startDate);
+        const todayDate = toDate(today);
+        if (start && todayDate && start > todayDate) {
+          return startDate;
+        }
+      }
+
+      return today;
+    };
+
+    const ensureRecurrenceEndDateMin = () => {
+      if (
+        formData.recurrence.endCondition !== 'onDate' ||
+        !formData.recurrence.endDate
+      ) {
+        return;
+      }
+
+      const minDate = getRecurrenceEndDateMinValue();
+      const currentEnd = toDate(formData.recurrence.endDate);
+      const min = toDate(minDate);
+
+      if (currentEnd && min && currentEnd < min) {
+        formData.recurrence.endDate = minDate;
+      }
     };
 
     const removeAssignee = (index) => {
@@ -1427,6 +1463,8 @@ export default {
         }
       }
 
+      ensureRecurrenceEndDateMin();
+
       validationErrors.recurrence_frequency = touchedFields.recurrence_frequency
         ? (formData.recurrence.frequency ? '' : 'Select a recurrence frequency')
         : '';
@@ -1473,6 +1511,7 @@ export default {
           endError = 'Occurrences must be at least 1';
         }
       } else if (formData.recurrence.endCondition === 'onDate') {
+        const minDate = getRecurrenceEndDateMinValue();
         if (!formData.recurrence.endDate) {
           endError = 'Select an end date';
         } else if (
@@ -1480,6 +1519,16 @@ export default {
           new Date(formData.recurrence.endDate) < new Date(formData.start_date)
         ) {
           endError = 'End date must be on or after the start date';
+        } else if (
+          formData.recurrence.endDate &&
+          new Date(formData.recurrence.endDate) < new Date(minDate)
+        ) {
+          const formattedMin = new Date(minDate).toLocaleDateString('en-SG', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+          endError = `End date cannot be before ${formattedMin}`;
         }
       } else if (!formData.recurrence.endCondition) {
         endError = 'Choose how the recurrence ends';
@@ -1524,6 +1573,7 @@ export default {
         formData.recurrence.monthlyDay = deriveDefaultMonthlyDay();
       }
 
+      ensureRecurrenceEndDateMin();
       validateRecurrence(false);
     };
 
@@ -1597,8 +1647,11 @@ export default {
         formData.recurrence.endDate = '';
       } else if (formData.recurrence.endCondition === 'onDate') {
         formData.recurrence.endAfterOccurrences = '';
+        const minDate = getRecurrenceEndDateMinValue();
         if (!formData.recurrence.endDate) {
-          formData.recurrence.endDate = getCurrentDate();
+          formData.recurrence.endDate = minDate;
+        } else {
+          ensureRecurrenceEndDateMin();
         }
       } else {
         formData.recurrence.endAfterOccurrences = '';
@@ -1620,6 +1673,7 @@ export default {
 
     const handleRecurrenceEndDateChange = () => {
       touchedFields.recurrence_end = true;
+      ensureRecurrenceEndDateMin();
       validateRecurrence(false);
     };
 
@@ -1638,7 +1692,7 @@ export default {
       }
     });
 
-    const recurrenceEndDateMin = computed(() => formData.start_date || getCurrentDate());
+    const recurrenceEndDateMin = computed(() => getRecurrenceEndDateMinValue());
 
     const recurrenceSummary = computed(() => {
       if (!formData.recurrence.enabled || !formData.recurrence.frequency) {
@@ -1865,6 +1919,7 @@ export default {
         formData.recurrence.endDate = newStart;
       }
 
+      ensureRecurrenceEndDateMin();
       validateRecurrence(false);
     });
 

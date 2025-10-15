@@ -131,8 +131,123 @@
 
     <!-- Standalone Tasks Section -->
     <div v-else-if="activeTab === 'standalone'" class="standalone-tasks-section">
+      <!-- filter bar -->
       <div class="container">
-        <div v-if="loadingStandaloneTasks" class="loading-state">
+        <div class="filter-sort-bar">
+          <!-- ✅ Status Filter -->
+          <div class="filter-group">
+          <label for="statusFilter">Filter:</label>
+          <select id="statusFilter" v-model="selectedStatus" @change="applyFilters">
+              <option value="active">Active</option>
+              <option value="Completed">Completed</option>
+              <option value="Unassigned">Unassigned</option>
+              <option value="Ongoing">Ongoing</option>
+              <option value="Under Review">Under Review</option>
+          </select>
+          </div>
+
+          <!-- ✅ Sort Mode Selector -->
+          <div class="sort-group">
+          <label>Sort By:</label>
+          <div class="sort-mode-toggle">
+              <button
+              :class="{ active: sortMode === 'dueDate' }"
+              @click="setSortMode('dueDate')"
+              >
+              Due Date
+              </button>
+              <button
+              :class="{ active: sortMode === 'priority' }"
+              @click="setSortMode('priority')"
+              >
+              Priority
+              </button>
+          </div>
+          </div>
+
+          <!-- ✅ Ascending / Descending toggle -->
+          <div class="sort-group">
+          <label>Order:</label>
+          <div class="sort-toggle">
+              <button
+              :class="{ active: sortOrder === 'asc' }"
+              @click="setSortOrder('asc')"
+              >
+              ▲ Asc
+              </button>
+              <button
+              :class="{ active: sortOrder === 'desc' }"
+              @click="setSortOrder('desc')"
+              >
+              ▼ Desc
+              </button>
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tasks-section">
+        <div class="container">
+            <!-- ✅ Loading Spinner -->
+            <div v-if="loadingStandaloneTasks" class="loading-section">
+            <div class="container">
+                <div class="loading-spinner">Loading Standalone Tasks...</div>
+            </div>
+            </div>
+
+            <!-- ✅ Tasks Loaded -->
+            <div v-else>
+            <!-- ✅ When there are tasks after filtering/sorting -->
+            <div v-if="filteredAndSortedTasks.length">
+                <div
+                v-for="(task, index) in filteredAndSortedTasks"
+                :key="task.id || index"
+                class="task-card"
+                >
+                <!-- ✅ Uses your TaskCard component -->
+                <task-card
+                    :task="task"
+                    :users="users"
+                    class="mb-0"
+                    @view-task="handleViewTask"
+                />
+                </div>
+            </div>
+
+            <!-- ✅ When no tasks match filter -->
+            <div v-else class="nofound-section">
+                <div class="mt-5">
+                <div class="d-flex justify-content-center">
+                    <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    height="100"
+                    width="100"
+                    fill="currentColor"
+                    class="bi bi-clipboard-x"
+                    viewBox="0 0 16 16"
+                    >
+                    <path
+                        fill-rule="evenodd"
+                        d="M6.146 7.146a.5.5 0 0 1 .708 0L8 8.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 9l1.147 1.146a.5.5 0 0 1-.708.708L8 9.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 9 6.146 7.854a.5.5 0 0 1 0-.708"
+                    />
+                    <path
+                        d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"
+                    />
+                    <path
+                        d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"
+                    />
+                    </svg>
+                </div>
+
+                <h2 class="text-center mt-2">No standalone tasks found.</h2>
+                <p class="text-center">
+                    There are no tasks found associated with this filter or status.
+                </p>
+                </div>
+            </div>
+            </div>
+        </div>
+        <!-- <div v-if="loadingStandaloneTasks" class="loading-state">
           <p>Loading standalone tasks...</p>
         </div>
         
@@ -152,7 +267,7 @@
             :users="users"
             @view-task="handleViewTask"
           />
-        </div>
+        </div> -->
       </div>
     </div>
 
@@ -215,7 +330,9 @@ export default {
       errorMessage: '',
       sortOrder: 'asc',
       standaloneTasks: [],
-      loadingStandaloneTasks: false
+      loadingStandaloneTasks: true,
+      selectedStatus: "active",
+      sortMode: "dueDate",    
     }
   },
   computed: {
@@ -255,7 +372,43 @@ export default {
       return this.filteredProjects.map(project => {
         return this.addAutoCollaborators(project);
       });
-    }
+    },
+
+    // standalone tasks
+    filteredAndSortedTasks() {
+      let result = [...this.standaloneTasks];
+      // excluded completed tasks from all
+      if (this.selectedStatus === "active") {
+          result = result.filter(
+          (task) => task.task_status?.toLowerCase() !== "completed"
+          );
+      } else if (this.selectedStatus) {
+          result = result.filter(
+          (task) =>
+              task.task_status?.toLowerCase() ===
+              this.selectedStatus.toLowerCase()
+          );
+      }
+
+      // sort due date
+      if (this.sortMode === "dueDate") {
+          result.sort((a, b) => {
+          const dateA = new Date(a.end_date);
+          const dateB = new Date(b.end_date);
+          return this.sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+          });
+      } else if (this.sortMode === "priority") {
+          // sort priority (1–10)
+          result.sort((a, b) => {
+          return this.sortOrder === "asc"
+              ? a.priority_level - b.priority_level
+              : b.priority_level - a.priority_level;
+          });
+      }
+      console.log("filtered tasks", result)
+      return result;
+      },
+    
   },
   async created() {
     // Check authentication status and get current user
@@ -518,6 +671,7 @@ export default {
     async loadStandaloneTasks() {
       try {
         this.loadingStandaloneTasks = true;
+        this.error = null;
         
         // Get current user ID
         const userString = sessionStorage.getItem('user');
@@ -527,26 +681,41 @@ export default {
         // Get all tasks for this user
         const allTasks = await ownTasksService.getTasks(currentUserId);
         console.log('All tasks for user:', allTasks);
-        
-        // Debug: Check proj_ID values
-        allTasks.forEach(task => {
-          console.log(`Task: ${task.task_name}, proj_ID: ${task.proj_ID}, type: ${typeof task.proj_ID}`);
-        });
-        
-        // Filter to only tasks without proj_ID (standalone tasks)
-        this.standaloneTasks = allTasks.filter(task => {
-          const hasNoProject = !task.proj_ID || task.proj_ID === null || task.proj_ID === '' || task.proj_ID === 'null';
-          console.log(`Task: ${task.task_name}, hasNoProject: ${hasNoProject}`);
-          return hasNoProject;
-        });
-        
-        console.log('Filtered standalone tasks:', this.standaloneTasks.length, this.standaloneTasks);
-      } catch (error) {
+
+        // ✅ Filter out tasks that belong to a project (keep only those without proj_ID or with null)
+        this.standaloneTasks = allTasks.filter(task => !task.proj_ID || task.proj_ID === null);
+
+          // if (!this.standaloneTasks.length) {
+          //   this.error = `No standalone tasks found for user ${currentUserId}`;
+          // }
+        } 
+      catch (error) {
         console.error('Error loading standalone tasks:', error);
         this.errorMessage = 'Failed to load standalone tasks';
-      } finally {
+        } 
+      finally {
         this.loadingStandaloneTasks = false;
-      }
+        }
+      
+        // Debug: Check proj_ID values
+        // allTasks.forEach(task => {
+        //   console.log(`Task: ${task.task_name}, proj_ID: ${task.proj_ID}, type: ${typeof task.proj_ID}`);
+        // });
+        
+        // Filter to only tasks without proj_ID (standalone tasks)
+      //   this.standaloneTasks = allTasks.filter(task => {
+      //     const hasNoProject = !task.proj_ID || task.proj_ID === null || task.proj_ID === '' || task.proj_ID === 'null';
+      //     console.log(`Task: ${task.task_name}, hasNoProject: ${hasNoProject}`);
+      //     return hasNoProject;
+      //   });
+        
+      //   console.log('Filtered standalone tasks:', this.standaloneTasks.length, this.standaloneTasks);
+      // } catch (error) {
+      //   console.error('Error loading standalone tasks:', error);
+      //   this.errorMessage = 'Failed to load standalone tasks';
+      // } finally {
+      //   this.loadingStandaloneTasks = false;
+      // }
     },
 
     async fetchUsers() {
@@ -1351,5 +1520,102 @@ export default {
     background: #4b5563;
     color: #f9fafb;
   }
+}
+.action-tabs {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.tab-btn {
+    padding: 0.625rem 1.25rem;
+    border: 1px solid #374151;
+    background: #fff;
+    color: #374151;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-btn.active {
+    background: #111827;
+    color: #fff;
+    border-color: #111827;
+}
+
+.tab-btn:hover {
+    background: #f9fafb;
+}
+
+.tab-btn.active:hover {
+    background: #374151;
+}
+
+.filter-sort-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+/* Labels */
+.filter-group label,
+.sort-group label {
+  font-weight: 500;
+  color: #4b5563;
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Dropdown */
+select {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.9rem;
+  background: #f9fafb;
+  color: #111827;
+  cursor: pointer;
+}
+
+select:hover {
+  border-color: #9ca3af;
+}
+
+/* ✅ Shared toggle style (radio-like) */
+.sort-toggle,
+.sort-mode-toggle {
+  display: inline-flex;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.sort-toggle button,
+.sort-mode-toggle button {
+  background: #f9fafb;
+  border: none;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sort-toggle button:hover,
+.sort-mode-toggle button:hover {
+  background: #f3f4f6;
+}
+
+.sort-toggle button.active,
+.sort-mode-toggle button.active {
+  background: #111827;
+  color: white;
 }
 </style>

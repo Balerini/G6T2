@@ -173,10 +173,10 @@ export default {
           console.log('No user logged in')
           return
         }
-
+        
         this.loadingNotifications = true
         const notifications = await notificationService.getNotifications(currentUser.id)
-
+        
         // Map backend data to frontend format
         this.notifications = notifications.map(n => ({
           id: n.id,
@@ -189,7 +189,7 @@ export default {
           task_id: n.task_id,
           project_id: n.project_id
         }))
-
+        
         console.log('Loaded notifications:', this.notifications.length)
       } catch (error) {
         console.error('Error loading notifications:', error)
