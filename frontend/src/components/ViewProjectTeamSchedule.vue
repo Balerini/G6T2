@@ -1,24 +1,97 @@
 <template>
   <div class="team-schedule-container">
-    <div v-if="loading">
+    <div class="schedule-header">
+      <h3 class="schedule-title">📅 Team Schedule</h3>
+      <p class="schedule-subtitle">Project timeline and task assignments</p>
+    </div>
+    
+    <div v-if="loading" class="loading-state">
+      <div class="loading-spinner"></div>
       <p>Loading team schedule...</p>
     </div>
 
-    <div v-else>
-      <g-gantt-chart
-        chart-start="2025-01-01"
-        chart-end="2025-12-31"
-        precision="day"
-        bar-start="start"
-        bar-end="end"
-      >
-        <g-gantt-row
-          v-for="(member, index) in teamMembers"
-          :key="index"
-          :label="member.name"
-          :bars="member.bars"
-        />
-      </g-gantt-chart>
+    <div v-else-if="error" class="error-state">
+      <span class="error-icon">⚠️</span>
+      <p>{{ error }}</p>
+    </div>
+
+    <div v-else-if="!teamMembers || teamMembers.length === 0" class="no-data-state">
+      <div class="no-data-icon">📋</div>
+      <p>No team members or tasks found for this project.</p>
+    </div>
+
+    <div v-else class="gantt-container">
+      <!-- Month Navigation -->
+      <div class="month-navigation">
+        <button @click="previousMonth" class="nav-btn">
+          <span>←</span> Previous
+        </button>
+        <div class="current-month-display">
+          <h3>{{ getCurrentMonthDisplay() }}</h3>
+        </div>
+        <button @click="nextMonth" class="nav-btn">
+          Next <span>→</span>
+        </button>
+      </div>
+
+      <!-- Gantt Chart -->
+      <div class="gantt-chart">
+        <!-- Header -->
+        <div class="gantt-header">
+          <div class="member-column">Team Members</div>
+          <div class="timeline-column">
+            <div class="timeline-header">
+              <div 
+                v-for="date in timelineDates" 
+                :key="date" 
+                class="date-cell"
+                :class="{ 'weekend': isWeekend(date), 'today': isToday(date) }"
+              >
+                <div class="date-day">{{ getDateDay(date) }}</div>
+                <div class="date-month">{{ getDateMonth(date) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rows -->
+        <div class="gantt-rows">
+          <div 
+            v-for="(member, index) in teamMembers" 
+            :key="index" 
+            class="gantt-row"
+          >
+            <!-- Member Info -->
+            <div class="member-info">
+              <div class="member-avatar">{{ getInitials(member.name) }}</div>
+              <span class="member-name">{{ member.name }}</span>
+            </div>
+
+            <!-- Timeline -->
+            <div class="timeline-row">
+              <div 
+                v-for="date in timelineDates" 
+                :key="date" 
+                class="grid-cell"
+                :class="{ 'weekend': isWeekend(date), 'today': isToday(date) }"
+              ></div>
+              
+              <!-- Task Bars -->
+              <div class="task-bars">
+                <div 
+                  v-for="(bar, barIndex) in member.bars" 
+                  :key="barIndex" 
+                  class="task-bar"
+                  :style="getBarStyle(bar)"
+                  :title="getTooltip(bar)"
+                >
+                  <span class="task-text">{{ bar.ganttBarConfig.label }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -29,47 +102,628 @@ import { projectService } from "../services/projectService";
 
 export default {
   name: "ViewProjectTeamSchedule",
-  setup() {
+  props: {
+    projectId: {
+      type: String,
+      required: true
+    }
+  },
+  setup(props) {
     const loading = ref(true);
+    const error = ref(null);
     const teamMembers = ref([]);
+
+    const getInitials = (name) => {
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    };
+
+    const formatDate = (dateStr) => {
+      return new Date(dateStr).toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+    };
+
+    // Gantt chart functions
+    const timelineDates = ref([]);
+    const currentMonth = ref(new Date());
+    const allTasks = ref([]);
+
+    const generateTimeline = (tasks) => {
+      allTasks.value = tasks;
+      updateTimelineForCurrentMonth();
+    };
+
+    const updateTimelineForCurrentMonth = () => {
+      const year = currentMonth.value.getFullYear();
+      const month = currentMonth.value.getMonth();
+      
+      // Get first and last day of the month
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      
+      // Add some days from previous and next month for context
+      const startDate = new Date(firstDay);
+      startDate.setDate(startDate.getDate() - firstDay.getDay()); // Start from Sunday
+      
+      const endDate = new Date(lastDay);
+      endDate.setDate(endDate.getDate() + (6 - lastDay.getDay())); // End on Saturday
+      
+      const timeline = [];
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        timeline.push(new Date(d).toISOString().split('T')[0]);
+      }
+      
+      timelineDates.value = timeline;
+    };
+
+    const previousMonth = () => {
+      currentMonth.value = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth() - 1, 1);
+      updateTimelineForCurrentMonth();
+    };
+
+    const nextMonth = () => {
+      currentMonth.value = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth() + 1, 1);
+      updateTimelineForCurrentMonth();
+    };
+
+    const getCurrentMonthDisplay = () => {
+      return currentMonth.value.toLocaleDateString('en-US', { 
+        month: 'long', 
+        year: 'numeric' 
+      });
+    };
+
+    const getDateDay = (dateStr) => {
+      return new Date(dateStr).getDate();
+    };
+
+    const getDateMonth = (dateStr) => {
+      return new Date(dateStr).toLocaleDateString('en', { month: 'short' });
+    };
+
+    const isWeekend = (dateStr) => {
+      const day = new Date(dateStr).getDay();
+      return day === 0 || day === 6;
+    };
+
+    const isToday = (dateStr) => {
+      const today = new Date().toISOString().split('T')[0];
+      return dateStr === today;
+    };
+
+    const getBarStyle = (bar) => {
+      const startDate = new Date(bar.start).toISOString().split('T')[0];
+      const endDate = new Date(bar.end).toISOString().split('T')[0];
+      
+      const startIndex = timelineDates.value.indexOf(startDate);
+      const endIndex = timelineDates.value.indexOf(endDate);
+      
+      if (startIndex === -1 || endIndex === -1) {
+        return { display: 'none' };
+      }
+      
+      const cellWidth = 40; // Daily cells
+      const left = startIndex * cellWidth;
+      const width = (endIndex - startIndex + 1) * cellWidth;
+      
+      return {
+        left: `${left}px`,
+        width: `${width}px`,
+        backgroundColor: bar.ganttBarConfig.style.backgroundColor,
+        color: bar.ganttBarConfig.style.color
+      };
+    };
+
+    const getTooltip = (bar) => {
+      return `${bar.ganttBarConfig.label}\nStart: ${bar.start}\nEnd: ${bar.end}`;
+    };
 
     onMounted(async () => {
       try {
-        const data = await projectService.getProjectById();
-        teamMembers.value = data.map((member) => ({
-          name: member.name,
-          bars: member.tasks.map((task) => ({
-            start: task.startDate,
-            end: task.endDate,
-            ganttBarConfig: {
-              id: task.id,
-              label: task.taskName,
-              style: { backgroundColor: "#42b983" },
-            },
-          })),
-        }));
+        loading.value = true;
+        error.value = null;
+        
+        if (!props.projectId) {
+          throw new Error("Project ID is required");
+        }
+
+        // Get project data with tasks
+        const projectData = await projectService.getProjectWithTasks(props.projectId);
+        
+        if (!projectData || !projectData.tasks) {
+          teamMembers.value = [];
+          return;
+        }
+
+        // Get all users to map user IDs to user info
+        const allUsers = await projectService.getAllUsersUnfiltered();
+        const usersMap = {};
+        allUsers.forEach(user => {
+          usersMap[user.id] = user;
+        });
+
+        // Get project collaborators (from project data)
+        const collaborators = projectData.collaborators || [];
+        console.log('Project collaborators:', collaborators);
+
+        // If no collaborators in project data, get them from project details
+        let projectCollaborators = collaborators;
+        if (!projectCollaborators || projectCollaborators.length === 0) {
+          try {
+            const projectDetails = await projectService.getProject(props.projectId);
+            projectCollaborators = projectDetails.collaborators || [];
+            console.log('Project details collaborators:', projectCollaborators);
+          } catch (err) {
+            console.warn('Could not fetch project details:', err);
+          }
+        }
+
+        // Create team members from collaborators
+        const collaboratorTasks = {};
+        
+        // Group tasks by assigned user (including collaborators)
+        projectData.tasks.forEach(task => {
+          if (task.assigned_to && Array.isArray(task.assigned_to)) {
+            task.assigned_to.forEach(userId => {
+              if (!collaboratorTasks[userId]) {
+                collaboratorTasks[userId] = [];
+              }
+              collaboratorTasks[userId].push(task);
+            });
+          }
+        });
+
+        // Create team members from project collaborators
+        teamMembers.value = projectCollaborators.map(collaboratorId => {
+          const user = usersMap[collaboratorId];
+          const tasks = collaboratorTasks[collaboratorId] || [];
+          
+          return {
+            name: user ? user.name : `User ${collaboratorId}`,
+            bars: tasks.map(task => ({
+              start: task.start_date || task.created_at,
+              end: task.end_date,
+              ganttBarConfig: {
+                id: task.id,
+                label: task.task_name,
+                style: { 
+                  backgroundColor: getTaskColor(task.task_status),
+                  color: '#fff'
+                },
+              },
+            })),
+          };
+        });
+
+        // Generate timeline from all tasks
+        generateTimeline(projectData.tasks);
+
       } catch (err) {
         console.error("Failed to load schedule:", err);
+        error.value = err.message || "Failed to load team schedule";
       } finally {
         loading.value = false;
       }
     });
 
-    return { loading, teamMembers };
+    // Helper function to get task color based on status
+    const getTaskColor = (status) => {
+      const colors = {
+        'Not Started': '#f87171',
+        'In Progress': '#fbbf24', 
+        'Completed': '#34d399',
+        'Pending': '#fb923c',
+        'Under Review': '#a78bfa'
+      };
+      return colors[status] || '#60a5fa';
+    };
+
+    return { 
+      loading, 
+      error,
+      teamMembers, 
+      timelineDates,
+      getInitials,
+      formatDate,
+      getDateDay,
+      getDateMonth,
+      isWeekend,
+      isToday,
+      getBarStyle,
+      getTooltip,
+      previousMonth,
+      nextMonth,
+      getCurrentMonthDisplay
+    };
   },
 };
 </script>
 
 <style scoped>
 .team-schedule-container {
-  padding: 1.5rem;
-  background-color: #f9fafb;
+  background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  padding: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  margin: 1rem 0;
 }
 
-p {
+.schedule-header {
+  margin-bottom: 2rem;
   text-align: center;
-  color: #666;
+}
+
+.schedule-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 0.5rem 0;
+}
+
+.schedule-subtitle {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.loading-state,
+.error-state,
+.no-data-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f4f6;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-icon {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.no-data-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.loading-state p,
+.error-state p,
+.no-data-state p {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.error-state p {
+  color: #dc2626;
+}
+
+.gantt-container {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  max-height: 600px;
+}
+
+/* Month Navigation */
+.month-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 8px 8px 0 0;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #374151;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.nav-btn span {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.current-month-display {
+  text-align: center;
+}
+
+.current-month-display h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.gantt-chart {
+  min-width: 800px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 500px;
+  scroll-behavior: smooth;
+}
+
+/* Header */
+.gantt-header {
+  display: flex;
+  background: #f8fafc;
+  border-bottom: 2px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.member-column {
+  width: 200px;
+  min-width: 200px;
+  padding: 1rem;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.timeline-column {
+  flex: 1;
+  overflow: visible;
+}
+
+.timeline-header {
+  display: flex;
+  min-width: 600px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #f8fafc;
+}
+
+.date-cell {
+  width: 40px;
+  min-width: 40px;
+  height: 60px;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  font-size: 0.75rem;
+}
+
+.date-cell.weekend {
+  background: #f3f4f6;
+}
+
+.date-cell.today {
+  background: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.date-day {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.date-month {
+  color: #6b7280;
+  text-transform: uppercase;
+  font-size: 0.625rem;
+}
+
+/* Rows */
+.gantt-rows {
+  position: relative;
+}
+
+.gantt-row {
+  display: flex;
+  border-bottom: 1px solid #f3f4f6;
+  min-height: 60px;
+  position: relative;
+}
+
+.gantt-row:hover {
+  background: #f9fafb;
+}
+
+/* Member Info */
+.member-info {
+  width: 200px;
+  min-width: 200px;
+  padding: 1rem;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: white;
+  position: sticky;
+  left: 0;
+  z-index: 15;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+}
+
+.member-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #6366f1;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.member-name {
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+/* Timeline Row */
+.timeline-row {
+  flex: 1;
+  display: flex;
+  position: relative;
+  min-width: 600px;
+  overflow: visible;
+}
+
+.grid-cell {
+  width: 40px;
+  min-width: 40px;
+  height: 60px;
+  border-right: 1px solid #f3f4f6;
+  background: white;
+}
+
+.grid-cell.weekend {
+  background: #fafafa;
+}
+
+.grid-cell.today {
+  background: #f0f9ff;
+}
+
+/* Task Bars */
+.task-bars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.task-bar {
+  position: absolute;
+  top: 8px;
+  height: 44px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 3;
+}
+
+.task-bar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 4;
+}
+
+.task-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .team-schedule-container {
+    padding: 1rem;
+    margin: 0.5rem 0;
+  }
+  
+  .schedule-title {
+    font-size: 1.25rem;
+  }
+  
+  .gantt-chart {
+    min-width: 600px;
+  }
+  
+  .member-column,
+  .member-info {
+    width: 150px;
+    min-width: 150px;
+  }
+  
+  .month-cell,
+  .grid-cell {
+    width: 80px;
+    min-width: 80px;
+  }
+  
+  .member-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 0.625rem;
+  }
+  
+  .member-name {
+    font-size: 0.75rem;
+  }
+  
+  .month-name {
+    font-size: 0.75rem;
+  }
+  
+  .month-year {
+    font-size: 0.5rem;
+  }
+  
+  .task-text {
+    font-size: 0.625rem;
+  }
+  
+  .gantt-row {
+    min-height: 50px;
+  }
+  
+  .task-bar {
+    height: 34px;
+    top: 6px;
+  }
 }
 </style>
