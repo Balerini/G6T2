@@ -241,8 +241,8 @@ export default {
 
         getCollabInitials(collab) {
             const user = this.getUserFromId(collab);
-            if (user && user.username) {
-                return user.username.substring(0, 2).toUpperCase();
+            if (user && user.name) {
+                return user.name.substring(0, 2).toUpperCase();
             }
             // Fallback to user ID
             if (typeof collab === 'string') {

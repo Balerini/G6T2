@@ -4,7 +4,7 @@
       <h3 class="schedule-title">📅 Team Schedule</h3>
       <p class="schedule-subtitle">Project timeline and task assignments</p>
     </div>
-    
+
     <div v-if="loading" class="loading-state">
       <div class="loading-spinner"></div>
       <p>Loading team schedule...</p>
@@ -41,12 +41,8 @@
           <div class="member-column">Team Members</div>
           <div class="timeline-column">
             <div class="timeline-header">
-              <div 
-                v-for="date in timelineDates" 
-                :key="date" 
-                class="date-cell"
-                :class="{ 'weekend': isWeekend(date), 'today': isToday(date) }"
-              >
+              <div v-for="date in timelineDates" :key="date" class="date-cell"
+                :class="{ 'weekend': isWeekend(date), 'today': isToday(date) }">
                 <div class="date-day">{{ getDateDay(date) }}</div>
                 <div class="date-month">{{ getDateMonth(date) }}</div>
               </div>
@@ -56,35 +52,26 @@
 
         <!-- Rows -->
         <div class="gantt-rows">
-          <div 
-            v-for="(member, index) in teamMembers" 
-            :key="index" 
-            class="gantt-row"
-          >
+          <div v-for="(member, index) in teamMembers" :key="index" class="gantt-row">
             <!-- Member Info -->
             <div class="member-info">
               <div class="member-avatar">{{ getInitials(member.name) }}</div>
-              <span class="member-name">{{ member.name }}</span>
+              <div class="member-details">
+                <span class="member-name">{{ member.name }}</span>
+                <span class="member-task-count">{{ member.bars.length }} task{{ member.bars.length !== 1 ? 's' : ''
+                  }}</span>
+              </div>
             </div>
 
             <!-- Timeline -->
             <div class="timeline-row">
-              <div 
-                v-for="date in timelineDates" 
-                :key="date" 
-                class="grid-cell"
-                :class="{ 'weekend': isWeekend(date), 'today': isToday(date) }"
-              ></div>
-              
+              <div v-for="date in timelineDates" :key="date" class="grid-cell"
+                :class="{ 'weekend': isWeekend(date), 'today': isToday(date) }"></div>
+
               <!-- Task Bars -->
               <div class="task-bars">
-                <div 
-                  v-for="(bar, barIndex) in member.bars" 
-                  :key="barIndex" 
-                  class="task-bar"
-                  :style="getBarStyle(bar)"
-                  :title="getTooltip(bar)"
-                >
+                <div v-for="(bar, barIndex) in member.bars" :key="barIndex" class="task-bar"
+                  :style="getBarStyle(bar, barIndex)" :title="getTooltip(bar)">
                   <span class="task-text">{{ bar.ganttBarConfig.label }}</span>
                 </div>
               </div>
@@ -118,8 +105,8 @@ export default {
     };
 
     const formatDate = (dateStr) => {
-      return new Date(dateStr).toLocaleDateString('en-US', { 
-        month: 'short', 
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        month: 'short',
         day: 'numeric',
         year: 'numeric'
       });
@@ -132,29 +119,56 @@ export default {
 
     const generateTimeline = (tasks) => {
       allTasks.value = tasks;
+
+      if (!tasks || tasks.length === 0) {
+        updateTimelineForCurrentMonth();
+        return;
+      }
+
+      // Find earliest and latest dates from all tasks
+      let earliestDate = null;
+      let latestDate = null;
+
+      tasks.forEach(task => {
+        const startDate = new Date(task.start_date);
+        const endDate = new Date(task.end_date);
+
+        if (!earliestDate || startDate < earliestDate) {
+          earliestDate = startDate;
+        }
+        if (!latestDate || endDate > latestDate) {
+          latestDate = endDate;
+        }
+      });
+
+      // Set current month to the earliest task's month
+      if (earliestDate) {
+        currentMonth.value = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
+      }
+
       updateTimelineForCurrentMonth();
     };
 
     const updateTimelineForCurrentMonth = () => {
       const year = currentMonth.value.getFullYear();
       const month = currentMonth.value.getMonth();
-      
+
       // Get first and last day of the month
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
-      
+
       // Add some days from previous and next month for context
       const startDate = new Date(firstDay);
       startDate.setDate(startDate.getDate() - firstDay.getDay()); // Start from Sunday
-      
+
       const endDate = new Date(lastDay);
       endDate.setDate(endDate.getDate() + (6 - lastDay.getDay())); // End on Saturday
-      
+
       const timeline = [];
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         timeline.push(new Date(d).toISOString().split('T')[0]);
       }
-      
+
       timelineDates.value = timeline;
     };
 
@@ -169,9 +183,9 @@ export default {
     };
 
     const getCurrentMonthDisplay = () => {
-      return currentMonth.value.toLocaleDateString('en-US', { 
-        month: 'long', 
-        year: 'numeric' 
+      return currentMonth.value.toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric'
       });
     };
 
@@ -193,102 +207,94 @@ export default {
       return dateStr === today;
     };
 
-    const getBarStyle = (bar) => {
+    const getBarStyle = (bar, barIndex) => {
       const startDate = new Date(bar.start).toISOString().split('T')[0];
       const endDate = new Date(bar.end).toISOString().split('T')[0];
-      
+
       const startIndex = timelineDates.value.indexOf(startDate);
       const endIndex = timelineDates.value.indexOf(endDate);
-      
-      if (startIndex === -1 || endIndex === -1) {
+
+      if (startIndex === -1 && endIndex === -1) {
         return { display: 'none' };
       }
-      
-      const cellWidth = 40; // Daily cells
-      const left = startIndex * cellWidth;
-      const width = (endIndex - startIndex + 1) * cellWidth;
-      
+
+      const cellWidth = 40;
+      let left, width;
+
+      // Handle tasks that start before or end after the visible timeline
+      if (startIndex === -1 && endIndex >= 0) {
+        // Task starts before visible timeline
+        left = 0;
+        width = (endIndex + 1) * cellWidth;
+      } else if (startIndex >= 0 && endIndex === -1) {
+        // Task ends after visible timeline
+        left = startIndex * cellWidth;
+        width = (timelineDates.value.length - startIndex) * cellWidth;
+      } else if (startIndex >= 0 && endIndex >= 0) {
+        // Task is within visible timeline
+        left = startIndex * cellWidth;
+        width = (endIndex - startIndex + 1) * cellWidth;
+      } else {
+        return { display: 'none' };
+      }
+
+      // Stack multiple tasks vertically
+      const top = 8 + (barIndex % 2) * 28; // Alternate between two rows
+
       return {
         left: `${left}px`,
         width: `${width}px`,
+        top: `${top}px`,
         backgroundColor: bar.ganttBarConfig.style.backgroundColor,
         color: bar.ganttBarConfig.style.color
       };
     };
 
     const getTooltip = (bar) => {
-      return `${bar.ganttBarConfig.label}\nStart: ${bar.start}\nEnd: ${bar.end}`;
+      return `${bar.ganttBarConfig.label}\nStart: ${formatDate(bar.start)}\nEnd: ${formatDate(bar.end)}\nStatus: ${bar.status || 'N/A'}`;
     };
 
     onMounted(async () => {
       try {
         loading.value = true;
         error.value = null;
-        
+
         if (!props.projectId) {
           throw new Error("Project ID is required");
         }
 
-        // Get project data with tasks
-        const projectData = await projectService.getProjectWithTasks(props.projectId);
-        
-        if (!projectData || !projectData.tasks) {
+        // Get project data - this should return the structure from your JSON
+        const projectData = await projectService.getProjectById(props.projectId);
+
+        if (!projectData || !projectData.collaborators) {
           teamMembers.value = [];
           return;
         }
 
-        // Get all users to map user IDs to user info
-        const allUsers = await projectService.getAllUsersUnfiltered();
-        const usersMap = {};
-        allUsers.forEach(user => {
-          usersMap[user.id] = user;
-        });
+        // Extract collaborators array from the response
+        const collaborators = projectData.collaborators;
 
-        // Get project collaborators (from project data)
-        const collaborators = projectData.collaborators || [];
-        console.log('Project collaborators:', collaborators);
+        // Collect all tasks for timeline generation
+        const allTasksList = [];
 
-        // If no collaborators in project data, get them from project details
-        let projectCollaborators = collaborators;
-        if (!projectCollaborators || projectCollaborators.length === 0) {
-          try {
-            const projectDetails = await projectService.getProject(props.projectId);
-            projectCollaborators = projectDetails.collaborators || [];
-            console.log('Project details collaborators:', projectCollaborators);
-          } catch (err) {
-            console.warn('Could not fetch project details:', err);
-          }
-        }
+        // Process each collaborator and their tasks
+        teamMembers.value = collaborators.map(collaborator => {
+          const tasks = collaborator.tasks || [];
 
-        // Create team members from collaborators
-        const collaboratorTasks = {};
-        
-        // Group tasks by assigned user (including collaborators)
-        projectData.tasks.forEach(task => {
-          if (task.assigned_to && Array.isArray(task.assigned_to)) {
-            task.assigned_to.forEach(userId => {
-              if (!collaboratorTasks[userId]) {
-                collaboratorTasks[userId] = [];
-              }
-              collaboratorTasks[userId].push(task);
-            });
-          }
-        });
+          // Add tasks to the all tasks list for timeline generation
+          allTasksList.push(...tasks);
 
-        // Create team members from project collaborators
-        teamMembers.value = projectCollaborators.map(collaboratorId => {
-          const user = usersMap[collaboratorId];
-          const tasks = collaboratorTasks[collaboratorId] || [];
-          
           return {
-            name: user ? user.name : `User ${collaboratorId}`,
+            name: collaborator.name,
+            email: collaborator.email,
             bars: tasks.map(task => ({
-              start: task.start_date || task.created_at,
+              start: task.start_date,
               end: task.end_date,
+              status: task.task_status,
               ganttBarConfig: {
-                id: task.id,
+                id: task.task_id,
                 label: task.task_name,
-                style: { 
+                style: {
                   backgroundColor: getTaskColor(task.task_status),
                   color: '#fff'
                 },
@@ -298,7 +304,7 @@ export default {
         });
 
         // Generate timeline from all tasks
-        generateTimeline(projectData.tasks);
+        generateTimeline(allTasksList);
 
       } catch (err) {
         console.error("Failed to load schedule:", err);
@@ -312,7 +318,7 @@ export default {
     const getTaskColor = (status) => {
       const colors = {
         'Not Started': '#f87171',
-        'In Progress': '#fbbf24', 
+        'In Progress': '#fbbf24',
         'Completed': '#34d399',
         'Pending': '#fb923c',
         'Under Review': '#a78bfa'
@@ -320,10 +326,10 @@ export default {
       return colors[status] || '#60a5fa';
     };
 
-    return { 
-      loading, 
+    return {
+      loading,
       error,
-      teamMembers, 
+      teamMembers,
       timelineDates,
       getInitials,
       formatDate,
@@ -391,7 +397,9 @@ export default {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error-icon {
@@ -596,10 +604,25 @@ export default {
   flex-shrink: 0;
 }
 
+.member-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: hidden;
+}
+
 .member-name {
   font-weight: 500;
   color: #374151;
   font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-task-count {
+  font-size: 0.75rem;
+  color: #6b7280;
 }
 
 /* Timeline Row */
@@ -639,8 +662,7 @@ export default {
 
 .task-bar {
   position: absolute;
-  top: 8px;
-  height: 44px;
+  height: 24px;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -679,56 +701,51 @@ export default {
     padding: 1rem;
     margin: 0.5rem 0;
   }
-  
+
   .schedule-title {
     font-size: 1.25rem;
   }
-  
+
   .gantt-chart {
     min-width: 600px;
   }
-  
+
   .member-column,
   .member-info {
     width: 150px;
     min-width: 150px;
   }
-  
+
   .month-cell,
   .grid-cell {
     width: 80px;
     min-width: 80px;
   }
-  
+
   .member-avatar {
     width: 24px;
     height: 24px;
     font-size: 0.625rem;
   }
-  
+
   .member-name {
     font-size: 0.75rem;
   }
-  
-  .month-name {
-    font-size: 0.75rem;
+
+  .member-task-count {
+    font-size: 0.625rem;
   }
-  
-  .month-year {
-    font-size: 0.5rem;
-  }
-  
+
   .task-text {
     font-size: 0.625rem;
   }
-  
+
   .gantt-row {
     min-height: 50px;
   }
-  
+
   .task-bar {
-    height: 34px;
-    top: 6px;
+    height: 20px;
   }
 }
 </style>
