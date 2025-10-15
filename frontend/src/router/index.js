@@ -13,6 +13,7 @@ import Notifications from '../views/Notifications.vue'
 import ViewProject from '../views/ViewProjectDetails.vue';
 import ForgotPassword from '@/components/ForgotPassword.vue';
 import ResetPassword from '@/components/ResetPassword.vue';
+import ManagerViewTeamTaskSchedule from '@/components/Dashboard/ManagerViewTeamTaskSchedule.vue';
 // import ViewOwnTasks from '../views/ViewOwnTasks.vue'
 
 const routes = [
@@ -74,6 +75,11 @@ const routes = [
     path: '/my-schedule',
     name: 'myschedule',
     component: MySchedule,
+    meta: { showNav: true, requiresAuth: true }
+  },
+  {
+    path: '/manager/schedule/:userid',
+    component: ManagerViewTeamTaskSchedule,
     meta: { showNav: true, requiresAuth: true }
   },
   {

@@ -19,14 +19,14 @@ const getUserRole = () => {
         }
         const user = JSON.parse(userStr);
         console.log('getUserRole: user object:', user);
-        
+
         let roleNum = user.role_num;
-        
+
         // Convert string to number if needed
         if (typeof roleNum === 'string') {
             roleNum = parseInt(roleNum);
         }
-        
+
         // Fallback: derive from role_name if role_num is missing
         if (!roleNum && user.role_name) {
             const roleName = user.role_name.toLowerCase();
@@ -35,7 +35,7 @@ const getUserRole = () => {
             else if (roleName === 'director') roleNum = 2;
             console.log('getUserRole: Derived from role_name:', roleNum);
         }
-        
+
         console.log('getUserRole: final role_num:', roleNum);
         return roleNum;
     } catch (error) {
@@ -52,10 +52,10 @@ export const dashboardService = {
     getCountofAllTasksByTeam: async (userId) => {
         try {
             const roleNum = getUserRole();
-            const endpoint = roleNum === 4 
+            const endpoint = roleNum === 4
                 ? `/api/dashboard/staff/total-tasks/${userId}`
                 : `/api/dashboard/manager/total-tasks/${userId}`;
-            
+
             console.log(`getCountofAllTasksByTeam: roleNum=${roleNum}, endpoint=${endpoint}`);
             const response = await api.get(endpoint);
             return response.data;
@@ -73,7 +73,7 @@ export const dashboardService = {
             const endpoint = roleNum === 4
                 ? `/api/dashboard/staff/tasks-by-status/${userId}`
                 : `/api/dashboard/manager/tasks-by-status/${userId}`;
-            
+
             console.log(`getCountofAllTasksByStatus: roleNum=${roleNum}, endpoint=${endpoint}`);
             const response = await api.get(endpoint);
             return response.data;
@@ -90,7 +90,7 @@ export const dashboardService = {
             const endpoint = roleNum === 4
                 ? `/api/dashboard/staff/tasks-by-priority/${userId}`
                 : `/api/dashboard/manager/tasks-by-priority/${userId}`;
-            
+
             console.log(`getCountofAllTasksByPriority: roleNum=${roleNum}, endpoint=${endpoint}`);
             const response = await api.get(endpoint);
             return response.data;
@@ -118,7 +118,7 @@ export const dashboardService = {
             const endpoint = roleNum === 4
                 ? `/api/dashboard/staff/pending-tasks-by-age/${userId}`
                 : `/api/dashboard/manager/pending-tasks-by-age/${userId}`;
-            
+
             console.log(`getPendingTasksByAge: roleNum=${roleNum}, endpoint=${endpoint}`);
             const response = await api.get(endpoint);
             return response.data;
@@ -140,5 +140,20 @@ export const dashboardService = {
         }
     },
 
-    // HELPER FUNCTION TO GET DEPARTMENT STAFF
+    // GET MANAGER'S TEAM'S TASK TIMELINE - TRACK TEAM TASK SCHEDULE 
+    getDepartmentStaffTasksTimeline: async (userId) => {
+        try {
+            const endpoint = `/api/dashboard/manager/tasks-timeline/${userId}`;
+            console.log(`getDepartmentStaffTasksTimeline: endpoint=${endpoint}`);
+            const response = await api.get(endpoint);
+            console.log("department staff task timeline", response); 
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching manager tasks timeline:', error);
+            if (error.response?.status === 403) {
+                console.error('403 error: User is not authorized as a manager');
+            }
+            throw error;
+        }
+    },
 }

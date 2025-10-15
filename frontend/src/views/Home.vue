@@ -14,21 +14,13 @@
 
                 <div class="action-tabs">
                     <!-- Only show Team Tasks for managers (role_num < 4) -->
-                    <button 
-                        v-if="isManager" 
-                        class="tab-btn" 
-                        :class="{ active: activeView === 'team' }" 
-                        @click="switchTab('team')"
-                    >
+                    <button v-if="isManager" class="tab-btn" :class="{ active: activeView === 'team' }"
+                        @click="switchTab('team')">
                         Team Tasks
                     </button>
                     <!-- Show My Dashboard for staff -->
-                    <button 
-                        v-if="!isManager"
-                        class="tab-btn" 
-                        :class="{ active: activeView === 'mydashboard' }" 
-                        @click="switchTab('mydashboard')"
-                    >
+                    <button v-if="!isManager" class="tab-btn" :class="{ active: activeView === 'mydashboard' }"
+                        @click="switchTab('mydashboard')">
                         My Dashboard
                     </button>
                     <button class="tab-btn" :class="{ active: activeView === 'my' }" @click="switchTab('my')">
@@ -54,6 +46,8 @@
                     <hr>
                     <!-- Only show TasksByStaff for managers -->
                     <TasksByStaff v-if="isManager" />
+                    <hr>
+                    <ManagerViewTeamTaskSchedule v-if="currentUserId" :userid="currentUserId" />
                 </div>
 
                 <!-- My Dashboard View (for staff) -->
@@ -73,52 +67,40 @@
                     <div class="filter-sort-bar">
                         <!-- ✅ Status Filter -->
                         <div class="filter-group">
-                        <label for="statusFilter">Filter:</label>
-                        <select id="statusFilter" v-model="selectedStatus" @change="applyFilters">
-                            <option value="active">Active</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Unassigned">Unassigned</option>
-                            <option value="Ongoing">Ongoing</option>
-                            <option value="Under Review">Under Review</option>
-                        </select>
+                            <label for="statusFilter">Filter:</label>
+                            <select id="statusFilter" v-model="selectedStatus" @change="applyFilters">
+                                <option value="active">Active</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Unassigned">Unassigned</option>
+                                <option value="Ongoing">Ongoing</option>
+                                <option value="Under Review">Under Review</option>
+                            </select>
                         </div>
 
                         <!-- ✅ Sort Mode Selector -->
                         <div class="sort-group">
-                        <label>Sort By:</label>
-                        <div class="sort-mode-toggle">
-                            <button
-                            :class="{ active: sortMode === 'dueDate' }"
-                            @click="setSortMode('dueDate')"
-                            >
-                            Due Date
-                            </button>
-                            <button
-                            :class="{ active: sortMode === 'priority' }"
-                            @click="setSortMode('priority')"
-                            >
-                            Priority
-                            </button>
-                        </div>
+                            <label>Sort By:</label>
+                            <div class="sort-mode-toggle">
+                                <button :class="{ active: sortMode === 'dueDate' }" @click="setSortMode('dueDate')">
+                                    Due Date
+                                </button>
+                                <button :class="{ active: sortMode === 'priority' }" @click="setSortMode('priority')">
+                                    Priority
+                                </button>
+                            </div>
                         </div>
 
                         <!-- ✅ Ascending / Descending toggle -->
                         <div class="sort-group">
-                        <label>Order:</label>
-                        <div class="sort-toggle">
-                            <button
-                            :class="{ active: sortOrder === 'asc' }"
-                            @click="setSortOrder('asc')"
-                            >
-                            ▲ Asc
-                            </button>
-                            <button
-                            :class="{ active: sortOrder === 'desc' }"
-                            @click="setSortOrder('desc')"
-                            >
-                            ▼ Desc
-                            </button>
-                        </div>
+                            <label>Order:</label>
+                            <div class="sort-toggle">
+                                <button :class="{ active: sortOrder === 'asc' }" @click="setSortOrder('asc')">
+                                    ▲ Asc
+                                </button>
+                                <button :class="{ active: sortOrder === 'desc' }" @click="setSortOrder('desc')">
+                                    ▼ Desc
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <!-- Tasks -->
@@ -126,65 +108,47 @@
                         <div class="container">
                             <!-- ✅ Loading Spinner -->
                             <div v-if="loading" class="loading-section">
-                            <div class="container">
-                                <div class="loading-spinner">Loading Tasks...</div>
-                            </div>
+                                <div class="container">
+                                    <div class="loading-spinner">Loading Tasks...</div>
+                                </div>
                             </div>
 
                             <!-- ✅ Tasks Loaded -->
                             <div v-else>
-                            <!-- ✅ When there are tasks after filtering/sorting -->
-                            <div v-if="filteredAndSortedTasks.length">
-                                <div
-                                v-for="(task, index) in filteredAndSortedTasks"
-                                :key="task.id || index"
-                                class="task-card"
-                                >
-                                <!-- ✅ Uses your TaskCard component -->
-                                <task-card
-                                    :task="task"
-                                    :users="users"
-                                    class="mb-0"
-                                    @view-task="handleViewTask"
-                                />
-                                </div>
-                            </div>
-
-                            <!-- ✅ When no tasks match filter -->
-                            <div v-else class="nofound-section">
-                                <div class="mt-5">
-                                <div class="d-flex justify-content-center">
-                                    <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    height="100"
-                                    width="100"
-                                    fill="currentColor"
-                                    class="bi bi-clipboard-x"
-                                    viewBox="0 0 16 16"
-                                    >
-                                    <path
-                                        fill-rule="evenodd"
-                                        d="M6.146 7.146a.5.5 0 0 1 .708 0L8 8.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 9l1.147 1.146a.5.5 0 0 1-.708.708L8 9.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 9 6.146 7.854a.5.5 0 0 1 0-.708"
-                                    />
-                                    <path
-                                        d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"
-                                    />
-                                    <path
-                                        d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"
-                                    />
-                                    </svg>
+                                <!-- ✅ When there are tasks after filtering/sorting -->
+                                <div v-if="filteredAndSortedTasks.length">
+                                    <div v-for="(task, index) in filteredAndSortedTasks" :key="task.id || index"
+                                        class="task-card">
+                                        <!-- ✅ Uses your TaskCard component -->
+                                        <task-card :task="task" :users="users" class="mb-0"
+                                            @view-task="handleViewTask" />
+                                    </div>
                                 </div>
 
-                                <h2 class="text-center mt-2">No tasks found.</h2>
-                                <p class="text-center">
-                                    There are no tasks found associated with this filter or status.
-                                </p>
+                                <!-- ✅ When no tasks match filter -->
+                                <div v-else class="nofound-section">
+                                    <div class="mt-5">
+                                        <div class="d-flex justify-content-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" height="100" width="100"
+                                                fill="currentColor" class="bi bi-clipboard-x" viewBox="0 0 16 16">
+                                                <path fill-rule="evenodd"
+                                                    d="M6.146 7.146a.5.5 0 0 1 .708 0L8 8.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 9l1.147 1.146a.5.5 0 0 1-.708.708L8 9.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 9 6.146 7.854a.5.5 0 0 1 0-.708" />
+                                                <path
+                                                    d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z" />
+                                                <path
+                                                    d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z" />
+                                            </svg>
+                                        </div>
+
+                                        <h2 class="text-center mt-2">No tasks found.</h2>
+                                        <p class="text-center">
+                                            There are no tasks found associated with this filter or status.
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -197,6 +161,7 @@ import TasksByStatus from '@/components/Dashboard/TasksByStatus.vue';
 import TasksByStaff from '@/components/Dashboard/TasksByStaff.vue';
 import TasksByPriority from '@/components/Dashboard/TasksByPriority.vue';
 import TaskTimeline from '@/components/Dashboard/TaskTimeline.vue';
+import ManagerViewTeamTaskSchedule from '@/components/Dashboard/ManagerViewTeamTaskSchedule.vue';
 // import TaskCalendar from '@/views/TaskCalendar.vue';
 import AuthService from '@/services/auth.js';
 import TaskCard from '@/components/Projects/TaskCard.vue';
@@ -214,7 +179,8 @@ export default {
         TasksByPriority,
         // PendingTasksByAge,
         TaskTimeline,
-        TaskCard
+        TaskCard,
+        ManagerViewTeamTaskSchedule
     },
     data() {
         return {
@@ -225,20 +191,28 @@ export default {
             loading: true,
             error: null,
             selectedStatus: "active",
-            sortMode: "dueDate",    
-            sortOrder: "asc",       
+            sortMode: "dueDate",
+            sortOrder: "asc",
         };
     },
     mounted() {
         console.log('Home.vue mounted - All components should load');
-        
+
         // Check for upcoming deadlines when dashboard loads
         notificationService.checkUpcomingDeadlines();
 
         if (AuthService.checkAuthStatus()) {
             this.currentUser = AuthService.getCurrentUser();
+
+            // ✅ ADD THESE LINES to get and store the user ID
+            const userString = sessionStorage.getItem('user');
+            if (userString) {
+                const userData = JSON.parse(userString);
+                this.currentUserId = userData.id;
+                console.log('Current User ID set:', this.currentUserId);
+            }
         }
-        
+
         // Set active view from query parameter if present
         const view = this.$route.query.view;
         if (view === 'team' || view === 'my' || view === 'mydashboard') {
@@ -263,7 +237,7 @@ export default {
         getDefaultView() {
             // Get current user to determine default view
             const user = AuthService.getCurrentUser();
-            
+
             // Staff (role_num = 4) start on My Dashboard
             // Managers/Directors start on Team Tasks
             if (user && user.role_num === 4) {
@@ -303,17 +277,17 @@ export default {
         },
         async fetchUsers() {
             try {
-            console.log('Fetching all users for avatar display');
-            
-            // Load all users to ensure we have all assignees
-            this.users = await userAPI.getAllUsers();
-            
-            // console.log('Fetched all users:', this.users);
-            // console.log(`Found ${this.users.length} users total`);
-            
+                console.log('Fetching all users for avatar display');
+
+                // Load all users to ensure we have all assignees
+                this.users = await userAPI.getAllUsers();
+
+                // console.log('Fetched all users:', this.users);
+                // console.log(`Found ${this.users.length} users total`);
+
             } catch (error) {
-            console.error('Error fetching users:', error);
-            this.users = [];
+                console.error('Error fetching users:', error);
+                this.users = [];
             }
         },
 
@@ -361,13 +335,13 @@ export default {
             this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
         },
         applyFilters() {
-        // Trigger computed update
+            // Trigger computed update
         },
         setSortOrder(order) {
-        this.sortOrder = order;
+            this.sortOrder = order;
         },
         setSortMode(mode) {
-        this.sortMode = mode;
+            this.sortMode = mode;
         },
     },
     computed: {
@@ -377,17 +351,17 @@ export default {
                 if (userStr) {
                     const user = JSON.parse(userStr);
                     let roleNum = user.role_num;
-                    
+
                     if (typeof roleNum === 'string') {
                         roleNum = parseInt(roleNum);
                     }
-                    
+
                     if (!roleNum && user.role_name) {
                         const roleName = user.role_name.toLowerCase();
                         if (roleName === 'manager') roleNum = 3;
                         else if (roleName === 'director') roleNum = 2;
                     }
-                    
+
                     return roleNum && roleNum < 4;
                 }
             } catch (e) {
@@ -401,16 +375,16 @@ export default {
                 if (userStr) {
                     const user = JSON.parse(userStr);
                     let roleNum = user.role_num;
-                    
+
                     if (typeof roleNum === 'string') {
                         roleNum = parseInt(roleNum);
                     }
-                    
+
                     if (!roleNum && user.role_name) {
                         const roleName = user.role_name.toLowerCase();
                         if (roleName === 'staff') roleNum = 4;
                     }
-                    
+
                     return roleNum === 4;
                 }
             } catch (e) {
@@ -419,37 +393,37 @@ export default {
             return false;
         },
         filteredAndSortedTasks() {
-        let result = [...this.tasks];
-        // excluded completed tasks from all
-        if (this.selectedStatus === "active") {
-            result = result.filter(
-            (task) => task.task_status?.toLowerCase() !== "completed"
-            );
-        } else if (this.selectedStatus) {
-            result = result.filter(
-            (task) =>
-                task.task_status?.toLowerCase() ===
-                this.selectedStatus.toLowerCase()
-            );
-        }
+            let result = [...this.tasks];
+            // excluded completed tasks from all
+            if (this.selectedStatus === "active") {
+                result = result.filter(
+                    (task) => task.task_status?.toLowerCase() !== "completed"
+                );
+            } else if (this.selectedStatus) {
+                result = result.filter(
+                    (task) =>
+                        task.task_status?.toLowerCase() ===
+                        this.selectedStatus.toLowerCase()
+                );
+            }
 
-        // sort due date
-        if (this.sortMode === "dueDate") {
-            result.sort((a, b) => {
-            const dateA = new Date(a.end_date);
-            const dateB = new Date(b.end_date);
-            return this.sortOrder === "asc" ? dateA - dateB : dateB - dateA;
-            });
-        } else if (this.sortMode === "priority") {
-            // sort priority (1–10)
-            result.sort((a, b) => {
-            return this.sortOrder === "asc"
-                ? a.priority_level - b.priority_level
-                : b.priority_level - a.priority_level;
-            });
-        }
+            // sort due date
+            if (this.sortMode === "dueDate") {
+                result.sort((a, b) => {
+                    const dateA = new Date(a.end_date);
+                    const dateB = new Date(b.end_date);
+                    return this.sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+                });
+            } else if (this.sortMode === "priority") {
+                // sort priority (1–10)
+                result.sort((a, b) => {
+                    return this.sortOrder === "asc"
+                        ? a.priority_level - b.priority_level
+                        : b.priority_level - a.priority_level;
+                });
+            }
 
-        return result;
+            return result;
         },
     }
 }
@@ -537,70 +511,70 @@ export default {
 }
 
 .filter-sort-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-  background: #fff;
-  padding: 0.75rem 1rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  margin-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    background: #fff;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 1rem;
 }
 
 /* Labels */
 .filter-group label,
 .sort-group label {
-  font-weight: 500;
-  color: #4b5563;
-  margin-right: 0.5rem;
-  font-size: 0.9rem;
+    font-weight: 500;
+    color: #4b5563;
+    margin-right: 0.5rem;
+    font-size: 0.9rem;
 }
 
 /* Dropdown */
 select {
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.9rem;
-  background: #f9fafb;
-  color: #111827;
-  cursor: pointer;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+    background: #f9fafb;
+    color: #111827;
+    cursor: pointer;
 }
 
 select:hover {
-  border-color: #9ca3af;
+    border-color: #9ca3af;
 }
 
 /* ✅ Shared toggle style (radio-like) */
 .sort-toggle,
 .sort-mode-toggle {
-  display: inline-flex;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  overflow: hidden;
+    display: inline-flex;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    overflow: hidden;
 }
 
 .sort-toggle button,
 .sort-mode-toggle button {
-  background: #f9fafb;
-  border: none;
-  padding: 0.4rem 0.9rem;
-  font-size: 0.9rem;
-  color: #4b5563;
-  cursor: pointer;
-  transition: all 0.2s ease;
+    background: #f9fafb;
+    border: none;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.9rem;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .sort-toggle button:hover,
 .sort-mode-toggle button:hover {
-  background: #f3f4f6;
+    background: #f3f4f6;
 }
 
 .sort-toggle button.active,
 .sort-mode-toggle button.active {
-  background: #111827;
-  color: white;
+    background: #111827;
+    color: white;
 }
 
 .dashboard-section {
