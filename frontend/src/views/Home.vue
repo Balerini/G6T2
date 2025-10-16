@@ -47,6 +47,9 @@
                     <!-- Only show TasksByStaff for managers -->
                     <TasksByStaff v-if="isManager" />
                     <hr>
+                    <!-- Only show Team's Subtasks for manangers -->
+                    <TeamSubtasks v-if="isManager" />
+                    <hr>
                     <ManagerViewTeamTaskSchedule v-if="currentUserId" :userid="currentUserId" />
                 </div>
 
@@ -168,6 +171,7 @@ import TaskCard from '@/components/Projects/TaskCard.vue';
 import { ownTasksService } from '../services/myTaskService.js';
 import notificationService from '@/services/notificationService';
 import { userAPI } from '../services/api.js'
+import TeamSubtasks from '@/components/Dashboard/TeamSubtasks.vue';
 // import PendingTasksByAge from '@/components/Dashboard/PendingTasksByAge.vue';
 
 export default {
@@ -180,7 +184,8 @@ export default {
         // PendingTasksByAge,
         TaskTimeline,
         TaskCard,
-        ManagerViewTeamTaskSchedule
+        ManagerViewTeamTaskSchedule,
+        TeamSubtasks
     },
     data() {
         return {

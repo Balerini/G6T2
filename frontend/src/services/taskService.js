@@ -235,6 +235,15 @@ async permanentlyDeleteSubtask(subtaskId) {
       throw new Error(error.response?.data?.error || 'Failed to delete subtask');
     }
   },
+  
+  async getTeamSubtasks(managerId) {
+    try {
+      const response = await api.get(`/api/subtasks/team/${managerId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to fetch team subtasks');
+    }
+  },
 };
 
   

@@ -4,6 +4,7 @@ from firebase_admin import firestore
 
 subtask_bp = Blueprint('subtask', __name__)
 
+# ==================== NEW SUBTASK CREATION ====================
 @subtask_bp.route('/subtasks', methods=['POST'])
 def create_subtask():
     try:
@@ -71,6 +72,7 @@ def create_subtask():
         print(f"Traceback: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
+# ==================== GET ALL SUBTASKS WITHIN TASK ====================
 @subtask_bp.route('/tasks/<task_id>/subtasks', methods=['GET'])
 def get_task_subtasks(task_id):
     try:
@@ -99,6 +101,7 @@ def get_task_subtasks(task_id):
         print(f"Error fetching subtasks: {str(e)}")
         return jsonify({'error': str(e)}), 500
     
+# ==================== UPDATE SUBTASK ====================
 @subtask_bp.route('/subtasks/<subtask_id>', methods=['PUT'])
 def update_subtask(subtask_id):
     try:
@@ -152,6 +155,9 @@ def update_subtask(subtask_id):
             assigned_to = subtask_data.get('assigned_to', [])
             if str(new_owner_id) not in [str(id) for id in assigned_to]:
                 return jsonify({'error': 'New owner must be assigned to the subtask'}), 400
+        
+        # Store old owner ID BEFORE updating (for email notification)
+        old_owner_id = subtask_data.get('owner')
         
         # Prepare update data
         update_data = {}
@@ -207,10 +213,125 @@ def update_subtask(subtask_id):
                 'assigned_to': updated_subtask.get('assigned_to', []),
                 'owner': updated_subtask.get('owner'),
                 'attachments': updated_subtask.get('attachments', []),
-                'status_history': updated_subtask.get('status_history', []),
-                'status_history': subtask_data.get('status_history', [])
+                'status_history': updated_subtask.get('status_history', [])
             }
         }
+        
+        # ================== SEND EMAILS FOR OWNER CHANGE ==================
+        try:
+            new_owner_id = data.get('owner')
+            
+            print(f"🔍 EMAIL CHECK - new_owner_id: {new_owner_id}")
+            print(f"🔍 EMAIL CHECK - old_owner_id: {old_owner_id}")
+            print(f"🔍 EMAIL CHECK - Are they different? {old_owner_id != new_owner_id}")
+            
+            # Check if owner has changed
+            if new_owner_id and old_owner_id != new_owner_id:
+                print(f"👤 OWNER CHANGE DETECTED: {old_owner_id} → {new_owner_id}")
+                from services.email_service import email_service
+                
+                # Get new owner's info
+                print(f"📧 Fetching new owner data for: {new_owner_id}")
+                new_owner_doc = db.collection('Users').document(new_owner_id).get()
+                
+                if new_owner_doc.exists:
+                    new_owner_data = new_owner_doc.to_dict()
+                    new_owner_email = new_owner_data.get('email')
+                    new_owner_name = new_owner_data.get('name', 'User')
+                    print(f"✅ New owner found: {new_owner_name} ({new_owner_email})")
+                    
+                    # Get old owner's info (for CC)
+                    old_owner_email = None
+                    old_owner_name = 'Previous Owner'
+                    if old_owner_id:
+                        print(f"📧 Fetching old owner data for: {old_owner_id}")
+                        old_owner_doc = db.collection('Users').document(old_owner_id).get()
+                        if old_owner_doc.exists:
+                            old_owner_data = old_owner_doc.to_dict()
+                            old_owner_email = old_owner_data.get('email')
+                            old_owner_name = old_owner_data.get('name', 'Previous Owner')
+                            print(f"✅ Old owner found: {old_owner_name} ({old_owner_email})")
+                    
+                    # Prepare subtask details for email
+                    subtask_name = updated_subtask.get('name', 'Unknown Subtask')
+                    subtask_desc = updated_subtask.get('description', '')
+                    
+                    # Get parent task name
+                    parent_task_name = ''
+                    parent_task_id = updated_subtask.get('parent_task_id')
+                    if parent_task_id:
+                        try:
+                            parent_task_doc = db.collection('Tasks').document(parent_task_id).get()
+                            if parent_task_doc.exists:
+                                parent_task_name = parent_task_doc.to_dict().get('task_name', '')
+                        except Exception as e:
+                            print(f"⚠️ Could not fetch parent task: {e}")
+                    
+                    # Get project name
+                    project_name = ''
+                    project_id = updated_subtask.get('project_id')
+                    if project_id:
+                        try:
+                            project_doc = db.collection('Projects').document(project_id).get()
+                            if project_doc.exists:
+                                project_name = project_doc.to_dict().get('proj_name', '')
+                        except Exception as e:
+                            print(f"⚠️ Could not fetch project: {e}")
+                    
+                    # Get who made the transfer (current user)
+                    transferred_by_name = new_owner_name  # Default fallback
+                    try:
+                        current_user_doc = db.collection('Users').document(current_user_id).get()
+                        if current_user_doc.exists:
+                            transferred_by_name = current_user_doc.to_dict().get('name', 'Manager')
+                    except Exception as e:
+                        print(f"⚠️ Could not fetch current user: {e}")
+                    
+                    # Format dates safely
+                    start_date_str = 'Not specified'
+                    end_date_str = None
+                    
+                    if updated_subtask.get('start_date'):
+                        start_date_str = updated_subtask['start_date']
+                    
+                    if updated_subtask.get('end_date'):
+                        end_date_str = updated_subtask['end_date']
+                    
+                    print(f"📧 Preparing to send subtask ownership transfer email...")
+                    print(f"   To: {new_owner_email}")
+                    print(f"   CC: {old_owner_email}")
+                    print(f"   Subtask: {subtask_name}")
+                    
+                    # Send email to new owner (with old owner CC'd)
+                    if new_owner_email:
+                        success = email_service.send_subtask_transfer_ownership_email(
+                            new_owner_email=new_owner_email,
+                            new_owner_name=new_owner_name,
+                            old_owner_email=old_owner_email if old_owner_email else '',
+                            old_owner_name=old_owner_name,
+                            subtask_name=subtask_name,
+                            subtask_desc=subtask_desc,
+                            parent_task_name=parent_task_name,
+                            project_name=project_name,
+                            transferred_by_name=transferred_by_name,
+                            start_date=start_date_str,
+                            end_date=end_date_str
+                        )
+                        if success:
+                            print(f"✅ SUBTASK OWNERSHIP TRANSFER EMAIL SENT to {new_owner_email} (CC: {old_owner_email})")
+                        else:
+                            print(f"❌ FAILED to send subtask ownership transfer email")
+                    else:
+                        print(f"⚠️ No email found for new owner {new_owner_id}")
+                else:
+                    print(f"⚠️ New owner document not found: {new_owner_id}")
+            else:
+                print(f"⏭️  No owner change detected")
+                    
+        except Exception as e:
+            print(f"❌ Failed to send owner change email: {e}")
+            import traceback
+            traceback.print_exc()
         
         return jsonify(response_data), 200
         
