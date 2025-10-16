@@ -85,7 +85,7 @@ def create_app() -> Flask:
     app.register_blueprint(tasks_bp)
 
     # =============== Subtask routes ===============
-    app.register_blueprint(subtask_bp, url_prefix='/api')
+    app.register_blueprint(subtask_bp)
 
     # =============== Dashboard routes ===============
     app.register_blueprint(dashboard_bp)
