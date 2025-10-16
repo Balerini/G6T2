@@ -95,15 +95,23 @@
           <div class="card-header">
             <h2 class="task-title">{{ task.task_name }}</h2>
             <div class="header-actions">
-            <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
-                {{ formatStatus(task.task_status) }}
-            </div>
-              <button @click="openEditModal" class="edit-task-btn" v-if="task">
-                ✏️ Edit Task
+              <div class="status-badge-large" :class="getTaskStatusClass(task.task_status)">
+                  {{ formatStatus(task.task_status) }}
+              </div>
+                <button @click="openEditModal" class="edit-task-btn" v-if="task">
+                  ✏️ Edit Task
+                </button>
+              <button @click="openSubtaskModal" class="add-subtask-btn">
+                + Add Subtask
               </button>
-            <button @click="openSubtaskModal" class="add-subtask-btn">
-              + Add Subtask
-            </button>
+              <button @click="confirmDeleteTask" class="delete-task-btn-icon" v-if="task && !task.is_deleted" title="Delete Task">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3,6 5,6 21,6"></polyline>
+                      <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
+              </button>
             </div>
           </div>
 
@@ -378,6 +386,61 @@
       </div>
     </div>  
 
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteConfirmModal" class="modal-overlay" @click="closeDeleteConfirmModal">
+        <div class="modal-content delete-modal-enhanced" @click.stop>
+            <!-- Modal Header -->
+            <div class="delete-modal-header">
+                <h3 class="delete-modal-title">Delete Task</h3>
+                <button @click="closeDeleteConfirmModal" class="close-btn-enhanced">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="delete-modal-body">
+                <!-- Warning Icon -->
+                <div class="warning-icon-container">
+                    <svg class="warning-icon-svg" width="64" height="64" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                
+                <!-- Content -->
+                <div class="delete-modal-content">
+                    <p class="delete-question">
+                        Are you sure you want to delete 
+                        <span class="task-name-highlight">"{{ task.task_name }}"</span>?
+                    </p>
+                    <p class="delete-description">
+                        This task will be moved to deleted items and can be restored later.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="delete-modal-footer">
+                <button @click="closeDeleteConfirmModal" class="cancel-btn-enhanced">
+                    Cancel
+                </button>
+                <button @click="deleteTask" class="delete-btn-enhanced" :disabled="isDeletingTask">
+                    <svg v-if="isDeletingTask" class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
+                        <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3,6 5,6 21,6"></polyline>
+                        <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                    </svg>
+                    {{ isDeletingTask ? 'Deleting...' : 'Delete Task' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Edit Task Modal -->
     <EditTask v-if="selectedTask" :visible="showEdit" :task="selectedTask" :users="users" :parentProject="parentProject" @close="showEdit = false" @saved="onTaskSaved" />
   </div>
@@ -419,6 +482,8 @@ export default {
       expandedSubtask: null,
       showEditSubtaskModal: false,
       selectedSubtask: null,
+      showDeleteConfirmModal: false,
+      isDeletingTask: false,
     }
   },
   created() {
@@ -1143,7 +1208,52 @@ export default {
       this.closeEditSubtaskModal();
       this.successMessage = "Subtask updated successfully!";
       setTimeout(() => { this.successMessage = ""; }, 3000);
-    }
+    },
+
+    confirmDeleteTask() {
+        this.showDeleteConfirmModal = true;
+    },
+
+    closeDeleteConfirmModal() {
+        this.showDeleteConfirmModal = false;
+    },
+
+    async deleteTask() {
+        try {
+            this.isDeletingTask = true;
+            
+            console.log('Soft deleting task (setting is_deleted = true):', this.task.id);
+            
+            // This calls the backend to UPDATE the task, not delete it
+            await taskService.deleteTask(this.task.id);
+            
+            // Update local task state to reflect the change
+            this.task.is_deleted = true;
+            
+            // Close the confirmation modal
+            this.closeDeleteConfirmModal();
+            
+            // Show success message
+            this.successMessage = '✅ Task moved to deleted items!';
+            setTimeout(() => {
+                this.successMessage = '';
+            }, 3000);
+            
+            // Redirect back after a short delay
+            setTimeout(() => {
+                this.goBack();
+            }, 2000);
+            
+        } catch (error) {
+            console.error('Error soft deleting task:', error);
+            this.errorMessage = `❌ Failed to delete task: ${error.message}`;
+            setTimeout(() => {
+                this.errorMessage = '';
+            }, 5000);
+        } finally {
+            this.isDeletingTask = false;
+        }
+    },
   }
 }
 </script>
@@ -2444,6 +2554,266 @@ export default {
 .confirm-btn:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3); /* Green focus ring */
+}
+
+/* Enhanced Delete Modal Styles */
+.delete-modal-enhanced {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    max-width: 480px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: hidden;
+    animation: modalEnhancedIn 0.3s ease-out;
+}
+
+@keyframes modalEnhancedIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Modal Header */
+.delete-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 24px 0 24px;
+    margin-bottom: 8px;
+}
+
+.delete-modal-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+}
+
+.close-btn-enhanced {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 8px;
+    color: #6b7280;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn-enhanced:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+/* Modal Body */
+.delete-modal-body {
+    padding: 16px 24px 24px 24px;
+    text-align: center;
+}
+
+.warning-icon-container {
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: center;
+}
+
+.warning-icon-svg {
+    color: #f59e0b;
+    filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.2));
+}
+
+.delete-modal-content {
+    margin-bottom: 8px;
+}
+
+.delete-question {
+    font-size: 16px;
+    color: #111827;
+    margin: 0 0 12px 0;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.task-name-highlight {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.delete-description {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Modal Footer */
+.delete-modal-footer {
+    background: #f9fafb;
+    padding: 24px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    border-top: 1px solid #e5e7eb;
+}
+
+.cancel-btn-enhanced {
+    background: white;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    min-width: 80px;
+}
+
+.cancel-btn-enhanced:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.delete-btn-enhanced {
+    background: #dc2626;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+    justify-content: center;
+}
+
+.delete-btn-enhanced:hover:not(:disabled) {
+    background: #b91c1c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.delete-btn-enhanced:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.loading-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Enhanced Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 20px;
+    animation: overlayFadeIn 0.3s ease-out;
+}
+
+@keyframes overlayFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+    .delete-modal-enhanced {
+        max-width: 95%;
+        margin: 20px;
+    }
+    
+    .delete-modal-footer {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .cancel-btn-enhanced,
+    .delete-btn-enhanced {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Updated Delete Task Button */
+.delete-task-btn {
+    background: #dc2626;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.delete-task-btn:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(220, 38, 38, 0.2);
+}
+
+.delete-task-btn svg {
+    flex-shrink: 0;
+}
+
+/* Icon-only version */
+.delete-task-btn-icon {
+    background: #dc2626;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.delete-task-btn-icon:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(220, 38, 38, 0.2);
 }
 
 </style>
