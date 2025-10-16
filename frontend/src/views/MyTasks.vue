@@ -144,6 +144,16 @@ export default {
     filteredTasks() {
       let result = this.tasks;
 
+      // Filter out deleted tasks - only show active tasks
+      result = result.filter(task => {
+        // If is_deleted is explicitly true, exclude it
+        if (task.is_deleted === true) {
+          return false;
+        }
+        // If is_deleted is false, undefined, or null, include it
+        return true;
+      });
+
       // Filter by status
       if (this.filter !== "All") {
         result = result.filter(t => t.task_status === this.filter);

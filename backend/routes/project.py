@@ -188,6 +188,9 @@ def get_filtered_projects_by_division(division_name):
                 for task in tasks:
                     task_data = task.to_dict()
                     task_data['id'] = task.id
+
+                    if task_data.get('is_deleted', False):
+                        continue
                     
                     # Convert task timestamps
                     if 'start_date' in task_data and task_data['start_date']:
@@ -283,6 +286,9 @@ def get_all_projects_with_tasks():
             for task in tasks:
                 task_data = task.to_dict()
                 task_data['id'] = task.id
+
+                if task_data.get('is_deleted', False):
+                    continue
                 
                 # Convert task timestamps
                 if 'start_date' in task_data and task_data['start_date']:
@@ -340,6 +346,9 @@ def get_project_with_tasks(project_id):
         for task in tasks:
             task_data = task.to_dict()
             task_data['id'] = task.id
+
+            if task_data.get('is_deleted', False):
+                continue
             
             # Convert task timestamps
             if 'start_date' in task_data and task_data['start_date']:
@@ -407,6 +416,10 @@ def get_project_team_schedule(project_id):
         
         for task_doc in all_tasks:
             task_data = task_doc.to_dict()
+
+            if task_data.get('is_deleted', False):
+                continue
+
             assigned_users = task_data.get('assigned_to', [])
             
             # Count task statuses
@@ -552,6 +565,9 @@ def get_project_tasks(project_id):
             task_count += 1
             task_data = task.to_dict()
             task_data['id'] = task.id
+
+            if task_data.get('is_deleted', False):
+                continue
             
             # Convert timestamps in tasks
             if 'start_date' in task_data and task_data['start_date']:
