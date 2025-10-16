@@ -82,11 +82,13 @@ export default {
   data() {
     return {
       currentUser: null,
-      tasks: [],
+      currentUserId: null,
+      activeTasks: [],
+      completedTasks: [],
       loading: true,
       error: null,
-      filter: "All",
-      statuses: ["All", "Unassigned", "Ongoing", "Under Review", "Completed", "Cancelled"],
+      filter: "Active",
+      statuses: ["Active", "Unassigned", "Ongoing", "Under Review", "Completed"],
       sortBy: "endDateAsc",
       sortOptions: [
         { value: "endDateAsc", label: "Earliest" },
@@ -106,6 +108,17 @@ export default {
   watch: {
     $route() {
       this.loadTaskData();
+    },
+    filter(newFilter) {
+      if (!this.currentUserId) {
+        return;
+      }
+
+      if (newFilter === "Completed") {
+        this.refreshCompletedTasks();
+      } else if (["Active", "Unassigned", "Ongoing", "Under Review"].includes(newFilter)) {
+        this.refreshActiveTasks();
+      }
     }
   },
   methods: {
@@ -115,18 +128,83 @@ export default {
         this.error = null;
 
         const userString = sessionStorage.getItem('user');
-        const userData = JSON.parse(userString);
-        const currentUserId = userData.id;
+        const userData = userString ? JSON.parse(userString) : null;
+        const currentUserId = userData?.id;
 
-        // Fetch tasks for this user only
-        this.tasks = await ownTasksService.getTasks(currentUserId);
-        console.log("MyTasks - Loaded tasks for user:", currentUserId, "Count:", this.tasks.length);
+        if (!currentUserId) {
+          throw new Error("Unable to determine the current user");
+        }
+
+        this.currentUserId = currentUserId;
+
+        const [activeTasks, completedTasks] = await Promise.all([
+          ownTasksService.getTasks(currentUserId, { status: 'Active' }),
+          ownTasksService.getTasks(currentUserId, { status: 'Completed' })
+        ]);
+
+        this.activeTasks = activeTasks;
+        this.completedTasks = completedTasks;
+
+        console.log("MyTasks - Loaded tasks for user:", currentUserId, "Active:", activeTasks.length, "Completed:", completedTasks.length);
       } catch (error) {
         console.error("MyTasks - Error loading tasks:", error);
         this.error = error.message;
       } finally {
         this.loading = false;
       }
+    },
+
+    async refreshActiveTasks() {
+      if (!this.currentUserId) {
+        return;
+      }
+
+      try {
+        const activeTasks = await ownTasksService.getTasks(this.currentUserId, { status: 'Active' });
+        this.activeTasks = activeTasks;
+      } catch (error) {
+        console.error("MyTasks - Error refreshing active tasks:", error);
+        this.error = error.message;
+      }
+    },
+
+    async refreshCompletedTasks() {
+      if (!this.currentUserId) {
+        return;
+      }
+
+      try {
+        const completedTasks = await ownTasksService.getTasks(this.currentUserId, { status: 'Completed' });
+        this.completedTasks = completedTasks;
+      } catch (error) {
+        console.error("MyTasks - Error refreshing completed tasks:", error);
+        this.error = error.message;
+      }
+    },
+
+    normalizeStatus(status) {
+      if (typeof status === 'string') {
+        const trimmed = status.trim();
+        if (!trimmed.length) {
+          return 'Unassigned';
+        }
+        const lookup = {
+          'active': 'Active',
+          'unassigned': 'Unassigned',
+          'ongoing': 'Ongoing',
+          'under review': 'Under Review',
+          'completed': 'Completed',
+          'cancelled': 'Cancelled'
+        };
+        const normalizedLower = trimmed.toLowerCase();
+        return lookup[normalizedLower] || trimmed;
+      }
+      return 'Unassigned';
+    },
+
+    isActiveStatus(status) {
+      const normalized = this.normalizeStatus(status).toLowerCase();
+      return ['active', 'unassigned', 'ongoing', 'under review'].includes(normalized);
     },
 
     handleViewTask(task) {
@@ -143,16 +221,6 @@ export default {
   computed: {
     filteredTasks() {
       let result = this.tasks;
-
-      // Filter out deleted tasks - only show active tasks
-      result = result.filter(task => {
-        // If is_deleted is explicitly true, exclude it
-        if (task.is_deleted === true) {
-          return false;
-        }
-        // If is_deleted is false, undefined, or null, include it
-        return true;
-      });
 
       // Filter by status
       if (this.filter !== "All") {
@@ -172,8 +240,6 @@ export default {
         }
         return 0;
       });
-
-      return result;
     }
   }
 }

@@ -680,11 +680,15 @@ export default {
         
         // Get current user ID
         const userString = sessionStorage.getItem('user');
-        const userData = JSON.parse(userString);
-        const currentUserId = userData.id;
+        const userData = userString ? JSON.parse(userString) : null;
+        const currentUserId = userData?.id;
+
+        if (!currentUserId) {
+          throw new Error('Unable to determine the current user');
+        }
         
         // Get all tasks for this user
-        const allTasks = await ownTasksService.getTasks(currentUserId);
+        const allTasks = await ownTasksService.getTasks(currentUserId, { status: ['Active', 'Completed'] });
         console.log('All tasks for user:', allTasks);
 
         // ✅ Filter out tasks that belong to a project (keep only those without proj_ID or with null)

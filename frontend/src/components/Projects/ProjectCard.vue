@@ -43,7 +43,7 @@
           <h4 class="tasks-count">
             {{ filteredAndSortedTasks.length }} of {{ project.tasks.length }} Task{{ project.tasks.length !== 1 ? 's' :
             '' }}
-            <span v-if="taskStatusFilter !== 'all'" class="filter-indicator"
+            <span v-if="taskStatusFilter !== 'Active'" class="filter-indicator"
               :class="`status-${taskStatusFilter.toLowerCase().replace(' ', '-')}`">
               ({{ taskStatusFilter }})
             </span>
@@ -52,16 +52,16 @@
 
         <div class="tasks-controls">
           <!-- Status Filter -->
-          <div class="status-filter">
-            <label class="filter-label">Filter:</label>
-            <select v-model="taskStatusFilter" class="status-filter-select" @change="onStatusFilterChange">
-              <option value="all">All Status</option>
-              <option value="Unassigned">Unassigned</option>
-              <option value="Ongoing">Ongoing</option>
-              <option value="Under Review">Under Review</option>
-              <option value="Completed">Completed</option>
-            </select>
-          </div>
+            <div class="status-filter">
+              <label class="filter-label">Filter:</label>
+              <select v-model="taskStatusFilter" class="status-filter-select" @change="onStatusFilterChange">
+                <option value="Active">Active</option>
+                <option value="Unassigned">Unassigned</option>
+                <option value="Ongoing">Ongoing</option>
+                <option value="Under Review">Under Review</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
 
           <!-- Date Sort Controls -->
           <div class="tasks-sort-controls">
@@ -94,7 +94,7 @@
         <!-- No tasks message when filtered -->
         <div v-if="filteredAndSortedTasks.length === 0 && project.tasks.length > 0" class="no-tasks-filtered">
           <p>No tasks found with status: <strong>{{ taskStatusFilter.replace('-', ' ') }}</strong></p>
-          <button class="clear-filter-btn" @click="clearStatusFilter">Show All Tasks</button>
+          <button class="clear-filter-btn" @click="clearStatusFilter">Show Active Tasks</button>
         </div>
       </div>
 
@@ -149,7 +149,7 @@ export default {
       showEdit: false,
       selectedTask: null,
       taskSortOrder: 'asc',
-      taskStatusFilter: 'all'
+      taskStatusFilter: 'Active'
     }
   },
   computed: {
@@ -158,13 +158,15 @@ export default {
         return [];
       }
 
+      const filterValue = this.taskStatusFilter;
       let filtered = [...this.project.tasks];
 
-      if (this.taskStatusFilter !== 'all') {
-        filtered = filtered.filter(task => {
-          const taskStatus = task.task_status || task.status || 'Unassigned';
-          return taskStatus === this.taskStatusFilter;
-        });
+      if (filterValue === 'Active') {
+        filtered = filtered.filter(task => this.isActiveStatus(task.task_status || task.status));
+      } else if (filterValue === 'Completed') {
+        filtered = filtered.filter(task => this.normalizeTaskStatus(task.task_status || task.status).toLowerCase() === 'completed');
+      } else if (filterValue) {
+        filtered = filtered.filter(task => this.normalizeTaskStatus(task.task_status || task.status) === filterValue);
       }
 
       const sorted = filtered.sort((a, b) => {
@@ -202,7 +204,7 @@ export default {
       };
 
       this.project.tasks.forEach(task => {
-        const status = task.task_status || task.status || 'Unassigned';
+        const status = this.normalizeTaskStatus(task.task_status || task.status);
         if (status in counts) {
           counts[status]++;
         }
@@ -230,6 +232,31 @@ export default {
     }
   },
   methods: {
+    normalizeTaskStatus(status) {
+      if (typeof status === 'string') {
+        const trimmed = status.trim();
+        if (!trimmed.length) {
+          return 'Unassigned';
+        }
+        const lookup = {
+          'active': 'Active',
+          'unassigned': 'Unassigned',
+          'ongoing': 'Ongoing',
+          'under review': 'Under Review',
+          'completed': 'Completed',
+          'cancelled': 'Cancelled'
+        };
+        const normalizedLower = trimmed.toLowerCase();
+        return lookup[normalizedLower] || trimmed;
+      }
+      return 'Unassigned';
+    },
+
+    isActiveStatus(status) {
+      const normalized = this.normalizeTaskStatus(status).toLowerCase();
+      return ['active', 'unassigned', 'ongoing', 'under review'].includes(normalized);
+    },
+
     setTaskSortOrder(order) {
       this.taskSortOrder = order;
     },
@@ -239,7 +266,7 @@ export default {
     },
 
     clearStatusFilter() {
-      this.taskStatusFilter = 'all';
+      this.taskStatusFilter = 'Active';
     },
 
     getStatusCount(status) {

@@ -191,6 +191,52 @@ def get_tasks():
         user_id = request.args.get("userId")
         tasks_ref = db.collection("Tasks")
 
+        # Collect status filters from query params (supports repeated and comma-separated values)
+        raw_status_filters = []
+        for key in ("status", "statuses"):
+            values = request.args.getlist(key)
+            if values:
+                raw_status_filters.extend(values)
+            else:
+                single_value = request.args.get(key)
+                if single_value:
+                    raw_status_filters.append(single_value)
+
+        status_groups = {
+            "active": {"active", "unassigned", "ongoing", "under review"}
+        }
+
+        def parse_status_tokens(tokens):
+            processed = []
+            for token in tokens:
+                if not token:
+                    continue
+                processed.extend(part.strip() for part in token.split(",") if part.strip())
+
+            lowered = {token.lower() for token in processed}
+            if not lowered or "all" in lowered:
+                return None
+
+            expanded = set()
+            for token in lowered:
+                if token in status_groups:
+                    expanded.update(status_groups[token])
+                else:
+                    expanded.add(token)
+            return expanded
+
+        allowed_statuses = parse_status_tokens(raw_status_filters)
+
+        def include_task(task_dict):
+            if allowed_statuses is None:
+                return True
+
+            status_value = task_dict.get("task_status") or task_dict.get("status") or ""
+            if not isinstance(status_value, str):
+                status_value = str(status_value)
+            status_value = status_value.strip() or "Unassigned"
+            return status_value.lower() in allowed_statuses
+
         tasks = []
 
         if user_id:
@@ -208,6 +254,7 @@ def get_tasks():
                     
                     # ADD THIS: Filter out deleted tasks
                     if not task.get('is_deleted', False):
+                        if include_task(task):
                         tasks.append(task)
                         seen_ids.add(doc.id)
 
@@ -218,6 +265,7 @@ def get_tasks():
                     
                     # ADD THIS: Filter out deleted tasks
                     if not task.get('is_deleted', False):
+                        if include_task(task):
                         tasks.append(task)
                         seen_ids.add(doc.id)
 
@@ -230,6 +278,7 @@ def get_tasks():
                 
                 # ADD THIS: Filter out deleted tasks
                 if not task.get('is_deleted', False):
+                    if include_task(task):
                     tasks.append(task)
 
         return jsonify(tasks), 200
