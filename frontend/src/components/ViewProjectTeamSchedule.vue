@@ -427,43 +427,42 @@ export default {
       return colors[status] || '#60a5fa';
     };
 
-    const downloadSchedule = () => {
+    const downloadSchedule = async () => {
       try {
-        console.log('Current project name:', projectName.value);
+        console.log('Downloading team schedule as Excel...');
+        console.log('Project ID:', props.projectId);
+        console.log('Project Name:', projectName.value);
         
-        // Clean project name for filename (remove special characters)
-        const cleanProjectName = projectName.value.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-');
+        const url = `http://localhost:8000/api/projects/${props.projectId}/export-excel`;
+        console.log('Request URL:', url);
         
-        console.log('Clean project name for filename:', cleanProjectName);
+        const response = await fetch(url);
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
         
-        // Create a CSV content for the team schedule with project name at top
-        let csvContent = `Project: ${projectName.value}\n`;
-        csvContent += `Generated: ${new Date().toLocaleDateString()}\n\n`;
-        csvContent += "Team Member,Task Name,Start Date,End Date,Status\n";
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Error response:', errorText);
+          throw new Error(`Failed to export team schedule: ${response.status} - ${errorText}`);
+        }
+
+        const blob = await response.blob();
+        console.log('Blob size:', blob.size);
+        console.log('Blob type:', blob.type);
         
-        teamMembers.value.forEach(member => {
-          member.bars.forEach(task => {
-            const startDate = new Date(task.start).toLocaleDateString();
-            const endDate = new Date(task.end).toLocaleDateString();
-            csvContent += `"${member.name}","${task.ganttBarConfig.label}","${startDate}","${endDate}","${task.status}"\n`;
-          });
-        });
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = `${projectName.value.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-')}_Team_Calendar.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
         
-        // Create and download the file
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${cleanProjectName}-schedule.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        console.log('✅ Team schedule downloaded successfully');
+        console.log('✅ Team schedule downloaded successfully as Excel');
       } catch (error) {
         console.error('❌ Error downloading team schedule:', error);
-        alert('Failed to download team schedule. Please try again.');
+        alert(`Failed to download team schedule: ${error.message}`);
       }
     };
 

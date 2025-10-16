@@ -7,11 +7,115 @@ import traceback
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
 from reportlab.lib import colors
+from reportlab.lib.units import inch
 from statistics import mean
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 projects_bp = Blueprint('projects', __name__)
+
+# =============== CALENDAR GENERATION HELPER FUNCTIONS ===============
+def generate_calendar_months(tasks, project_name):
+    """Generate calendar months with tasks for PDF"""
+    from collections import defaultdict
+    import calendar
+    
+    # Group tasks by month
+    tasks_by_month = defaultdict(list)
+    
+    for task in tasks:
+        end_date = task.get("end_date")
+        if end_date:
+            try:
+                if isinstance(end_date, str):
+                    if "T" in end_date:
+                        dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                    else:
+                        dt = datetime.fromisoformat(end_date)
+                else:
+                    dt = end_date
+                
+                month_key = (dt.year, dt.month)
+                tasks_by_month[month_key].append(task)
+            except Exception:
+                continue
+    
+    calendar_elements = []
+    
+    # Generate calendar for each month with tasks
+    for (year, month), month_tasks in sorted(tasks_by_month.items()):
+        # Month header
+        month_name = calendar.month_name[month]
+        month_header = Paragraph(f"<b>{month_name} {year}</b>", getSampleStyleSheet()["h2"])
+        
+        # Create calendar grid
+        cal = calendar.monthcalendar(year, month)
+        calendar_data = []
+        
+        # Header row
+        header_row = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        calendar_data.append(header_row)
+        
+        # Calendar rows
+        for week in cal:
+            week_row = []
+            for day in week:
+                if day == 0:
+                    week_row.append("")
+                else:
+                    # Check if there are tasks on this day
+                    day_tasks = []
+                    for task in month_tasks:
+                        try:
+                            task_date = task.get("end_date")
+                            if isinstance(task_date, str):
+                                if "T" in task_date:
+                                    dt = datetime.fromisoformat(task_date.replace("Z", "+00:00"))
+                                else:
+                                    dt = datetime.fromisoformat(task_date)
+                            else:
+                                dt = task_date
+                            
+                            if dt.day == day:
+                                # Color code by priority
+                                priority = task.get("priority_level", 1)
+                                if priority >= 4:
+                                    color = "red"
+                                elif priority >= 3:
+                                    color = "orange" 
+                                else:
+                                    color = "green"
+                                
+                                task_name = task.get("task_name", "Unknown")[:15]  # Truncate long names
+                                day_tasks.append(f'<font color="{color}">• {task_name}</font>')
+                        except Exception:
+                            continue
+                    
+                    if day_tasks:
+                        day_content = f"{day}<br/>{'<br/>'.join(day_tasks)}"
+                    else:
+                        day_content = str(day)
+                    
+                    week_row.append(day_content)
+            
+            calendar_data.append(week_row)
+        
+        # Create calendar table
+        calendar_table = Table(calendar_data, colWidths=[1.2*inch]*7, rowHeights=[0.4*inch]*len(calendar_data))
+        calendar_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("FONTSIZE", (0, 1), (-1, -1), 8),
+        ]))
+        
+        calendar_elements.append(KeepTogether([month_header, Spacer(1, 12), calendar_table]))
+    
+    return calendar_elements
 
 # =============== HELPER FUNCTION FOR DEPARTMENT FILTERING ===============
 def get_users_from_same_division(division_name):
@@ -744,6 +848,9 @@ def export_project_tasks(project_id):
         incomplete_tasks = total_tasks - completed_tasks
         avg_priority = round(mean([t.get("priority_level", 0) for t in tasks if isinstance(t.get("priority_level"), (int, float))]), 1)
 
+        # Get format type from request parameters
+        format_type = request.args.get('format', 'table')  # 'table' or 'calendar'
+        
         # --- Create PDF ---
         buffer = BytesIO()
         doc = SimpleDocTemplate(
@@ -757,86 +864,632 @@ def export_project_tasks(project_id):
         styles = getSampleStyleSheet()
         elements = []
 
-        # --- Title ---
-        elements.append(Paragraph(f"<b>Project Report: {project_name}</b>", styles["h1"]))
-        # elements.append(Spacer(1, 6))
-        elements.append(Paragraph(f"ID: {project_id}", styles["h3"]))
-        elements.append(Spacer(1, 24))
+        # --- Calendar Format ---
+        if format_type == 'calendar':
+            # Title
+            elements.append(Paragraph(f"<b>Project Calendar: {project_name}</b>", styles["h1"]))
+            elements.append(Paragraph(f"ID: {project_id}", styles["h3"]))
+            elements.append(Spacer(1, 24))
+            
+            # Generate calendar for each month with tasks
+            calendar_months = generate_calendar_months(tasks, project_name)
+            for month_calendar in calendar_months:
+                elements.append(KeepTogether(month_calendar))
+                elements.append(Spacer(1, 20))
+        else:
+            # --- Title ---
+            elements.append(Paragraph(f"<b>Project Report: {project_name}</b>", styles["h1"]))
+            # elements.append(Spacer(1, 6))
+            elements.append(Paragraph(f"ID: {project_id}", styles["h3"]))
+            elements.append(Spacer(1, 24))
 
-        # --- Summary Table ---
-        summary_data = [
-            ["Total Tasks", "Completed", "Incomplete", "Average Priority"],
-            [total_tasks, completed_tasks, incomplete_tasks, avg_priority],
-        ]
-        summary_table = Table(summary_data, repeatRows=1)
-        summary_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.lightsteelblue),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ]))
-        elements.append(summary_table)
-        elements.append(Spacer(1, 20))
+            # --- Summary Table ---
+            summary_data = [
+                ["Total Tasks", "Completed", "Incomplete", "Average Priority"],
+                [total_tasks, completed_tasks, incomplete_tasks, avg_priority],
+            ]
+            summary_table = Table(summary_data, repeatRows=1)
+            summary_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightsteelblue),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ]))
+            elements.append(summary_table)
+            elements.append(Spacer(1, 20))
 
-        # --- Tasks Table ---
-        task_data = [["Name", "Due Date", "Status", "Priority", "Owner", "Collaborators"]]
+            # --- Tasks Table ---
+            task_data = [["Name", "Due Date", "Status", "Priority", "Owner", "Collaborators"]]
 
-        for task in tasks:
-            # name
-            task_name = Paragraph(task.get("task_name", "Unknown Task"), styles['BodyText'])
+            for task in tasks:
+                # name
+                task_name = Paragraph(task.get("task_name", "Unknown Task"), styles['BodyText'])
 
-            # Format date (dd-mm-yyyy)
-            due_date = task.get("end_date", "—")
-            if due_date and isinstance(due_date, str) and "T" not in due_date:
-                try:
-                    dt = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
-                    due_date = dt.strftime("%d-%m-%Y")
-                except Exception:
-                    due_date = str(due_date)[:10]
-            elif isinstance(due_date, datetime):
-                due_date = due_date.strftime("%d-%m-%Y")
+                # Format date (dd-mm-yyyy)
+                due_date = task.get("end_date", "—")
+                if due_date and isinstance(due_date, str) and "T" not in due_date:
+                    try:
+                        dt = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
+                        due_date = dt.strftime("%d-%m-%Y")
+                    except Exception:
+                        due_date = str(due_date)[:10]
+                elif isinstance(due_date, datetime):
+                    due_date = due_date.strftime("%d-%m-%Y")
 
-            # Owner & collaborators
-            owner_name = get_user_info(task.get("owner"))
-            collaborators_list = task.get("assigned_to", [])
-            collaborators_names = [get_user_info(uid) for uid in collaborators_list]
-            # collaborators_str = ", ".join(collaborators_names) if collaborators_names else "—"
-            collaborators_str = []
-            for name in collaborators_names:
-                collaborators_str.append(Paragraph(name, styles['Normal'], bulletText='•'))
+                # Owner & collaborators
+                owner_name = get_user_info(task.get("owner"))
+                collaborators_list = task.get("assigned_to", [])
+                collaborators_names = [get_user_info(uid) for uid in collaborators_list]
+                # collaborators_str = ", ".join(collaborators_names) if collaborators_names else "—"
+                collaborators_str = []
+                for name in collaborators_names:
+                    collaborators_str.append(Paragraph(name, styles['Normal'], bulletText='•'))
 
-            task_data.append([
-                task_name,
-                due_date,
-                task.get("task_status", "N/A"),
-                task.get("priority_level", "—"),
-                owner_name,
-                collaborators_str,
-            ])
+                task_data.append([
+                    task_name,
+                    due_date,
+                    task.get("task_status", "N/A"),
+                    task.get("priority_level", "—"),
+                    owner_name,
+                    collaborators_str,
+                ])
 
-        task_table = Table(task_data, repeatRows=1, colWidths=[90, 70, 90, 50, 100, 160])
-        task_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.lightcoral),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-        ]))
-        elements.append(task_table)
+            task_table = Table(task_data, repeatRows=1, colWidths=[90, 70, 90, 50, 100, 160])
+            task_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightcoral),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+            ]))
+            elements.append(task_table)
 
         # --- Build PDF ---
         doc.build(elements)
         buffer.seek(0)
-
-        return send_file(
-            buffer,
-            as_attachment=True,
-            download_name=f"{project_name.replace(' ', '_')}_Tasks.pdf",
-            mimetype="application/pdf"
-        )
+        
+        if format_type == 'calendar':
+            return send_file(
+                buffer,
+                as_attachment=True,
+                download_name=f"{project_name.replace(' ', '_')}_Calendar.pdf",
+                mimetype="application/pdf"
+            )
+        else:
+            return send_file(
+                buffer,
+                as_attachment=True,
+                download_name=f"{project_name.replace(' ', '_')}_Tasks.pdf",
+                mimetype="application/pdf"
+            )
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# =============== EXPORT PROJECT TEAM SCHEDULE TO EXCEL ===============
+@projects_bp.route("/api/projects/<project_id>/export-excel", methods=["GET"])
+def export_project_team_schedule_excel(project_id):
+    try:
+        print(f"=== EXCEL EXPORT DEBUG ===")
+        print(f"Project ID: {project_id}")
+        
+        db = get_firestore_client()
+        print("Firestore client obtained")
+
+        # --- Fetch Project Info ---
+        project_doc = db.collection("Projects").document(project_id).get()
+        project_name = "Unnamed Project"
+        if project_doc.exists:
+            project_data = project_doc.to_dict()
+            project_name = project_data.get("proj_name", project_name)
+            print(f"Project found: {project_name}")
+        else:
+            print(f"Project not found for ID: {project_id}")
+
+        # --- Fetch Tasks for Project ---
+        tasks_ref = db.collection("Tasks").where("proj_ID", "==", project_id)
+        tasks = [doc.to_dict() for doc in tasks_ref.stream()]
+        tasks.sort(key=lambda task: task.get("end_date"))
+        print(f"Found {len(tasks)} tasks")
+
+        if not tasks:
+            print("No tasks found, returning 404")
+            return jsonify({"error": f"No tasks found for project ID: {project_id}"}), 404
+
+        # --- Fetch all users (for name and department lookup) ---
+        users_ref = db.collection("Users")
+        users = {u.id: u.to_dict() for u in users_ref.stream()}
+
+        def get_user_info(uid):
+            user = users.get(uid)
+            if not user:
+                return "Unknown"
+            name = user.get("name", "Unknown")
+            dept = user.get("division_name", "N/A")
+            return f"{name} ({dept})"
+
+        # --- Create Excel Workbook ---
+        print("Creating Excel workbook...")
+        wb = Workbook()
+        # Remove the default sheet - we'll create monthly sheets directly
+        wb.remove(wb.active)
+        print("Excel workbook created")
+
+        # --- Define Premium Styles ---
+        # Header styles
+        header_font = Font(bold=True, color="FFFFFF", size=11, name="Arial")
+        header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")  # Deep blue
+        month_header_font = Font(bold=True, color="1E3A8A", size=18, name="Arial")
+        
+        # Border styles
+        thick_border = Border(
+            left=Side(style='thick', color="1E3A8A"),
+            right=Side(style='thick', color="1E3A8A"),
+            top=Side(style='thick', color="1E3A8A"),
+            bottom=Side(style='thick', color="1E3A8A")
+        )
+        thin_border = Border(
+            left=Side(style='thin', color="E5E7EB"),
+            right=Side(style='thin', color="E5E7EB"),
+            top=Side(style='thin', color="E5E7EB"),
+            bottom=Side(style='thin', color="E5E7EB")
+        )
+        
+        # Alignment styles
+        center_alignment = Alignment(horizontal="center", vertical="center")
+        left_alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+        
+        # Premium priority colors with gradients
+        high_priority_fill = PatternFill(start_color="DC2626", end_color="DC2626", fill_type="solid")  # Red
+        medium_priority_fill = PatternFill(start_color="F59E0B", end_color="F59E0B", fill_type="solid")  # Amber
+        low_priority_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")  # Emerald
+        completed_fill = PatternFill(start_color="6B7280", end_color="6B7280", fill_type="solid")  # Gray
+        
+        # Collaborator colors - each team member gets a unique color
+        collaborator_colors = [
+            "FF6B6B",  # Red
+            "4ECDC4",  # Teal
+            "45B7D1",  # Blue
+            "96CEB4",  # Green
+            "FFEAA7",  # Yellow
+            "DDA0DD",  # Plum
+            "98D8C8",  # Mint
+            "F7DC6F",  # Light Yellow
+            "BB8FCE",  # Light Purple
+            "85C1E9",  # Light Blue
+            "F8C471",  # Light Orange
+            "82E0AA",  # Light Green
+            "F1948A",  # Light Red
+            "85C1E9",  # Sky Blue
+            "D7BDE2"   # Light Lavender
+        ]
+        
+        # Background colors
+        member_cell_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")  # Light gray
+        weekend_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")  # Light yellow
+        today_fill = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")  # Light blue
+
+
+        # --- Create Monthly Sheets ---
+        print("Creating monthly sheets...")
+        
+        # Import calendar module
+        import calendar as cal_module
+        
+        # Get all unique dates from tasks and group by month
+        dates_by_month = {}
+        for task in tasks:
+            start_date = task.get("start_date", "")
+            end_date = task.get("end_date", "")
+            
+            print(f"Task: {task.get('task_name', '')}")
+            print(f"  Start date: {start_date} (type: {type(start_date)})")
+            print(f"  End date: {end_date} (type: {type(end_date)})")
+            
+            if start_date:
+                try:
+                    if isinstance(start_date, str):
+                        if "T" in start_date:
+                            dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+                        else:
+                            dt = datetime.fromisoformat(start_date)
+                    else:
+                        dt = start_date
+                    
+                    if dt.tzinfo:
+                        dt = dt.replace(tzinfo=None)
+                    
+                    month_key = (dt.year, dt.month)
+                    if month_key not in dates_by_month:
+                        dates_by_month[month_key] = set()
+                    dates_by_month[month_key].add(dt.date())
+                    print(f"  Parsed start date: {dt.date()}")
+                except Exception as e:
+                    print(f"  Error parsing start date: {e}")
+            
+            if end_date:
+                try:
+                    if isinstance(end_date, str):
+                        if "T" in end_date:
+                            dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                        else:
+                            dt = datetime.fromisoformat(end_date)
+                    else:
+                        dt = end_date
+                    
+                    if dt.tzinfo:
+                        dt = dt.replace(tzinfo=None)
+                    
+                    month_key = (dt.year, dt.month)
+                    if month_key not in dates_by_month:
+                        dates_by_month[month_key] = set()
+                    dates_by_month[month_key].add(dt.date())
+                    print(f"  Parsed end date: {dt.date()}")
+                except Exception as e:
+                    print(f"  Error parsing end date: {e}")
+        
+        print(f"Found {len(dates_by_month)} months with tasks")
+        
+        if not dates_by_month:
+            print("No dates found, creating empty sheet")
+            ws['A8'] = "No tasks with dates found"
+            ws['A8'].font = Font(italic=True, color="666666")
+        else:
+            
+            # Create a separate sheet for each month
+            for (year, month), month_dates in sorted(dates_by_month.items()):
+                print(f"Creating sheet for {cal_module.month_name[month]} {year}")
+                
+                # Create new worksheet for this month
+                month_sheet_name = f"{cal_module.month_name[month][:3]} {year}"
+                if month_sheet_name in wb.sheetnames:
+                    ws = wb[month_sheet_name]
+                else:
+                    ws = wb.create_sheet(title=month_sheet_name)
+                
+                # Add premium header to this sheet
+                ws['A1'] = f"📊 {cal_module.month_name[month]} {year} - {project_name}"
+                ws['A1'].font = Font(bold=True, size=16, name="Arial", color="1E3A8A")
+                ws['A1'].fill = PatternFill(start_color="EFF6FF", end_color="EFF6FF", fill_type="solid")
+                ws['A1'].border = thick_border
+                ws['A1'].alignment = center_alignment
+                
+                ws['A2'] = f"🕒 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                ws['A2'].font = Font(size=11, italic=True, name="Arial", color="6B7280")
+                ws['A2'].alignment = center_alignment
+                
+                # Add legend header
+                ws['A3'] = "👥 Team Members:"
+                ws['A3'].font = Font(bold=True, size=12, name="Arial", color="1E3A8A")
+                
+                # Calculate month days
+                month_days = cal_module.monthrange(year, month)[1]
+                
+                # First, collect all tasks for this month
+                month_tasks = []
+                for task in tasks:
+                    assigned_to = task.get("assigned_to", [])
+                    start_date = task.get("start_date", "")
+                    end_date = task.get("end_date", "")
+                    
+                    task_start = None
+                    task_end = None
+                    
+                    if start_date:
+                        try:
+                            if isinstance(start_date, str):
+                                if "T" in start_date:
+                                    dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+                                else:
+                                    dt = datetime.fromisoformat(start_date)
+                            else:
+                                dt = start_date
+                            
+                            if dt.tzinfo:
+                                dt = dt.replace(tzinfo=None)
+                            task_start = dt.date()
+                        except:
+                            pass
+                    
+                    if end_date:
+                        try:
+                            if isinstance(end_date, str):
+                                if "T" in end_date:
+                                    dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                                else:
+                                    dt = datetime.fromisoformat(end_date)
+                            else:
+                                dt = end_date
+                            
+                            if dt.tzinfo:
+                                dt = dt.replace(tzinfo=None)
+                            task_end = dt.date()
+                        except:
+                            pass
+                    
+                    # Check if task overlaps with this month
+                    if task_start and task_end:
+                        month_start = datetime(year, month, 1).date()
+                        month_end = datetime(year, month, cal_module.monthrange(year, month)[1]).date()
+                        
+                        # Task overlaps with this month if it starts before month ends and ends after month starts
+                        if task_start <= month_end and task_end >= month_start:
+                            # Get team members for this task
+                            for user_id in assigned_to:
+                                # Get user name from Firestore
+                                try:
+                                    user_doc = users_ref.document(user_id).get()
+                                    if user_doc.exists:
+                                        member_name = user_doc.to_dict().get('name', f'User_{user_id}')
+                                    else:
+                                        member_name = f'User_{user_id}'
+                                except:
+                                    member_name = f'User_{user_id}'
+                                
+                                month_tasks.append({
+                                    'name': task.get('task_name', ''),
+                                    'member': member_name,
+                                    'member_id': user_id,  # Store user ID for filtering
+                                    'start': task_start,
+                                    'end': task_end,
+                                    'priority': task.get('priority_level', 1)  # Use consistent field name
+                                })
+                
+                # Sort tasks by start date
+                month_tasks.sort(key=lambda x: x['start'])
+                print(f"Found {len(month_tasks)} tasks for {cal_module.month_name[month]} {year}")
+                
+                # Create Gantt chart with date headers
+                current_row = 4  # Start after project header
+                
+                # Add priority color legend first
+                ws[f'A{current_row}'] = "🎯 Priority Legend:"
+                ws[f'A{current_row}'].font = Font(bold=True, size=12, name="Arial", color="1E3A8A")
+                current_row += 1
+                
+                # High priority
+                ws[f'A{current_row}'] = "🔴 High Priority (4-5)"
+                ws[f'A{current_row}'].font = Font(size=10, name="Arial")
+                ws[f'A{current_row}'].fill = PatternFill(start_color="FF6B6B", end_color="FF6B6B", fill_type="solid")
+                ws[f'A{current_row}'].border = thin_border
+                ws[f'A{current_row}'].alignment = center_alignment
+                current_row += 1
+                
+                # Medium priority
+                ws[f'A{current_row}'] = "🟡 Medium Priority (2-3)"
+                ws[f'A{current_row}'].font = Font(size=10, name="Arial")
+                ws[f'A{current_row}'].fill = PatternFill(start_color="FFEAA7", end_color="FFEAA7", fill_type="solid")
+                ws[f'A{current_row}'].border = thin_border
+                ws[f'A{current_row}'].alignment = center_alignment
+                current_row += 1
+                
+                # Low priority
+                ws[f'A{current_row}'] = "🟢 Low Priority (1)"
+                ws[f'A{current_row}'].font = Font(size=10, name="Arial")
+                ws[f'A{current_row}'].fill = PatternFill(start_color="96CEB4", end_color="96CEB4", fill_type="solid")
+                ws[f'A{current_row}'].border = thin_border
+                ws[f'A{current_row}'].alignment = center_alignment
+                current_row += 1
+                
+                ws[f'A{current_row}'] = ""  # Empty row after legend
+                current_row += 1
+                
+                # Create day-of-week headers starting from column B
+                day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                for i, day_name in enumerate(day_names):
+                    col = i + 2  # Start from column B (column 2)
+                    day_cell = ws.cell(row=current_row, column=col, value=day_name)
+                    day_cell.font = header_font
+                    day_cell.fill = header_fill
+                    day_cell.border = thick_border
+                    day_cell.alignment = center_alignment
+                current_row += 1
+                
+                # Group tasks by team member and filter by project collaborators
+                tasks_by_member = {}
+                
+                # Get project collaborators from project data
+                project_collaborator_ids = set(project_data.get('collaborators', []))
+                print(f"Project collaborators: {project_collaborator_ids}")
+                
+                # Only include tasks from project collaborators (compare by user ID)
+                for task in month_tasks:
+                    # Check if this task's member is a project collaborator
+                    if task['member_id'] in project_collaborator_ids:
+                        member = task['member']
+                        if member not in tasks_by_member:
+                            tasks_by_member[member] = []
+                        tasks_by_member[member].append(task)
+                        print(f"Included task '{task['name']}' for collaborator '{member}' (ID: {task['member_id']})")
+                    else:
+                        print(f"Excluded task '{task['name']}' for non-collaborator '{member}' (ID: {task['member_id']})")
+                
+                
+                # Create calendar grid with Gantt bars
+                cal = cal_module.monthcalendar(year, month)
+                
+                # Create calendar rows (weeks) with day numbers and task bars
+                for week_idx, week in enumerate(cal):
+                    # Create day number row
+                    for day_idx, day_num in enumerate(week):
+                        col = day_idx + 2  # Start from column B (column 2)
+                        
+                        if day_num == 0:  # Empty day (not in this month)
+                            # Empty cell
+                            empty_cell = ws.cell(row=current_row, column=col, value="")
+                            empty_cell.border = thin_border
+                            empty_cell.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+                        else:
+                            # Day number cell
+                            day_cell = ws.cell(row=current_row, column=col, value=day_num)
+                            day_cell.font = Font(bold=True, size=12, name="Arial")
+                            day_cell.border = thin_border
+                            day_cell.alignment = center_alignment
+                            
+                            # Highlight weekends
+                            date_obj = datetime(year, month, day_num)
+                            if date_obj.weekday() >= 5:  # Saturday = 5, Sunday = 6
+                                day_cell.fill = weekend_fill
+                                day_cell.font = Font(bold=True, color="1E3A8A", size=12, name="Arial")
+                            else:
+                                day_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                    
+                    current_row += 1
+                    
+                    # Create task bars row for this week
+                    # Group tasks by member for this week
+                    week_tasks_by_member = {}
+                    for task in month_tasks:
+                        task_start_day = task['start'].day if task['start'].month == month else 1
+                        task_end_day = task['end'].day if task['end'].month == month else month_days
+                        
+                        # Check if task overlaps with this week
+                        week_days = [day for day in week if day != 0]
+                        if week_days and task_start_day <= max(week_days) and task_end_day >= min(week_days):
+                            member = task['member']
+                            if member not in week_tasks_by_member:
+                                week_tasks_by_member[member] = []
+                            week_tasks_by_member[member].append(task)
+                    
+                    # Create task bars for each member in this week
+                    for member, member_tasks in week_tasks_by_member.items():
+                        # Member name in first column
+                        member_cell = ws.cell(row=current_row, column=1, value=member)
+                        member_cell.font = Font(bold=True, size=10, name="Arial", color="1E3A8A")
+                        member_cell.border = thin_border
+                        member_cell.fill = member_cell_fill
+                        member_cell.alignment = center_alignment
+                        
+                        # Track which columns are already used for this row
+                        used_columns = set()
+                        
+                        # Create task bars across the week
+                        for task in member_tasks:
+                            task_start_day = task['start'].day if task['start'].month == month else 1
+                            task_end_day = task['end'].day if task['end'].month == month else month_days
+                            
+                            # Find start and end columns within this week
+                            start_col = None
+                            end_col = None
+                            
+                            for day_idx, day_num in enumerate(week):
+                                if day_num != 0:  # Only consider days in this month
+                                    if day_num == task_start_day:
+                                        start_col = day_idx + 2  # Start from column B (column 2)
+                                    if day_num == task_end_day:
+                                        end_col = day_idx + 2  # Start from column B (column 2)
+                            
+                            # If task starts before this week, start from first day
+                            if start_col is None and task_start_day < min([d for d in week if d != 0]):
+                                start_col = 2  # Column B
+                            
+                            # If task ends after this week, end at last day
+                            if end_col is None and task_end_day > max([d for d in week if d != 0]):
+                                end_col = 8  # Column H (last day column)
+                            
+                            if start_col and end_col:
+                                # Check for overlaps
+                                task_columns = set(range(start_col, end_col + 1))
+                                if task_columns.intersection(used_columns):
+                                    continue
+                                
+                                # Mark columns as used
+                                used_columns.update(task_columns)
+                                
+                                # Create task bar with priority-based color
+                                priority = task.get('priority', 1)  # This should match the field name used above
+                                
+                                # Convert priority to integer if it's a string
+                                try:
+                                    priority = int(priority)
+                                except (ValueError, TypeError):
+                                    priority = 1  # Default to low priority if conversion fails
+                                
+                                print(f"Task '{task['name']}' has priority: {priority} (type: {type(priority)})")
+                                
+                                # Handle different priority scales (1-3 or 1-5)
+                                if priority >= 4:  # High priority (4-5 scale or 3 scale)
+                                    task_fill = PatternFill(start_color="FF6B6B", end_color="FF6B6B", fill_type="solid")
+                                    print(f"  -> Using HIGH priority color (red)")
+                                elif priority >= 2:  # Medium priority (2-3 scale or 2 scale)
+                                    task_fill = PatternFill(start_color="FFEAA7", end_color="FFEAA7", fill_type="solid")
+                                    print(f"  -> Using MEDIUM priority color (yellow)")
+                                else:  # Low priority (1 or default)
+                                    task_fill = PatternFill(start_color="96CEB4", end_color="96CEB4", fill_type="solid")
+                                    print(f"  -> Using LOW priority color (green)")
+                                
+                                if start_col == end_col:
+                                    # Single day task
+                                    cell = ws.cell(row=current_row, column=start_col, value=task['name'])
+                                    cell.border = thin_border
+                                    cell.alignment = center_alignment
+                                    cell.fill = task_fill
+                                    cell.font = Font(size=8, bold=True, color="FFFFFF", name="Arial")
+                                else:
+                                    # Multi-day task - create horizontal bar
+                                    try:
+                                        start_cell = ws.cell(row=current_row, column=start_col, value=task['name'])
+                                        start_cell.border = thin_border
+                                        start_cell.alignment = center_alignment
+                                        start_cell.fill = task_fill
+                                        start_cell.font = Font(size=8, bold=True, color="FFFFFF", name="Arial")
+                                        
+                                        # Merge cells to create the bar
+                                        ws.merge_cells(start_row=current_row, start_column=start_col, 
+                                                     end_row=current_row, end_column=end_col)
+                                        print(f"Successfully merged cells for task '{task['name']}'")
+                                    except Exception as e:
+                                        print(f"Error creating task bar for '{task['name']}': {e}")
+                                        ws.cell(row=current_row, column=start_col, value=task['name'])
+                        
+                        current_row += 1
+                
+                # Calendar view complete - tasks are now displayed inside each day cell
+                
+                # Set column widths and row heights for this sheet
+                # Calendar columns (Mon-Sun) + team member column
+                ws.column_dimensions['A'].width = 20  # Team member column
+                for col in range(2, 9):  # 7 days of the week (columns B-H)
+                    column_letter = ws.cell(row=1, column=col).column_letter
+                    ws.column_dimensions[column_letter].width = 15  # Calendar day columns
+                
+                # Set row heights
+                for row in range(1, current_row + 5):
+                    if row == 1:  # Project header
+                        ws.row_dimensions[row].height = 35
+                    elif row == 2:  # Timestamp
+                        ws.row_dimensions[row].height = 25
+                    elif row >= 8:  # Calendar rows (after headers and legend)
+                        ws.row_dimensions[row].height = 40  # Height for calendar with task bars
+                    else:
+                        ws.row_dimensions[row].height = 25
+
+        # --- Multi-sheet setup complete ---
+        # Each month now has its own sheet with proper sizing
+
+        # --- Save to BytesIO ---
+        print("Saving Excel to buffer...")
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        print(f"Excel saved, buffer size: {buffer.getbuffer().nbytes} bytes")
+
+        filename = f"{project_name.replace(' ', '_')}_Team_Calendar.xlsx"
+        print(f"Returning file: {filename}")
+        
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except Exception as e:
+        print(f"❌ EXCEL EXPORT ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 # # =============== UPDATE PROJECT ===============
 # @projects_bp.route('/api/projects/<project_id>', methods=['PUT'])
 # def update_project(project_id):
