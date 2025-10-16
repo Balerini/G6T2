@@ -76,11 +76,15 @@ export const taskService = {
 
   async deleteTask(taskId) {
       try {
-          // CHANGE THIS LINE - use 'api' instead of 'axios'
-          const response = await api.put(`/api/tasks/${taskId}/delete`);
+          const userString = sessionStorage.getItem('user');
+          const userData = JSON.parse(userString);
+          
+          const response = await api.put(`/api/tasks/${taskId}/delete`, {
+              userId: userData.id  // Send user ID for backend validation
+          });
           return response.data;
       } catch (error) {
-          console.error('Soft delete task error:', error);
+          console.error('Delete task error:', error);
           throw new Error(error.response?.data?.error || 'Failed to delete task');
       }
   },
