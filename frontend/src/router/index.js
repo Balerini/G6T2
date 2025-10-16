@@ -107,8 +107,7 @@ const routes = [
     path: '/reset-password',
     name: 'ResetPassword',
     component: ResetPassword
-  }
-
+  },
 ]
 
 const router = createRouter({

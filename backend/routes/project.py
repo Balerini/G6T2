@@ -1,8 +1,15 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 from firebase_utils import get_firestore_client
 from firebase_admin import firestore
 from datetime import datetime
 import traceback
+
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
+from statistics import mean
 
 projects_bp = Blueprint('projects', __name__)
 
@@ -688,7 +695,148 @@ def create_project():
         print(f"Error creating project: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-    
+
+# =============== EXPORT PROJECT ===============
+@projects_bp.route("/api/projects/<project_id>/export", methods=["GET"])
+def export_project_tasks(project_id):
+    try:
+        db = get_firestore_client()
+
+        # --- Fetch Project Info ---
+        project_doc = db.collection("Projects").document(project_id).get()
+        project_name = "Unnamed Project"
+        if project_doc.exists:
+            project_data = project_doc.to_dict()
+            project_name = project_data.get("proj_name", project_name)
+
+        # --- Fetch Tasks for Project ---
+        tasks_ref = db.collection("Tasks").where("proj_ID", "==", project_id)
+        # tasks_ref = db.collection("Tasks").where("proj_ID", "==", project_id).order_by("end_date")
+        # tasks_query = (
+        #     tasks_ref.where("proj_ID", "==", project_id)
+        #     # .order_by("end_date")
+        # )
+
+        tasks = [doc.to_dict() for doc in tasks_ref.stream()]
+        # tasks = [doc.to_dict() for doc in tasks_query.stream()]
+        tasks.sort(key=lambda task: task.get("end_date"))
+
+        # print('HELP LAAAAA', tasks)
+
+        if not tasks:
+            return jsonify({"error": f"No tasks found for project ID: {project_id}"}), 404
+
+        # --- Fetch all users (for name and department lookup) ---
+        users_ref = db.collection("Users")
+        users = {u.id: u.to_dict() for u in users_ref.stream()}
+
+        def get_user_info(uid):
+            user = users.get(uid)
+            if not user:
+                return "Unknown"
+            name = user.get("name", "Unknown")
+            dept = user.get("division_name", "N/A")
+            return f"{name} ({dept})"
+
+        # --- Compute summary ---
+        total_tasks = len(tasks)
+        completed_tasks = sum(1 for t in tasks if t.get("task_status") == "Completed")
+        incomplete_tasks = total_tasks - completed_tasks
+        avg_priority = round(mean([t.get("priority_level", 0) for t in tasks if isinstance(t.get("priority_level"), (int, float))]), 1)
+
+        # --- Create PDF ---
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=40,
+            rightMargin=40,
+            topMargin=40,
+            bottomMargin=40,
+        )
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # --- Title ---
+        elements.append(Paragraph(f"<b>Project Report: {project_name}</b>", styles["h1"]))
+        # elements.append(Spacer(1, 6))
+        elements.append(Paragraph(f"ID: {project_id}", styles["h3"]))
+        elements.append(Spacer(1, 24))
+
+        # --- Summary Table ---
+        summary_data = [
+            ["Total Tasks", "Completed", "Incomplete", "Average Priority"],
+            [total_tasks, completed_tasks, incomplete_tasks, avg_priority],
+        ]
+        summary_table = Table(summary_data, repeatRows=1)
+        summary_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightsteelblue),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ]))
+        elements.append(summary_table)
+        elements.append(Spacer(1, 20))
+
+        # --- Tasks Table ---
+        task_data = [["Name", "Due Date", "Status", "Priority", "Owner", "Collaborators"]]
+
+        for task in tasks:
+            # name
+            task_name = Paragraph(task.get("task_name", "Unknown Task"), styles['BodyText'])
+
+            # Format date (dd-mm-yyyy)
+            due_date = task.get("end_date", "—")
+            if due_date and isinstance(due_date, str) and "T" not in due_date:
+                try:
+                    dt = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
+                    due_date = dt.strftime("%d-%m-%Y")
+                except Exception:
+                    due_date = str(due_date)[:10]
+            elif isinstance(due_date, datetime):
+                due_date = due_date.strftime("%d-%m-%Y")
+
+            # Owner & collaborators
+            owner_name = get_user_info(task.get("owner"))
+            collaborators_list = task.get("assigned_to", [])
+            collaborators_names = [get_user_info(uid) for uid in collaborators_list]
+            # collaborators_str = ", ".join(collaborators_names) if collaborators_names else "—"
+            collaborators_str = []
+            for name in collaborators_names:
+                collaborators_str.append(Paragraph(name, styles['Normal'], bulletText='•'))
+
+            task_data.append([
+                task_name,
+                due_date,
+                task.get("task_status", "N/A"),
+                task.get("priority_level", "—"),
+                owner_name,
+                collaborators_str,
+            ])
+
+        task_table = Table(task_data, repeatRows=1, colWidths=[90, 70, 90, 50, 100, 160])
+        task_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightcoral),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ]))
+        elements.append(task_table)
+
+        # --- Build PDF ---
+        doc.build(elements)
+        buffer.seek(0)
+
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f"{project_name.replace(' ', '_')}_Tasks.pdf",
+            mimetype="application/pdf"
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 # # =============== UPDATE PROJECT ===============
 # @projects_bp.route('/api/projects/<project_id>', methods=['PUT'])
 # def update_project(project_id):
