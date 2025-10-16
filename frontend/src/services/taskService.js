@@ -218,6 +218,15 @@ export const taskService = {
       throw new Error(error.response?.data?.error || 'Failed to update subtask');
     }
   },
+
+  async getTeamSubtasks(managerId) {
+    try {
+      const response = await api.get(`/api/subtasks/team/${managerId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to fetch team subtasks');
+    }
+  },
 };
 
   
