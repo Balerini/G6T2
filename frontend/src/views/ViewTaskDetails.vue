@@ -489,8 +489,19 @@ export default {
       selectedSubtask: null,
       showDeleteConfirmModal: false,
       isDeletingTask: false,
+      currentUser: null,
     }
   },
+
+  mounted() {
+    // Load current user
+    const userString = sessionStorage.getItem('user');
+    if (userString) {
+        this.currentUser = JSON.parse(userString);
+    }
+  },
+
+
   created() {
     this.loadTaskData()
   },

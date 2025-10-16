@@ -603,29 +603,40 @@ def get_all_projects():
         print(f"Error in get_all_projects: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@tasks_bp.route('/api/tasks/<task_id>/delete', methods=['PUT'])  # Note: PUT, not DELETE
+@tasks_bp.route('/api/tasks/<task_id>/delete', methods=['PUT'])
 def soft_delete_task(task_id):
     try:
         db = get_firestore_client()
         
-        # UPDATE the document (NOT delete it)
+        # Get the task first
         task_ref = db.collection('Tasks').document(task_id)
-        task_ref.update({  # Using UPDATE, not DELETE
-            'is_deleted': True,        # Set flag to True
-            'deleted_at': firestore.SERVER_TIMESTAMP,  # Add timestamp
-            'updatedAt': firestore.SERVER_TIMESTAMP
+        task_doc = task_ref.get()
+        
+        if not task_doc.exists:
+            return jsonify({'error': 'Task not found'}), 404
+        
+        task_data = task_doc.to_dict()
+        
+        # CRITICAL: Get user ID from request
+        request_data = request.get_json()
+        user_id = request_data.get('userId') if request_data else None
+        
+        if not user_id:
+            return jsonify({'error': 'User ID required'}), 400
+        
+        # CRITICAL: Validate ownership
+        if str(task_data.get('owner')) != str(user_id):
+            return jsonify({'error': 'Only task owner can delete this task'}), 403
+        
+        # Now safe to delete
+        task_ref.update({
+            'is_deleted': True,
+            'deleted_at': firestore.SERVER_TIMESTAMP
         })
         
-        print(f"Task {task_id} soft deleted (is_deleted = True)")
-        
-        return jsonify({
-            "message": "Task moved to deleted items",
-            "task_id": task_id,
-            "is_deleted": True
-        }), 200
+        return jsonify({"message": "Task deleted successfully"}), 200
         
     except Exception as e:
-        print(f"Error soft deleting task: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
 # =============== GET DELETED TASKS ===============
