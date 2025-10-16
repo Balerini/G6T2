@@ -3,7 +3,7 @@
     <div class="schedule-header">
       <div class="header-top">
         <div class="title-section">
-          <h3 class="schedule-title">📅 Team Schedule</h3>
+          <h3 class="schedule-title">📅 Project Team Task Schedule</h3>
           <p class="schedule-subtitle">Project timeline and task assignments</p>
         </div>
         <button @click="downloadSchedule" class="download-btn" title="Download Team Schedule">

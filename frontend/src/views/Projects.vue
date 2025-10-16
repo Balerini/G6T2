@@ -217,7 +217,7 @@
             <!-- ✅ When no tasks match filter -->
             <div v-else class="nofound-section">
                 <div class="mt-5">
-                <div class="d-flex justify-content-center">
+                <!-- <div class="d-flex justify-content-center">
                     <svg
                     xmlns="http://www.w3.org/2000/svg"
                     height="100"
@@ -237,12 +237,17 @@
                         d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"
                     />
                     </svg>
+                </div> -->
+                <div class="card">
+                  <div class="no-tasks-message">
+                    <div class="no-tasks-icon">📋</div>
+                  <div class="no-tasks-text">No standalone tasks found with this filter or status</div>
                 </div>
-
-                <h2 class="text-center mt-2">No standalone tasks found.</h2>
+              </div>
+                <!-- <h2 class="text-center mt-2">No standalone tasks found.</h2>
                 <p class="text-center">
                     There are no tasks found associated with this filter or status.
-                </p>
+                </p> -->
                 </div>
             </div>
             </div>
@@ -900,6 +905,37 @@ export default {
 </script>
 
 <style scoped>
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    max-width: 100%;
+    margin: 0;
+}
+
+.no-tasks-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.no-tasks-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.no-tasks-text {
+    font-size: 18px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
 /* Toast Notifications */
 .toast {
   position: fixed;
