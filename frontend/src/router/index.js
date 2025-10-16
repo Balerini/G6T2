@@ -11,6 +11,7 @@ import CreateProject from '../views/CreateProject.vue'
 import ViewTaskDetails from '../views/ViewTaskDetails.vue'
 import Notifications from '../views/Notifications.vue'
 import ViewProject from '../views/ViewProjectDetails.vue';
+import DeletedItems from '../views/DeletedItems.vue'
 import ForgotPassword from '@/components/ForgotPassword.vue';
 import ResetPassword from '@/components/ResetPassword.vue';
 import ManagerViewTeamTaskSchedule from '@/components/Dashboard/ManagerViewTeamTaskSchedule.vue';
@@ -94,6 +95,12 @@ const routes = [
   //   component: ViewOwnTasks,
   //   meta: { showNav: true }
   // },
+  {
+    path: '/deleted-items',
+    name: 'DeletedItems',
+    component: DeletedItems,
+    meta: { requiresAuth: true } 
+  },
   {
     path: '/:pathMatch(.*)*',
     redirect: '/'

@@ -19,64 +19,71 @@ tasks_bp = Blueprint('tasks', __name__)
 def create_task():
     try:
         task_data = request.get_json()
-        print("=== BACKEND TASK CREATION DEBUG ===")
+        print("BACKEND TASK CREATION DEBUG")
         print(f"Received task data: {task_data}")
         print(f"Priority level received: {task_data.get('priority_level')}")  # Changed to priority_level
-        
+
+        # TITLE: CREATE TASK
         # Validate required fields
         required_fields = ['task_name', 'start_date', 'priority_level']  # Changed to priority_level
         for field in required_fields:
             if not task_data.get(field):
-                return jsonify({'error': f'Required field missing: {field}'}), 400
+                return jsonify({"error": f"Required field missing: {field}"}), 400
 
+        # TITLE: Validate required fields
         # Validate priority level range
         try:
             priority_level = int(task_data.get('priority_level'))  # Changed variable name
             if priority_level < 1 or priority_level > 10:
-                return jsonify({'error': 'Priority level must be between 1 and 10'}), 400
+                return jsonify({"error": "Priority level must be between 1 and 10"}), 400
         except (ValueError, TypeError):
-            return jsonify({'error': 'Priority level must be a valid number between 1 and 10'}), 400
+            return jsonify({"error": "Priority level must be a valid number between 1 and 10"}), 400
 
+        # TITLE: Validate priority level range
         # Get Firestore client
         db = get_firestore_client()
 
+        # TITLE: Get Firestore client
         # Get creator ID early so we can use it throughout
         owner_id = task_data.get('owner', '')
 
+        # TITLE: Get creator ID early so we can use it throughout
         # Convert date strings to datetime objects with Singapore timezone
         sg_tz = pytz.timezone('Asia/Singapore')
-        
         start_date = datetime.strptime(task_data['start_date'], '%Y-%m-%d')
         start_date = sg_tz.localize(start_date)
         
         end_date = None
         if task_data.get('end_date'):
             end_date = datetime.strptime(task_data['end_date'], '%Y-%m-%d')
-            # Set end time to end of day in Singapore timezone
+            # TITLE: Convert date strings to datetime objects with Singapore timezone
             end_date = sg_tz.localize(end_date.replace(hour=23, minute=59, second=59))
 
+        # TITLE: Set end time to end of day in Singapore timezone
         # Get project ID from project name if provided
         proj_id = None
         if task_data.get('proj_name'):
-            # Find the project by name to get its ID
+            # TITLE: Get project ID from project name if provided
             projects_ref = db.collection('Projects')
             projects_query = projects_ref.where('proj_name', '==', task_data.get('proj_name')).limit(1)
             project_docs = list(projects_query.stream())
+            
             if project_docs:
                 proj_id = project_docs[0].id
-                print(f"Found project ID {proj_id} for project name: {task_data.get('proj_name')}")
+                print(f"Found project ID: {proj_id} for project name: {task_data.get('proj_name')}")
             else:
                 print(f"Warning: Project not found for name: {task_data.get('proj_name')}")
-                # List all available projects for debugging
+                # TITLE: Find the project by name to get its ID
                 all_projects = projects_ref.stream()
                 print("Available projects:")
                 for proj in all_projects:
                     proj_data = proj.to_dict()
-                    print(f"  - ID: {proj.id}, Name: {proj_data.get('proj_name', 'No name')}")
+                    print(f" - ID: {proj.id}, Name: {proj_data.get('proj_name', 'No name')}")
         else:
             print("No project name provided in task data")
+            # TITLE: List all available projects for debugging
 
-        # Prepare task data for Firestore
+        # TITLE: Prepare task data for Firestore
         firestore_task_data = {
             'proj_name': task_data.get('proj_name', ''),
             'proj_ID': proj_id,
@@ -85,23 +92,25 @@ def create_task():
             'start_date': start_date,
             'end_date': end_date,
             'owner': owner_id,
-            'assigned_to': task_data.get('assigned_to', []), 
+            'assigned_to': task_data.get('assigned_to', []),
             'attachments': task_data.get('attachments', []),
             'task_status': task_data.get('task_status'),
-            'priority_level': priority_level,  
+            'priority_level': priority_level,
             'hasSubtasks': task_data.get('hasSubtasks', False),
+            'is_deleted': task_data.get('is_deleted', False),  # ADD THIS LINE
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
         }
 
-        # Add document to Firestore
         print(f"Adding task to Firestore: {firestore_task_data}")
-        print(f"Creating task: {firestore_task_data['task_name']} with assigned_to: {task_data.get('assigned_to', [])}")  # FIXED THIS LINE
+        print(f"Creating task '{firestore_task_data['task_name']}' with assigned_to: {task_data.get('assigned_to', [])}")  # FIXED THIS LINE
+
+        # TITLE: Add document to Firestore
         doc_ref = db.collection('Tasks').add(firestore_task_data)
         task_id = doc_ref[1].id
         print(f"Task created successfully with ID: {task_id}")
 
-        # Prepare response data
+        # TITLE: Prepare response data
         response_data = firestore_task_data.copy()
         response_data['id'] = task_id
         response_data['start_date'] = start_date.isoformat()
@@ -169,10 +178,10 @@ def create_task():
         return jsonify(response_data), 201
 
     except ValueError as e:
-        return jsonify({'error': f'Invalid date format. Use YYYY-MM-DD: {str(e)}'}), 400
+        return jsonify({"error": f"Invalid date format. Use YYYY-MM-DD: {str(e)}"}), 400
     except Exception as e:
         print(f"Error creating task: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 @tasks_bp.route("/api/tasks", methods=["GET"])
 def get_tasks():
@@ -584,3 +593,192 @@ def get_all_projects():
     except Exception as e:
         print(f"Error in get_all_projects: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@tasks_bp.route('/api/tasks/<task_id>/delete', methods=['PUT'])  # Note: PUT, not DELETE
+def soft_delete_task(task_id):
+    try:
+        db = get_firestore_client()
+        
+        # UPDATE the document (NOT delete it)
+        task_ref = db.collection('Tasks').document(task_id)
+        task_ref.update({  # Using UPDATE, not DELETE
+            'is_deleted': True,        # Set flag to True
+            'deleted_at': firestore.SERVER_TIMESTAMP,  # Add timestamp
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+        
+        print(f"Task {task_id} soft deleted (is_deleted = True)")
+        
+        return jsonify({
+            "message": "Task moved to deleted items",
+            "task_id": task_id,
+            "is_deleted": True
+        }), 200
+        
+    except Exception as e:
+        print(f"Error soft deleting task: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+# =============== GET DELETED TASKS ===============
+@tasks_bp.route('/api/tasks/deleted', methods=['GET'])
+def get_deleted_tasks():
+    """Get all deleted tasks (where is_deleted = True)"""
+    try:
+        print("📋 === GET DELETED TASKS ===")
+        
+        db = get_firestore_client()
+        user_id = request.args.get('userId')
+        
+        if not user_id:
+            return jsonify({"error": "userId parameter is required"}), 400
+        
+        # Query for deleted tasks where user is owner or assigned
+        tasks_ref = db.collection('Tasks')
+        query = tasks_ref.where('is_deleted', '==', True)
+        
+        tasks = []
+        seen_ids = set()
+        
+        # Get tasks where user is assigned
+        try:
+            assigned_query = query.where('assignedto', 'array_contains', user_id)
+            for doc in assigned_query.stream():
+                if doc.id not in seen_ids:
+                    task_data = doc.to_dict()
+                    task_data['id'] = doc.id
+                    
+                    # Convert timestamps to ISO format
+                    if 'deleted_at' in task_data and task_data['deleted_at']:
+                        task_data['deleted_at'] = task_data['deleted_at'].isoformat()
+                    if 'startdate' in task_data and task_data['startdate']:
+                        task_data['startdate'] = task_data['startdate'].isoformat()
+                    if 'enddate' in task_data and task_data['enddate']:
+                        task_data['enddate'] = task_data['enddate'].isoformat()
+                    
+                    tasks.append(task_data)
+                    seen_ids.add(doc.id)
+        except Exception as e:
+            print(f"Error querying assigned tasks: {e}")
+        
+        # Get tasks where user is owner
+        try:
+            owner_query = query.where('owner', '==', user_id)
+            for doc in owner_query.stream():
+                if doc.id not in seen_ids:
+                    task_data = doc.to_dict()
+                    task_data['id'] = doc.id
+                    
+                    # Convert timestamps to ISO format
+                    if 'deleted_at' in task_data and task_data['deleted_at']:
+                        task_data['deleted_at'] = task_data['deleted_at'].isoformat()
+                    if 'startdate' in task_data and task_data['startdate']:
+                        task_data['startdate'] = task_data['startdate'].isoformat()
+                    if 'enddate' in task_data and task_data['enddate']:
+                        task_data['enddate'] = task_data['enddate'].isoformat()
+                    
+                    tasks.append(task_data)
+                    seen_ids.add(doc.id)
+        except Exception as e:
+            print(f"Error querying owned tasks: {e}")
+        
+        print(f"📊 Found {len(tasks)} deleted tasks for user {user_id}")
+        return jsonify(tasks), 200
+        
+    except Exception as e:
+        print(f"❌ Error fetching deleted tasks: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# =============== GET DELETED SUBTASKS ===============
+@tasks_bp.route('/api/subtasks/deleted', methods=['GET'])
+def get_deleted_subtasks():
+    """Get all deleted subtasks (where is_deleted = True)"""
+    try:
+        print("📋 === GET DELETED SUBTASKS ===")
+        
+        db = get_firestore_client()
+        user_id = request.args.get('userId')
+        
+        if not user_id:
+            return jsonify({"error": "userId parameter is required"}), 400
+        
+        # Query for deleted subtasks where user is assigned or owns the parent task
+        subtasks_ref = db.collection('Subtasks')
+        query = subtasks_ref.where('is_deleted', '==', True)
+        
+        subtasks = []
+        seen_ids = set()
+        
+        # Get subtasks where user is assigned
+        try:
+            assigned_query = query.where('assignedto', 'array_contains', user_id)
+            for doc in assigned_query.stream():
+                if doc.id not in seen_ids:
+                    subtask_data = doc.to_dict()
+                    subtask_data['id'] = doc.id
+                    
+                    # Convert timestamps to ISO format
+                    if 'deleted_at' in subtask_data and subtask_data['deleted_at']:
+                        subtask_data['deleted_at'] = subtask_data['deleted_at'].isoformat()
+                    if 'startdate' in subtask_data and subtask_data['startdate']:
+                        subtask_data['startdate'] = subtask_data['startdate'].isoformat()
+                    if 'enddate' in subtask_data and subtask_data['enddate']:
+                        subtask_data['enddate'] = subtask_data['enddate'].isoformat()
+                    
+                    # Get parent task name if available
+                    if 'task_id' in subtask_data:
+                        try:
+                            parent_task = db.collection('Tasks').document(subtask_data['task_id']).get()
+                            if parent_task.exists:
+                                parent_data = parent_task.to_dict()
+                                subtask_data['parent_task_name'] = parent_data.get('taskname', 'Unknown Task')
+                        except Exception as e:
+                            print(f"Error getting parent task: {e}")
+                    
+                    subtasks.append(subtask_data)
+                    seen_ids.add(doc.id)
+        except Exception as e:
+            print(f"Error querying assigned subtasks: {e}")
+        
+        # Get subtasks where user owns the parent task
+        # This is more complex as we need to join subtasks with tasks
+        try:
+            # Get all user's tasks first
+            user_tasks = db.collection('Tasks').where('owner', '==', user_id).stream()
+            user_task_ids = [task.id for task in user_tasks]
+            
+            # Then get deleted subtasks for those tasks
+            for task_id in user_task_ids:
+                subtask_query = query.where('task_id', '==', task_id)
+                for doc in subtask_query.stream():
+                    if doc.id not in seen_ids:
+                        subtask_data = doc.to_dict()
+                        subtask_data['id'] = doc.id
+                        
+                        # Convert timestamps to ISO format
+                        if 'deleted_at' in subtask_data and subtask_data['deleted_at']:
+                            subtask_data['deleted_at'] = subtask_data['deleted_at'].isoformat()
+                        if 'startdate' in subtask_data and subtask_data['startdate']:
+                            subtask_data['startdate'] = subtask_data['startdate'].isoformat()
+                        if 'enddate' in subtask_data and subtask_data['enddate']:
+                            subtask_data['enddate'] = subtask_data['enddate'].isoformat()
+                        
+                        # Get parent task name
+                        try:
+                            parent_task = db.collection('Tasks').document(task_id).get()
+                            if parent_task.exists:
+                                parent_data = parent_task.to_dict()
+                                subtask_data['parent_task_name'] = parent_data.get('taskname', 'Unknown Task')
+                        except Exception as e:
+                            print(f"Error getting parent task: {e}")
+                        
+                        subtasks.append(subtask_data)
+                        seen_ids.add(doc.id)
+        except Exception as e:
+            print(f"Error querying owned subtasks: {e}")
+        
+        print(f"📊 Found {len(subtasks)} deleted subtasks for user {user_id}")
+        return jsonify(subtasks), 200
+        
+    except Exception as e:
+        print(f"❌ Error fetching deleted subtasks: {str(e)}")
+        return jsonify({"error": str(e)}), 500

@@ -991,28 +991,18 @@ export default {
 
     const roleFilteredUsers = computed(() => {
       // Check if a project is selected
-      const projectInfo = getSelectedProjectInfo();
-      const hasProject = projectInfo && projectInfo.name;
+      const projectInfo = getSelectedProjectInfo()
+      const hasProject = projectInfo && projectInfo.name
       
-      // If a project is selected, allow all project collaborators (no role restriction)
-      // Project collaborators should be able to assign any other collaborator
+      // If a project is selected, allow all project collaborators
       if (hasProject) {
-        console.log('📁 Project selected - allowing all project collaborators');
-        return filteredUsers.value;
+        console.log('Project selected - allowing all project collaborators')
+        return filteredUsers.value
       }
       
-      // For standalone tasks (no project), apply role hierarchy
-      const currentUser = getCurrentUser();
-      if (!currentUser || !currentUser.role_num) {
-        return filteredUsers.value; // No role info, allow all
-      }
-
-      console.log('📝 Standalone task - applying role hierarchy');
-      return filteredUsers.value.filter(user => {
-        // Current user can assign to users with role_num >= their own role_num
-        // (Higher role_num = lower hierarchy, 4=staff, 1=CEO)
-        return user.role_num >= currentUser.role_num;
-      });
+      // For standalone tasks (no project), now allow all users regardless of role
+      console.log('Standalone task - allowing all users (no role restrictions)')
+      return filteredUsers.value
     });
 
     // NEW: Cleanup on unmount
@@ -2044,6 +2034,7 @@ export default {
       const baseData = {
         ...formData,
         assigned_to: formData.assigned_to.map(user => typeof user === 'object' ? user.id : user),
+        is_deleted: false
       };
 
       return {

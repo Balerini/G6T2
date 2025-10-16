@@ -74,13 +74,75 @@ export const taskService = {
     }
   },
 
-  async deleteTask(id) {
-    try {
-      const response = await api.delete(`/api/tasks/${id}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.error || 'Failed to delete task');
-    }
+  async deleteTask(taskId) {
+      try {
+          // CHANGE THIS LINE - use 'api' instead of 'axios'
+          const response = await api.put(`/api/tasks/${taskId}/delete`);
+          return response.data;
+      } catch (error) {
+          console.error('Soft delete task error:', error);
+          throw new Error(error.response?.data?.error || 'Failed to delete task');
+      }
+  },
+  
+  async getDeletedTasks(userId) {
+      try {
+          const response = await api.get(`/api/tasks/deleted?userId=${userId}`);
+          return response.data;
+      } catch (error) {
+          console.error('Get deleted tasks error:', error);
+          throw new Error(error.response?.data?.error || 'Failed to get deleted tasks');
+      }
+  },
+
+  async getDeletedSubtasks(userId) {
+      try {
+          const response = await api.get(`/api/subtasks/deleted?userId=${userId}`);
+          return response.data;
+      } catch (error) {
+          console.error('Get deleted subtasks error:', error);
+          throw new Error(error.response?.data?.error || 'Failed to get deleted subtasks');
+      }
+  },
+
+  async restoreTask(taskId) {
+      try {
+          const response = await api.put(`/api/tasks/${taskId}/restore`);
+          return response.data;
+      } catch (error) {
+          console.error('Restore task error:', error);
+          throw new Error(error.response?.data?.error || 'Failed to restore task');
+      }
+  },
+
+  async restoreSubtask(subtaskId) {
+      try {
+          const response = await api.put(`/api/subtasks/${subtaskId}/restore`);
+          return response.data;
+      } catch (error) {
+          console.error('Restore subtask error:', error);
+          throw new Error(error.response?.data?.error || 'Failed to restore subtask');
+      }
+  },
+
+  async permanentlyDeleteTask(taskId) {
+      try {
+          const response = await api.delete(`/api/tasks/${taskId}/permanent`);
+          return response.data;
+      } catch (error) {
+          console.error('Permanent delete task error:', error);
+          throw new Error(error.response?.data?.error || 'Failed to permanently delete task');
+      }
+  },
+
+  async permanentlyDeleteSubtask(subtaskId) {
+      try {
+          const response = await api.delete(`/api/subtasks/${subtaskId}/permanent`);
+          return response.data;
+      } catch (error) {
+          console.error('Permanent delete subtask error:', error);
+          throw new Error(error.response?.data?.error || 'Failed to permanently delete subtask');
+      }
   },
 
   async getTasksByProject(projId) {
