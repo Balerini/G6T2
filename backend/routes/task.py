@@ -782,3 +782,169 @@ def get_deleted_subtasks():
     except Exception as e:
         print(f"❌ Error fetching deleted subtasks: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+# =============== RESTORE TASK ===============
+@tasks_bp.route('/api/tasks/<task_id>/restore', methods=['PUT'])
+def restore_task(task_id):
+    """
+    Restore a soft-deleted task by setting is_deleted = False
+    """
+    try:
+        print(f"🔄 Restoring task: {task_id}")
+        
+        db = get_firestore_client()
+        doc_ref = db.collection('Tasks').document(task_id)
+        
+        # Check if document exists
+        doc = doc_ref.get()
+        if not doc.exists:
+            print(f"❌ Task {task_id} not found")
+            return jsonify({'error': 'Task not found'}), 404
+        
+        # Get current task data
+        task_data = doc.to_dict()
+        
+        # Check if task is actually deleted
+        if not task_data.get('is_deleted', False):
+            return jsonify({'error': 'Task is not deleted'}), 400
+        
+        print(f"📝 Restoring task: {task_data.get('taskname', 'Unknown')}")
+        
+        # RESTORE: Set is_deleted back to False
+        update_data = {
+            'is_deleted': False,
+            'deleted_at': None,  # Clear the deleted timestamp
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        
+        doc_ref.update(update_data)
+        print(f"✅ Task {task_id} restored successfully")
+        
+        return jsonify({
+            "message": "Task restored successfully",
+            "task_id": task_id,
+            "is_deleted": False,
+            "task_name": task_data.get('taskname', 'Unknown Task')
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error restoring task {task_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# =============== RESTORE SUBTASK ===============
+@tasks_bp.route('/api/subtasks/<subtask_id>/restore', methods=['PUT'])
+def restore_subtask(subtask_id):
+    """
+    Restore a soft-deleted subtask by setting is_deleted = False
+    """
+    try:
+        print(f"🔄 Restoring subtask: {subtask_id}")
+        
+        db = get_firestore_client()
+        doc_ref = db.collection('Subtasks').document(subtask_id)
+        
+        # Check if document exists
+        doc = doc_ref.get()
+        if not doc.exists:
+            print(f"❌ Subtask {subtask_id} not found")
+            return jsonify({'error': 'Subtask not found'}), 404
+        
+        # Get current subtask data
+        subtask_data = doc.to_dict()
+        
+        # Check if subtask is actually deleted
+        if not subtask_data.get('is_deleted', False):
+            return jsonify({'error': 'Subtask is not deleted'}), 400
+        
+        print(f"📝 Restoring subtask: {subtask_data.get('subtaskname', 'Unknown')}")
+        
+        # RESTORE: Set is_deleted back to False
+        update_data = {
+            'is_deleted': False,
+            'deleted_at': None,  # Clear the deleted timestamp
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        
+        doc_ref.update(update_data)
+        print(f"✅ Subtask {subtask_id} restored successfully")
+        
+        return jsonify({
+            "message": "Subtask restored successfully",
+            "subtask_id": subtask_id,
+            "is_deleted": False,
+            "subtask_name": subtask_data.get('subtaskname', 'Unknown Subtask')
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error restoring subtask {subtask_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# =============== PERMANENTLY DELETE TASK ===============
+@tasks_bp.route('/api/tasks/<task_id>/permanent', methods=['DELETE'])
+def permanently_delete_task(task_id):
+    """
+    Permanently delete a task (actually remove from database)
+    """
+    try:
+        print(f"💥 Permanently deleting task: {task_id}")
+        
+        db = get_firestore_client()
+        doc_ref = db.collection('Tasks').document(task_id)
+        
+        # Check if document exists
+        doc = doc_ref.get()
+        if not doc.exists:
+            print(f"❌ Task {task_id} not found")
+            return jsonify({'error': 'Task not found'}), 404
+        
+        # Get current task data for logging
+        task_data = doc.to_dict()
+        print(f"💥 Permanently deleting task: {task_data.get('taskname', 'Unknown')}")
+        
+        # HARD DELETE: Actually remove the document
+        doc_ref.delete()
+        print(f"✅ Task {task_id} permanently deleted")
+        
+        return jsonify({
+            "message": "Task permanently deleted",
+            "task_id": task_id
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error permanently deleting task {task_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# =============== PERMANENTLY DELETE SUBTASK ===============
+@tasks_bp.route('/api/subtasks/<subtask_id>/permanent', methods=['DELETE'])
+def permanently_delete_subtask(subtask_id):
+    """
+    Permanently delete a subtask (actually remove from database)
+    """
+    try:
+        print(f"💥 Permanently deleting subtask: {subtask_id}")
+        
+        db = get_firestore_client()
+        doc_ref = db.collection('Subtasks').document(subtask_id)
+        
+        # Check if document exists
+        doc = doc_ref.get()
+        if not doc.exists:
+            print(f"❌ Subtask {subtask_id} not found")
+            return jsonify({'error': 'Subtask not found'}), 404
+        
+        # Get current subtask data for logging
+        subtask_data = doc.to_dict()
+        print(f"💥 Permanently deleting subtask: {subtask_data.get('subtaskname', 'Unknown')}")
+        
+        # HARD DELETE: Actually remove the document
+        doc_ref.delete()
+        print(f"✅ Subtask {subtask_id} permanently deleted")
+        
+        return jsonify({
+            "message": "Subtask permanently deleted",
+            "subtask_id": subtask_id
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error permanently deleting subtask {subtask_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
