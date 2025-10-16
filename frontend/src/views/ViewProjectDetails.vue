@@ -26,6 +26,9 @@
                     </span>
                 </div>
                 <p class="project-desc">{{ projectData.proj_desc || 'No description' }}</p>
+                <button @click="exportProject" class="export-btn">
+                    ⬇ Export Tasks to PDF
+                </button>
             </div>
 
             <!-- Collaborators Section -->
@@ -303,6 +306,24 @@ export default {
 
         goBack() {
             this.$router.push('/projects');
+        },
+        async exportProject() {
+            try {
+                const projectId = this.projectId;
+                const response = await fetch(`http://localhost:8000/api/projects/${projectId}/export`);
+                if (!response.ok) throw new Error("Failed to export tasks");
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `Project_${projectId}_Tasks.pdf`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error("Export failed:", error);
+                alert("Failed to export project tasks. Please try again.");
+            }
         }
     }
 };
@@ -723,4 +744,20 @@ export default {
         align-items: flex-start;
     }
 }
+
+.export-btn {
+  background-color: #111827;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+.export-btn:hover {
+  background-color: #374151;
+}
+
 </style>

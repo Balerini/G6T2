@@ -3,7 +3,13 @@
     <!-- Project Header -->
     <div class="project-header">
       <h2 class="project-title">{{ project.proj_name }}</h2>
-      <button class="view-btn" @click="viewProject">View Project</button>
+      <button class="view-btn" @click="viewProject">
+        <span class="btn-text">View Project Details</span>
+        <svg class="btn-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+        <div class="btn-underline"></div>
+      </button>
     </div>
 
     <!-- Project Details -->
@@ -331,20 +337,93 @@ export default {
 
 <style scoped>
 .view-btn {
-  background: #111827;
-  color: #fff;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
   border: none;
-  border-radius: 6px;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0;
   cursor: pointer;
+  color: #3b82f6;
   font-size: 0.875rem;
   font-weight: 500;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   align-self: start;
-  transition: all 0.2s ease;
 }
 
 .view-btn:hover {
-  background: #374151;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.view-btn:active {
+  transform: translateY(0);
+}
+
+.btn-text {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.btn-arrow {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 2;
+  transition: all 0.3s ease;
+  opacity: 0.7;
+}
+
+.view-btn:hover .btn-arrow {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+.btn-underline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 1px;
+}
+
+.view-btn:hover .btn-underline {
+  width: 100%;
+}
+
+/* Alternative: Clean button style */
+.view-btn.button-style {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.625rem 1rem;
+  color: #475569;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.view-btn.button-style:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.view-btn.button-style .btn-underline {
+  display: none;
+}
+
+.view-btn.button-style .btn-arrow {
+  opacity: 1;
+}
+
+.view-btn.button-style:hover .btn-arrow {
+  transform: translateX(2px);
 }
 
 .project-card {

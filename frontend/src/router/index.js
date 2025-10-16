@@ -12,6 +12,10 @@ import ViewTaskDetails from '../views/ViewTaskDetails.vue'
 import Notifications from '../views/Notifications.vue'
 import ViewProject from '../views/ViewProjectDetails.vue';
 import DeletedItems from '../views/DeletedItems.vue'
+import ForgotPassword from '@/components/ForgotPassword.vue';
+import ResetPassword from '@/components/ResetPassword.vue';
+import ManagerViewTeamTaskSchedule from '@/components/Dashboard/ManagerViewTeamTaskSchedule.vue';
+// import ViewOwnTasks from '../views/ViewOwnTasks.vue'
 
 const routes = [
   {
@@ -75,6 +79,11 @@ const routes = [
     meta: { showNav: true, requiresAuth: true }
   },
   {
+    path: '/manager/schedule/:userid',
+    component: ManagerViewTeamTaskSchedule,
+    meta: { showNav: true, requiresAuth: true }
+  },
+  {
     path: '/notifications',
     name: 'notifications',
     component: Notifications,
@@ -95,7 +104,17 @@ const routes = [
   {
     path: '/:pathMatch(.*)*',
     redirect: '/'
-  }
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: ForgotPassword
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: ResetPassword
+  },
 ]
 
 const router = createRouter({

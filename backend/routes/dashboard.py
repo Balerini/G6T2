@@ -590,8 +590,127 @@ def get_manager_pending_tasks_by_age(user_id):
         print(f"Error getting pending tasks by age: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+    
+# =============== MANAGERS: VIEW ALL DEPT STAFF'S TASKS IN A GANTT CHART ===============
+@dashboard_bp.route('/api/dashboard/manager/tasks-timeline/<user_id>', methods=['GET'])
+def get_dept_staff_task_timeline(user_id):
+    """
+    Get all tasks for all staff members under a manager's department across all projects.
+    Returns data formatted for Gantt chart display.
+    """
+    try:
+        # Get manager info
+        user_info = get_user_info(user_id)
+        if not user_info:
+            return jsonify({'error': 'User not found'}), 404
+        
+        role_num = user_info.get('role_num', 4)
+        # Convert to int if it's a string
+        if isinstance(role_num, str):
+            role_num = int(role_num)
+        
+        if role_num > 3:
+            return jsonify({'error': 'Unauthorized - Manager access only'}), 403
+        
+        division_name = user_info.get('division_name')
+        if not division_name:
+            return jsonify({'error': 'Division not found for user'}), 400
+        
+        manager_role_num = user_info.get('role_num', 4)
+        # Convert string to int if needed
+        if isinstance(manager_role_num, str):
+            manager_role_num = int(manager_role_num)
+        
+        # Get all staff in the department (subordinates and self only)
+        staff_ids, staff_info = get_department_staff(division_name, manager_role_num)
+        
+        if not staff_ids:
+            return jsonify({
+                'message': 'No staff members found in department',
+                'staff': []
+            }), 200
+        
+        # Get Firestore client
+        db = get_firestore_client()
+        
+        # Initialize staff timeline list
+        staff_timeline = []
+        total_tasks = 0
+        
+        # Get tasks for each staff member
+        for staff_id in staff_ids:
+            # Get staff user info
+            staff_user_info = staff_info.get(staff_id, {})
+            staff_name = staff_user_info.get('name', 'Unknown')
+            staff_email = staff_user_info.get('email', '')
+            
+            # Query tasks where this staff member is assigned
+            tasks_ref = db.collection('Tasks')
+            tasks_query = tasks_ref.where('assigned_to', 'array_contains', staff_id)
+            tasks_docs = tasks_query.stream()
+            
+            # Collect and format tasks
+            formatted_tasks = []
+            
+            for task_doc in tasks_docs:
+                task_data = task_doc.to_dict()
+                
+                # Only include tasks with start and end dates
+                start_date = task_data.get('start_date')
+                end_date = task_data.get('end_date')
+                
+                if start_date and end_date:
+                    # Get project info
+                    project_id = task_data.get('project_id', '')
+                    project_name = 'Unknown Project'
+                    
+                    if project_id:
+                        try:
+                            project_ref = db.collection('Projects').document(project_id)
+                            project_doc = project_ref.get()
+                            if project_doc.exists:
+                                project_data = project_doc.to_dict()
+                                project_name = project_data.get('project_name', 'Unknown Project')
+                        except Exception as e:
+                            print(f"Error fetching project {project_id}: {e}")
+                    
+                    formatted_tasks.append({
+                        'task_id': task_doc.id,
+                        'task_name': task_data.get('task_name', 'Untitled Task'),
+                        'task_description': task_data.get('task_description', ''),
+                        'start_date': start_date,
+                        'end_date': end_date,
+                        'task_status': task_data.get('status', 'Not Started'),
+                        'project_id': project_id,
+                        'project_name': project_name
+                    })
+            
+            total_tasks += len(formatted_tasks)
+            
+            # Add staff member to timeline
+            staff_timeline.append({
+                'userid': staff_id,
+                'name': staff_name,
+                'email': staff_email,
+                'role': 'Staff',
+                'task_count': len(formatted_tasks),
+                'tasks': formatted_tasks
+            })
+        
+        return jsonify({
+            'success': True,
+            'division_name': division_name,
+            'staff_count': len(staff_ids),
+            'total_tasks': total_tasks,
+            'staff': staff_timeline
+        }), 200
+        
+    except Exception as e:
+        print(f"Error retrieving tasks timeline: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
-# =============== NORMAL STAFF WHOSE ROLE_NUM IN DB = 4 ===============
+# ========================================== NORMAL STAFF WHOSE ROLE_NUM IN DB = 4 ==========================================
 
 # =============== STAFF: COUNT TOTAL NUMBER OF TASKS ===============
 @dashboard_bp.route('/api/dashboard/staff/total-tasks/<user_id>', methods=['GET'])

@@ -22,7 +22,7 @@ class EmailService:
             msg['Subject'] = f'New Project Assignment: {project_name}'
             
             # Email body
-            html = f"""
+            html = """
             <html>
                 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">

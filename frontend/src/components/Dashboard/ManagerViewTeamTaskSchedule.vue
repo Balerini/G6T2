@@ -1,19 +1,8 @@
 <template>
   <div class="team-schedule-container">
     <div class="schedule-header">
-      <div class="header-top">
-        <div class="title-section">
-          <h3 class="schedule-title">📅 Team Schedule</h3>
-          <p class="schedule-subtitle">Project timeline and task assignments</p>
-        </div>
-        <button @click="downloadSchedule" class="download-btn" title="Download Team Schedule">
-          <svg class="download-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </div>
+      <h3 class="schedule-title">📅 Department Team Tasks Timeline</h3>
+      <p class="schedule-subtitle">All staff tasks across all projects</p>
     </div>
 
     <div v-if="loading" class="loading-state">
@@ -28,7 +17,7 @@
 
     <div v-else-if="!teamMembers || teamMembers.length === 0" class="no-data-state">
       <div class="no-data-icon">📋</div>
-      <p>No team members or tasks found for this project.</p>
+      <p>No team members or tasks found for this department.</p>
     </div>
 
     <div v-else class="gantt-container">
@@ -97,21 +86,24 @@
 
 <script>
 import { onMounted, ref } from "vue";
-import { projectService } from "../services/projectService";
+import { useRoute } from "vue-router";
+import { dashboardService } from "../../services/dashboardService";
 
 export default {
   name: "ViewProjectTeamSchedule",
   props: {
-    projectId: {
+    userid: {
       type: String,
-      required: true
+      required: false,
+      default: null
     }
   },
   setup(props) {
+    const route = useRoute();
     const loading = ref(true);
     const error = ref(null);
     const teamMembers = ref([]);
-    const projectName = ref('Project');
+    const divisionName = ref('');
 
     const getInitials = (name) => {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -148,10 +140,10 @@ export default {
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
 
-      // Start from the first day of the month (removed the Sunday alignment)
+      // Start from the first day of the month
       const startDate = new Date(firstDay);
 
-      // End on the last day of the month (removed the Saturday alignment)
+      // End on the last day of the month
       const endDate = new Date(lastDay);
 
       const timeline = [];
@@ -220,7 +212,7 @@ export default {
       const cellWidth = 40;
       let left, width;
 
-      // Find the actual start and end positions
+      // Use the actual start/end dates, clamped to visible range
       const startDateStr = taskStart < timelineStart ? timelineDates.value[0] : bar.start;
       const endDateStr = taskEnd > timelineEnd ? timelineDates.value[timelineDates.value.length - 1] : bar.end;
 
@@ -270,7 +262,7 @@ export default {
     };
 
     const getTooltip = (bar) => {
-      return `${bar.ganttBarConfig.label}\nStart: ${formatDate(bar.start)}\nEnd: ${formatDate(bar.end)}\nStatus: ${bar.status || 'N/A'}`;
+      return `${bar.ganttBarConfig.label}\nStart: ${formatDate(bar.start)}\nEnd: ${formatDate(bar.end)}\nStatus: ${bar.status || 'N/A'}\nProject: ${bar.projectName || 'N/A'}`;
     };
 
     onMounted(async () => {
@@ -278,37 +270,47 @@ export default {
         loading.value = true;
         error.value = null;
 
-        if (!props.projectId) {
-          throw new Error("Project ID is required");
+        // Get userid from props or route params or query
+        const userId = props.userid || route.params.userid || route.query.userid;
+
+        console.log("=== ManagerViewTeamTaskSchedule Component Debug ===");
+        console.log("Props userid:", props.userid);
+        console.log("Route params:", route.params);
+        console.log("Route query:", route.query);
+        console.log("Final userId:", userId);
+        console.log("userId type:", typeof userId);
+
+        if (!userId) {
+          console.error("❌ User ID is missing from props, route params, and query");
+          throw new Error("User ID is required. Please ensure you're logged in as a manager.");
         }
 
-        // Get project data - this should return the structure from your JSON
-        const projectData = await projectService.getProjectById(props.projectId);
+        // Fetch data from backend API
+        console.log("📡 Fetching timeline for userid:", userId);
+        const response = await dashboardService.getDepartmentStaffTasksTimeline(userId);
 
-        console.log('Project data received:', projectData);
+        console.log("✅ API Response received:", response);
+        console.log("Response success:", response.success);
+        console.log("Response staff count:", response.staff?.length);
+        console.log("Response division:", response.division_name);
 
-        if (!projectData || !projectData.collaborators) {
+        if (!response.success) {
+          console.error("❌ API returned success: false");
+          throw new Error(response.error || "Failed to load team schedule");
+        }
+
+        divisionName.value = response.division_name || '';
+
+        // Check if we have staff data
+        if (!response.staff || response.staff.length === 0) {
+          console.warn("⚠️ No staff data returned from API");
+          console.log("Full response:", JSON.stringify(response, null, 2));
           teamMembers.value = [];
           return;
         }
 
-        // Store the project name from the correct structure
-        if (projectData.project && projectData.project.proj_name) {
-          projectName.value = projectData.project.proj_name;
-        } else if (projectData.proj_name) {
-          projectName.value = projectData.proj_name;
-        } else if (projectData.project_name) {
-          projectName.value = projectData.project_name;
-        } else if (projectData.name) {
-          projectName.value = projectData.name;
-        } else if (projectData.title) {
-          projectName.value = projectData.title;
-        }
-
-        console.log('Project name set to:', projectName.value);
-
-        // Extract collaborators array from the response
-        const collaborators = projectData.collaborators;
+        console.log(`✅ Found ${response.staff.length} staff members`);
+        const staffList = response.staff;
 
         // Collect all tasks for timeline generation
         const allTasksList = [];
@@ -320,7 +322,7 @@ export default {
 
         // Helper function to assign rows to tasks to avoid overlap
         const assignTaskRows = (tasks) => {
-          if (tasks.length === 0) return [];
+          if (tasks.length === 0) return { tasks: [], rowCount: 0 };
 
           // Sort tasks by start date
           const sortedTasks = [...tasks].sort((a, b) =>
@@ -373,9 +375,10 @@ export default {
           return { tasks: sortedTasks, rowCount: maxRow + 1 };
         };
 
-        // Process each collaborator and their tasks
-        teamMembers.value = collaborators.map(collaborator => {
-          const tasks = collaborator.tasks || [];
+        // Process each staff member and their tasks
+        teamMembers.value = staffList.map(staff => {
+          const tasks = staff.tasks || [];
+          console.log(`Processing ${staff.name}: ${tasks.length} tasks`);
 
           // Add tasks to the all tasks list for timeline generation
           allTasksList.push(...tasks);
@@ -384,34 +387,47 @@ export default {
           const { tasks: arrangedTasks, rowCount } = assignTaskRows(tasks);
 
           return {
-            name: collaborator.name,
-            email: collaborator.email,
+            name: staff.name,
+            email: staff.email,
+            userid: staff.userid,
             rowCount: rowCount,
             bars: arrangedTasks.map(task => ({
               start: task.start_date,
               end: task.end_date,
               status: task.task_status,
+              projectName: task.project_name,
               row: task.assignedRow,
-            ganttBarConfig: {
+              ganttBarConfig: {
                 id: task.task_id,
                 label: task.task_name,
                 style: {
                   backgroundColor: getTaskColor(task.task_status),
                   color: '#fff'
                 },
-            },
-          })),
+              },
+            })),
           };
         });
 
         // Generate timeline from all tasks
+        console.log(`✅ Total tasks collected: ${allTasksList.length}`);
         generateTimeline(allTasksList);
 
+        console.log("✅ Component setup complete");
+        console.log("Team members:", teamMembers.value.length);
+        console.log("Timeline dates:", timelineDates.value.length);
+
       } catch (err) {
-        console.error("Failed to load schedule:", err);
+        console.error("❌ Failed to load schedule:", err);
+        console.error("Error stack:", err.stack);
+        if (err.response) {
+          console.error("Error response status:", err.response.status);
+          console.error("Error response data:", err.response.data);
+        }
         error.value = err.message || "Failed to load team schedule";
       } finally {
         loading.value = false;
+        console.log("=== Component loading complete ===");
       }
     });
 
@@ -427,51 +443,11 @@ export default {
       return colors[status] || '#60a5fa';
     };
 
-    const downloadSchedule = () => {
-      try {
-        console.log('Current project name:', projectName.value);
-        
-        // Clean project name for filename (remove special characters)
-        const cleanProjectName = projectName.value.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-');
-        
-        console.log('Clean project name for filename:', cleanProjectName);
-        
-        // Create a CSV content for the team schedule with project name at top
-        let csvContent = `Project: ${projectName.value}\n`;
-        csvContent += `Generated: ${new Date().toLocaleDateString()}\n\n`;
-        csvContent += "Team Member,Task Name,Start Date,End Date,Status\n";
-        
-        teamMembers.value.forEach(member => {
-          member.bars.forEach(task => {
-            const startDate = new Date(task.start).toLocaleDateString();
-            const endDate = new Date(task.end).toLocaleDateString();
-            csvContent += `"${member.name}","${task.ganttBarConfig.label}","${startDate}","${endDate}","${task.status}"\n`;
-          });
-        });
-        
-        // Create and download the file
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${cleanProjectName}-schedule.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        console.log('✅ Team schedule downloaded successfully');
-      } catch (error) {
-        console.error('❌ Error downloading team schedule:', error);
-        alert('Failed to download team schedule. Please try again.');
-      }
-    };
-
     return {
       loading,
       error,
       teamMembers,
-      projectName,
+      divisionName,
       timelineDates,
       getInitials,
       formatDate,
@@ -483,8 +459,7 @@ export default {
       getTooltip,
       previousMonth,
       nextMonth,
-      getCurrentMonthDisplay,
-      downloadSchedule
+      getCurrentMonthDisplay
     };
   },
 };
@@ -502,25 +477,7 @@ export default {
 
 .schedule-header {
   margin-bottom: 2rem;
-}
-
-.header-top {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 1rem;
-  position: relative;
-}
-
-.title-section {
   text-align: center;
-  flex: 1;
-}
-
-.download-btn {
-  position: absolute;
-  top: 0;
-  right: 0;
 }
 
 .schedule-title {
@@ -528,64 +485,6 @@ export default {
   font-weight: 700;
   color: #111827;
   margin: 0 0 0.5rem 0;
-}
-
-.download-btn {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 0.5rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 40px;
-  height: 40px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.download-btn:hover {
-  background: #e5e7eb;
-  border-color: #9ca3af;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.download-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.download-icon {
-  width: 20px;
-  height: 20px;
-  stroke: currentColor;
-  stroke-width: 2;
-  transition: transform 0.2s ease;
-}
-
-.download-btn:hover .download-icon {
-  transform: translateY(2px);
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .header-top {
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-  }
-  
-  .title-section {
-    text-align: center;
-  }
-  
-  .download-btn {
-    position: static;
-    margin-top: 0.5rem;
-  }
 }
 
 .schedule-subtitle {
@@ -934,12 +833,6 @@ export default {
   .member-info {
     width: 150px;
     min-width: 150px;
-  }
-
-  .month-cell,
-  .grid-cell {
-    width: 80px;
-    min-width: 80px;
   }
 
   .member-avatar {
