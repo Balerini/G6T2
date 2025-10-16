@@ -3,7 +3,8 @@
         <!-- Toast Notifications -->
         <div v-if="successMessage" class="toast-notification success-toast">
             <div class="toast-content">
-                <svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
                     <path d="M20 6L9 17l-5-5"></path>
                 </svg>
                 <span>{{ successMessage }}</span>
@@ -13,7 +14,8 @@
 
         <div v-if="errorMessage" class="toast-notification error-toast">
             <div class="toast-content">
-                <svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
                     <circle cx="12" cy="12" r="10"></circle>
                     <line x1="15" y1="9" x2="9" y2="15"></line>
                     <line x1="9" y1="9" x2="15" y2="15"></line>
@@ -25,7 +27,8 @@
 
         <div v-if="infoMessage" class="toast-notification info-toast">
             <div class="toast-content">
-                <svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
                     <circle cx="12" cy="12" r="10"></circle>
                     <path d="M12 16v-4"></path>
                     <path d="M12 8h.01"></path>
@@ -42,23 +45,25 @@
                 <div class="modal-header">
                     <h3 class="modal-title">{{ confirmModalData.title }}</h3>
                     <button @click="closeConfirmModal" class="close-btn">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                     </button>
                 </div>
-                
+
                 <!-- Modal Body -->
                 <div class="modal-body">
                     <!-- Warning Icon -->
                     <div class="warning-icon-container">
                         <svg class="warning-icon" width="64" height="64" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <circle cx="12" cy="12" r="2" fill="#ef4444"/>
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#ef4444"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <circle cx="12" cy="12" r="2" fill="#ef4444" />
                         </svg>
                     </div>
-                    
+
                     <!-- Content -->
                     <div class="modal-content-text">
                         <p class="warning-message">{{ confirmModalData.message }}</p>
@@ -66,24 +71,30 @@
                             "{{ confirmModalData.itemName }}"
                         </div>
                         <p class="warning-subtitle">
-                            This action cannot be undone. The {{ confirmModalData.type }} will be permanently removed from the database.
+                            This action cannot be undone. The {{ confirmModalData.type }} will be permanently removed
+                            from the database.
                         </p>
                     </div>
                 </div>
-                
+
                 <!-- Modal Footer -->
                 <div class="modal-footer">
                     <button @click="closeConfirmModal" class="cancel-btn">
                         Cancel
                     </button>
                     <button @click="confirmPermanentDelete" class="permanent-delete-btn" :disabled="isDeleting">
-                        <svg v-if="isDeleting" class="loading-text" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
-                            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        <svg v-if="isDeleting" class="loading-text" width="16" height="16" viewBox="0 0 24 24"
+                            fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25" />
+                            <path fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <polyline points="3,6 5,6 21,6"></polyline>
-                            <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                            <path
+                                d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2">
+                            </path>
                             <line x1="10" y1="11" x2="10" y2="17"></line>
                             <line x1="14" y1="11" x2="14" y2="17"></line>
                         </svg>
@@ -95,7 +106,7 @@
 
         <!-- Add the Navbar Component -->
         <Navbar />
-        
+
         <div class="crm-container">
             <!-- Header Section -->
             <div class="header-section">
@@ -110,18 +121,11 @@
                     </div>
 
                     <div class="action-tabs">
-                        <button 
-                            class="tab-btn" 
-                            :class="{ active: activeView === 'tasks' }" 
-                            @click="switchTab('tasks')"
-                        >
+                        <button class="tab-btn" :class="{ active: activeView === 'tasks' }" @click="switchTab('tasks')">
                             Deleted Tasks
                         </button>
-                        <button 
-                            class="tab-btn" 
-                            :class="{ active: activeView === 'subtasks' }" 
-                            @click="switchTab('subtasks')"
-                        >
+                        <button class="tab-btn" :class="{ active: activeView === 'subtasks' }"
+                            @click="switchTab('subtasks')">
                             Deleted Subtasks
                         </button>
                     </div>
@@ -138,16 +142,11 @@
                             <div class="sort-group">
                                 <label>Sort By:</label>
                                 <div class="sort-mode-toggle">
-                                    <button
-                                        :class="{ active: sortMode === 'deletedDate' }"
-                                        @click="setSortMode('deletedDate')"
-                                    >
+                                    <button :class="{ active: sortMode === 'deletedDate' }"
+                                        @click="setSortMode('deletedDate')">
                                         Deleted Date
                                     </button>
-                                    <button
-                                        :class="{ active: sortMode === 'name' }"
-                                        @click="setSortMode('name')"
-                                    >
+                                    <button :class="{ active: sortMode === 'name' }" @click="setSortMode('name')">
                                         Name
                                     </button>
                                 </div>
@@ -157,16 +156,10 @@
                             <div class="sort-group">
                                 <label>Order:</label>
                                 <div class="sort-toggle">
-                                    <button
-                                        :class="{ active: sortOrder === 'asc' }"
-                                        @click="setSortOrder('asc')"
-                                    >
+                                    <button :class="{ active: sortOrder === 'asc' }" @click="setSortOrder('asc')">
                                         ▲ Asc
                                     </button>
-                                    <button
-                                        :class="{ active: sortOrder === 'desc' }"
-                                        @click="setSortOrder('desc')"
-                                    >
+                                    <button :class="{ active: sortOrder === 'desc' }" @click="setSortOrder('desc')">
                                         ▼ Desc
                                     </button>
                                 </div>
@@ -187,15 +180,13 @@
                                 <div v-else>
                                     <!-- When there are deleted tasks -->
                                     <div v-if="sortedDeletedTasks.length">
-                                        <div
-                                            v-for="(task, index) in sortedDeletedTasks"
-                                            :key="task.id || index"
-                                            class="deleted-item-card"
-                                        >
+                                        <div v-for="(task, index) in sortedDeletedTasks" :key="task.id || index"
+                                            class="deleted-item-card">
                                             <div class="deleted-item-content">
                                                 <div class="item-info">
                                                     <h3 class="item-title">{{ task.task_name || task.name }}</h3>
-                                                    <p class="item-description">{{ task.task_description || task.description || 'No description available' }}</p>
+                                                    <p class="item-description">{{ task.task_description ||
+                                                        task.description || 'No description available' }}</p>
                                                     <div class="item-meta">
                                                         <span class="meta-item">
                                                             <strong>Deleted:</strong> {{ formatDate(task.deleted_at) }}
@@ -210,18 +201,27 @@
                                                 </div>
                                                 <div class="item-actions">
                                                     <button @click="restoreTask(task)" class="restore-btn">
-                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                            stroke="currentColor" stroke-width="2">
+                                                            <path
+                                                                d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8">
+                                                            </path>
                                                             <path d="M21 3v5h-5"></path>
-                                                            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                                                            <path
+                                                                d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16">
+                                                            </path>
                                                             <path d="M3 21v-5h5"></path>
                                                         </svg>
                                                         Restore
                                                     </button>
-                                                    <button @click="permanentlyDeleteTask(task)" class="delete-permanent-btn">
-                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <button @click="permanentlyDeleteTask(task)"
+                                                        class="delete-permanent-btn">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                            stroke="currentColor" stroke-width="2">
                                                             <polyline points="3,6 5,6 21,6"></polyline>
-                                                            <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                                                            <path
+                                                                d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2">
+                                                            </path>
                                                         </svg>
                                                         Delete Forever
                                                     </button>
@@ -232,7 +232,7 @@
 
                                     <!-- When no deleted tasks found -->
                                     <div v-else class="nofound-section">
-                                        <div class="mt-5">
+                                        <!-- <div class="mt-5">
                                             <div class="d-flex justify-content-center">
                                                 <svg
                                                     xmlns="http://www.w3.org/2000/svg"
@@ -250,6 +250,12 @@
                                             <p class="text-center">
                                                 There are no deleted tasks to display.
                                             </p>
+                                        </div> -->
+                                        <div class="card">
+                                            <div class="no-tasks-message">
+                                                <div class="no-tasks-icon">🚮</div>
+                                                <div class="no-tasks-text">No deleted tasks found</div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -264,16 +270,11 @@
                             <div class="sort-group">
                                 <label>Sort By:</label>
                                 <div class="sort-mode-toggle">
-                                    <button
-                                        :class="{ active: sortMode === 'deletedDate' }"
-                                        @click="setSortMode('deletedDate')"
-                                    >
+                                    <button :class="{ active: sortMode === 'deletedDate' }"
+                                        @click="setSortMode('deletedDate')">
                                         Deleted Date
                                     </button>
-                                    <button
-                                        :class="{ active: sortMode === 'name' }"
-                                        @click="setSortMode('name')"
-                                    >
+                                    <button :class="{ active: sortMode === 'name' }" @click="setSortMode('name')">
                                         Name
                                     </button>
                                 </div>
@@ -283,16 +284,10 @@
                             <div class="sort-group">
                                 <label>Order:</label>
                                 <div class="sort-toggle">
-                                    <button
-                                        :class="{ active: sortOrder === 'asc' }"
-                                        @click="setSortOrder('asc')"
-                                    >
+                                    <button :class="{ active: sortOrder === 'asc' }" @click="setSortOrder('asc')">
                                         ▲ Asc
                                     </button>
-                                    <button
-                                        :class="{ active: sortOrder === 'desc' }"
-                                        @click="setSortOrder('desc')"
-                                    >
+                                    <button :class="{ active: sortOrder === 'desc' }" @click="setSortOrder('desc')">
                                         ▼ Desc
                                     </button>
                                 </div>
@@ -313,18 +308,18 @@
                                 <div v-else>
                                     <!-- When there are deleted subtasks -->
                                     <div v-if="sortedDeletedSubtasks.length">
-                                        <div
-                                            v-for="(subtask, index) in sortedDeletedSubtasks"
-                                            :key="subtask.id || index"
-                                            class="deleted-item-card"
-                                        >
+                                        <div v-for="(subtask, index) in sortedDeletedSubtasks"
+                                            :key="subtask.id || index" class="deleted-item-card">
                                             <div class="deleted-item-content">
                                                 <div class="item-info">
-                                                    <h3 class="item-title">{{ subtask.subtask_name || subtask.name }}</h3>
-                                                    <p class="item-description">{{ subtask.subtask_description || subtask.description || 'No description available' }}</p>
+                                                    <h3 class="item-title">{{ subtask.subtask_name || subtask.name }}
+                                                    </h3>
+                                                    <p class="item-description">{{ subtask.subtask_description ||
+                                                        subtask.description || 'No description available' }}</p>
                                                     <div class="item-meta">
                                                         <span class="meta-item">
-                                                            <strong>Deleted:</strong> {{ formatDate(subtask.deleted_at) }}
+                                                            <strong>Deleted:</strong> {{ formatDate(subtask.deleted_at)
+                                                            }}
                                                         </span>
                                                         <span class="meta-item" v-if="subtask.parent_task_name">
                                                             <strong>Parent Task:</strong> {{ subtask.parent_task_name }}
@@ -333,18 +328,27 @@
                                                 </div>
                                                 <div class="item-actions">
                                                     <button @click="restoreSubtask(subtask)" class="restore-btn">
-                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                            stroke="currentColor" stroke-width="2">
+                                                            <path
+                                                                d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8">
+                                                            </path>
                                                             <path d="M21 3v5h-5"></path>
-                                                            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                                                            <path
+                                                                d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16">
+                                                            </path>
                                                             <path d="M3 21v-5h5"></path>
                                                         </svg>
                                                         Restore
                                                     </button>
-                                                    <button @click="permanentlyDeleteSubtask(subtask)" class="delete-permanent-btn">
-                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <button @click="permanentlyDeleteSubtask(subtask)"
+                                                        class="delete-permanent-btn">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                            stroke="currentColor" stroke-width="2">
                                                             <polyline points="3,6 5,6 21,6"></polyline>
-                                                            <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                                                            <path
+                                                                d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2">
+                                                            </path>
                                                         </svg>
                                                         Delete Forever
                                                     </button>
@@ -356,23 +360,25 @@
                                     <!-- When no deleted subtasks found -->
                                     <div v-else class="nofound-section">
                                         <div class="mt-5">
-                                            <div class="d-flex justify-content-center">
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    height="100"
-                                                    width="100"
-                                                    fill="currentColor"
-                                                    class="bi bi-trash"
-                                                    viewBox="0 0 16 16"
-                                                >
-                                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-                                                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                                            <!-- <div class="d-flex justify-content-center">
+                                                <svg xmlns="http://www.w3.org/2000/svg" height="100" width="100"
+                                                    fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                                                    <path
+                                                        d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" />
+                                                    <path
+                                                        d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" />
                                                 </svg>
-                                            </div>
-                                            <h2 class="text-center mt-2">No deleted subtasks found.</h2>
+                                            </div> -->
+                                            <!-- <h2 class="text-center mt-2">No deleted subtasks found.</h2>
                                             <p class="text-center">
                                                 There are no deleted subtasks to display.
-                                            </p>
+                                            </p> -->
+                                            <div class="card">
+                                                <div class="no-tasks-message">
+                                                    <div class="no-tasks-icon">🚮</div>
+                                                    <div class="no-tasks-text">No deleted subtasks found</div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -392,7 +398,7 @@ import AuthService from '@/services/auth.js';
 export default {
     name: 'DeletedItems',
     components: {
-        Navbar, 
+        Navbar,
     },
     data() {
         return {
@@ -402,7 +408,7 @@ export default {
             deletedSubtasks: [],
             loading: true,
             error: null,
-            sortMode: "deletedDate",    
+            sortMode: "deletedDate",
             sortOrder: "desc",
             successMessage: '',
             errorMessage: '',
@@ -421,11 +427,11 @@ export default {
     },
     mounted() {
         console.log('DeletedItems.vue mounted');
-        
+
         if (AuthService.checkAuthStatus()) {
             this.currentUser = AuthService.getCurrentUser();
         }
-        
+
         const view = this.$route.query.view;
         if (view === 'tasks' || view === 'subtasks') {
             this.activeView = view;
@@ -458,7 +464,7 @@ export default {
                 if (!userString) {
                     throw new Error('User not logged in');
                 }
-                
+
                 const userData = JSON.parse(userString);
                 const currentUserId = userData.id;
 
@@ -503,32 +509,32 @@ export default {
         async restoreTask(task) {
             try {
                 console.log('Restoring task:', task);
-                
+
                 // Show loading info
                 this.infoMessage = 'Restoring task...';
-                
+
                 const { taskService } = await import('@/services/taskService.js');
                 await taskService.restoreTask(task.id);
-                
+
                 // Remove from deleted tasks list
                 this.deletedTasks = this.deletedTasks.filter(t => t.id !== task.id);
-                
+
                 // Clear loading message and show success
                 this.infoMessage = '';
                 this.successMessage = `✅ Task "${task.task_name || task.name}" has been restored successfully!`;
-                
+
                 // Auto-hide success message after 4 seconds
                 setTimeout(() => {
                     this.successMessage = '';
                 }, 4000);
-                
+
             } catch (error) {
                 console.error('Error restoring task:', error);
-                
+
                 // Clear loading message and show error
                 this.infoMessage = '';
                 this.errorMessage = `❌ Failed to restore task: ${error.message}`;
-                
+
                 // Auto-hide error message after 6 seconds
                 setTimeout(() => {
                     this.errorMessage = '';
@@ -539,32 +545,32 @@ export default {
         async restoreSubtask(subtask) {
             try {
                 console.log('Restoring subtask:', subtask);
-                
+
                 // Show loading info
                 this.infoMessage = 'Restoring subtask...';
-                
+
                 const { taskService } = await import('@/services/taskService.js');
                 await taskService.restoreSubtask(subtask.id);
-                
+
                 // Remove from deleted subtasks list
                 this.deletedSubtasks = this.deletedSubtasks.filter(s => s.id !== subtask.id);
-                
+
                 // Clear loading message and show success
                 this.infoMessage = '';
                 this.successMessage = `✅ Subtask "${subtask.subtask_name || subtask.name}" has been restored successfully!`;
-                
+
                 // Auto-hide success message after 4 seconds
                 setTimeout(() => {
                     this.successMessage = '';
                 }, 4000);
-                
+
             } catch (error) {
                 console.error('Error restoring subtask:', error);
-                
+
                 // Clear loading message and show error
                 this.infoMessage = '';
                 this.errorMessage = `❌ Failed to restore subtask: ${error.message}`;
-                
+
                 // Auto-hide error message after 6 seconds
                 setTimeout(() => {
                     this.errorMessage = '';
@@ -617,47 +623,47 @@ export default {
 
             try {
                 this.isDeleting = true;
-                
+
                 const { taskService } = await import('@/services/taskService.js');
-                
+
                 if (this.confirmModalData.type === 'task') {
                     await taskService.permanentlyDeleteTask(this.confirmModalData.item.id);
-                    
+
                     // Remove from deleted tasks list
                     this.deletedTasks = this.deletedTasks.filter(t => t.id !== this.confirmModalData.item.id);
-                    
+
                     // Show success toast
                     this.successMessage = `🗑️ Task "${this.confirmModalData.itemName}" has been permanently deleted.`;
-                    
+
                 } else if (this.confirmModalData.type === 'subtask') {
                     await taskService.permanentlyDeleteSubtask(this.confirmModalData.item.id);
-                    
+
                     // Remove from deleted subtasks list
                     this.deletedSubtasks = this.deletedSubtasks.filter(s => s.id !== this.confirmModalData.item.id);
-                    
+
                     // Show success toast
                     this.successMessage = `🗑️ Subtask "${this.confirmModalData.itemName}" has been permanently deleted.`;
                 }
-                
+
                 // Close modal
                 this.closeConfirmModal();
-                
+
                 // Auto-hide success message
                 setTimeout(() => {
                     this.successMessage = '';
                 }, 4000);
-                
+
             } catch (error) {
                 console.error('Error permanently deleting item:', error);
-                
+
                 // Show error toast
                 this.errorMessage = `❌ Failed to permanently delete ${this.confirmModalData.type}: ${error.message}`;
-                
+
                 // Auto-hide error message
                 setTimeout(() => {
                     this.errorMessage = '';
                 }, 6000);
-                
+
                 this.isDeleting = false;
             }
         },
@@ -666,7 +672,7 @@ export default {
     computed: {
         sortedDeletedTasks() {
             let result = [...this.deletedTasks];
-            
+
             if (this.sortMode === "deletedDate") {
                 result.sort((a, b) => {
                     const dateA = new Date(a.deleted_at);
@@ -677,7 +683,7 @@ export default {
                 result.sort((a, b) => {
                     const nameA = (a.task_name || a.name || '').toLowerCase();
                     const nameB = (b.task_name || b.name || '').toLowerCase();
-                    return this.sortOrder === "asc" 
+                    return this.sortOrder === "asc"
                         ? nameA.localeCompare(nameB)
                         : nameB.localeCompare(nameA);
                 });
@@ -687,7 +693,7 @@ export default {
         },
         sortedDeletedSubtasks() {
             let result = [...this.deletedSubtasks];
-            
+
             if (this.sortMode === "deletedDate") {
                 result.sort((a, b) => {
                     const dateA = new Date(a.deleted_at);
@@ -698,7 +704,7 @@ export default {
                 result.sort((a, b) => {
                     const nameA = (a.subtask_name || a.name || '').toLowerCase();
                     const nameB = (b.subtask_name || b.name || '').toLowerCase();
-                    return this.sortOrder === "asc" 
+                    return this.sortOrder === "asc"
                         ? nameA.localeCompare(nameB)
                         : nameB.localeCompare(nameA);
                 });
@@ -711,6 +717,37 @@ export default {
 </script>
 
 <style scoped>
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    max-width: 100%;
+    margin: 0;
+}
+
+.no-tasks-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.no-tasks-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.no-tasks-text {
+    font-size: 18px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
 .deleted-items-page {
     min-height: 100vh;
 }
@@ -1052,6 +1089,7 @@ export default {
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -1149,8 +1187,13 @@ export default {
 }
 
 @keyframes overlayFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes modalSlideIn {
@@ -1158,6 +1201,7 @@ export default {
         opacity: 0;
         transform: scale(0.95) translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: scale(1) translateY(0);
@@ -1299,8 +1343,13 @@ export default {
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Responsive Design */
@@ -1309,17 +1358,16 @@ export default {
         max-width: 95%;
         margin: 20px;
     }
-    
+
     .modal-footer {
         flex-direction: column;
         gap: 8px;
     }
-    
+
     .cancel-btn,
     .permanent-delete-btn {
         width: 100%;
         justify-content: center;
     }
 }
-
 </style>
