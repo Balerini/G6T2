@@ -288,6 +288,21 @@
                   ✏️ Edit Subtask
                 </button>
 
+                <!-- Delete Button -->
+                 <button 
+                    @click.stop="confirmDeleteSubtask(subtask)" 
+                    class="delete-subtask-btn"
+                    v-if="isSubtaskOwner(subtask)"
+                    title="Delete Subtask"
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3,6 5,6 21,6"></polyline>
+                        <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                </button>
+
                 <!-- View Details -->
                 <div class="accordion-toggle">
                   <span class="view-details-text">View Details</span>
@@ -446,6 +461,61 @@
         </div>
     </div>
 
+    <!-- Subtask Delete Confirmation Modal -->
+    <div v-if="showSubtaskDeleteModal" class="modal-overlay" @click="closeSubtaskDeleteModal">
+        <div class="modal-content delete-modal-enhanced" @click.stop>
+            <!-- Modal Header -->
+            <div class="delete-modal-header">
+                <h3 class="delete-modal-title">Delete Subtask</h3>
+                <button @click="closeSubtaskDeleteModal" class="close-btn-enhanced">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="delete-modal-body">
+                <!-- Warning Icon -->
+                <div class="warning-icon-container">
+                    <svg class="warning-icon-svg" width="64" height="64" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                
+                <!-- Content -->
+                <div class="delete-modal-content">
+                    <p class="delete-question">
+                        Are you sure you want to delete 
+                        <span class="task-name-highlight">"{{ selectedSubtaskForDelete?.name }}"</span>?
+                    </p>
+                    <p class="delete-description">
+                        This subtask will be moved to deleted items and can be restored later.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="delete-modal-footer">
+                <button @click="closeSubtaskDeleteModal" class="cancel-btn-enhanced">
+                    Cancel
+                </button>
+                <button @click="deleteSubtask" class="delete-btn-enhanced" :disabled="isDeletingSubtask">
+                    <svg v-if="isDeletingSubtask" class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
+                        <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3,6 5,6 21,6"></polyline>
+                        <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                    </svg>
+                    {{ isDeletingSubtask ? 'Deleting...' : 'Delete Subtask' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Edit Task Modal -->
     <EditTask v-if="selectedTask" :visible="showEdit" :task="selectedTask" :users="users" :parentProject="parentProject" @close="showEdit = false" @saved="onTaskSaved" />
   </div>
@@ -490,6 +560,9 @@ export default {
       showDeleteConfirmModal: false,
       isDeletingTask: false,
       currentUser: null,
+      showSubtaskDeleteModal: false,
+      selectedSubtaskForDelete: null,
+      isDeletingSubtask: false,
     }
   },
 
@@ -1268,6 +1341,61 @@ export default {
             }, 5000);
         } finally {
             this.isDeletingTask = false;
+        }
+    },
+
+    // Subtask ownership check
+    isSubtaskOwner(subtask) {
+        if (!subtask || !this.currentUser) {
+            return false;
+        }
+        return String(subtask.owner) === String(this.currentUser.id);
+    },
+
+    // Show delete confirmation
+    confirmDeleteSubtask(subtask) {
+        this.selectedSubtaskForDelete = subtask;
+        this.showSubtaskDeleteModal = true;
+    },
+
+    // Close delete modal
+    closeSubtaskDeleteModal() {
+        this.showSubtaskDeleteModal = false;
+        this.selectedSubtaskForDelete = null;
+        this.isDeletingSubtask = false;
+    },
+
+    // Delete subtask
+    async deleteSubtask() {
+        try {
+            this.isDeletingSubtask = true;
+            
+            console.log('Soft deleting subtask:', this.selectedSubtaskForDelete.id);
+            
+            // USE TASKSERVICE INSTEAD OF DIRECT FETCH
+            const { taskService } = await import('@/services/taskService.js');
+            await taskService.deleteSubtask(this.selectedSubtaskForDelete.id);
+
+            // Remove from subtasks list
+            this.subtasks = this.subtasks.filter(s => s.id !== this.selectedSubtaskForDelete.id);
+            
+            // Close modal
+            this.closeSubtaskDeleteModal();
+            
+            // Show success message
+            this.successMessage = '✅ Subtask moved to deleted items!';
+            setTimeout(() => {
+                this.successMessage = '';
+            }, 3000);
+            
+        } catch (error) {
+            console.error('Error soft deleting subtask:', error);
+            this.errorMessage = `❌ Failed to delete subtask: ${error.message}`;
+            setTimeout(() => {
+                this.errorMessage = '';
+            }, 5000);
+        } finally {
+            this.isDeletingSubtask = false;
         }
     },
   }
@@ -2830,6 +2958,35 @@ export default {
     background: #b91c1c;
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(220, 38, 38, 0.2);
+}
+
+/* Delete Subtask Button */
+.delete-subtask-btn {
+    background: #dc2626;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    align-self: center;
+}
+
+.delete-subtask-btn:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(220, 38, 38, 0.2);
+}
+
+.delete-subtask-btn svg {
+    flex-shrink: 0;
 }
 
 </style>
