@@ -1132,6 +1132,10 @@ def export_project_team_schedule_excel(project_id):
         
         if not dates_by_month:
             print("No dates found, creating empty sheet")
+            # Create a single sheet for when there are no tasks
+            ws = wb.create_sheet("No Tasks")
+            ws['A1'] = f"📊 Project: {project_name}"
+            ws['A1'].font = Font(bold=True, size=16, name="Arial", color="1E3A8A")
             ws['A8'] = "No tasks with dates found"
             ws['A8'].font = Font(italic=True, color="666666")
         else:
