@@ -205,15 +205,21 @@ def get_tasks():
                 if doc.id not in seen_ids:
                     task = doc.to_dict()
                     task["id"] = doc.id
-                    tasks.append(task)
-                    seen_ids.add(doc.id)
+                    
+                    # ADD THIS: Filter out deleted tasks
+                    if not task.get('is_deleted', False):
+                        tasks.append(task)
+                        seen_ids.add(doc.id)
 
             for doc in owner_results:
                 if doc.id not in seen_ids:
                     task = doc.to_dict()
                     task["id"] = doc.id
-                    tasks.append(task)
-                    seen_ids.add(doc.id)
+                    
+                    # ADD THIS: Filter out deleted tasks
+                    if not task.get('is_deleted', False):
+                        tasks.append(task)
+                        seen_ids.add(doc.id)
 
         else:
             # If no user_id provided, return all tasks
@@ -221,7 +227,10 @@ def get_tasks():
             for doc in results:
                 task = doc.to_dict()
                 task["id"] = doc.id
-                tasks.append(task)
+                
+                # ADD THIS: Filter out deleted tasks
+                if not task.get('is_deleted', False):
+                    tasks.append(task)
 
         return jsonify(tasks), 200
 
