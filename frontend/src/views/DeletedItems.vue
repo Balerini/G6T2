@@ -448,7 +448,7 @@ export default {
             this.activeView = view;
             this.$router.replace({ query: { view } });
         },
-        // Replace your current loadDeletedData method with this:
+        
         async loadDeletedData() {
             try {
                 this.loading = true;
@@ -468,10 +468,6 @@ export default {
                 // Import taskService
                 const { taskService } = await import('@/services/taskService.js');
 
-                // Add this right before calling getDeletedSubtasks
-                console.log('🔍 About to call API with user ID:', currentUserId);
-                console.log('🔍 Expected user IDs from DB:');
-
                 // Load deleted tasks and subtasks in parallel
                 const [deletedTasks, deletedSubtasks] = await Promise.all([
                     taskService.getDeletedTasks(currentUserId),
@@ -480,19 +476,87 @@ export default {
 
                 this.deletedTasks = deletedTasks || [];
                 this.deletedSubtasks = deletedSubtasks || [];
-                console.log('🔍 API returned:', deletedSubtasks);
 
                 console.log(`Loaded ${this.deletedTasks.length} deleted tasks and ${this.deletedSubtasks.length} deleted subtasks`);
 
             } catch (error) {
                 console.error("Error loading deleted items:", error);
                 this.error = error.message;
-                // Set empty arrays on error
                 this.deletedTasks = [];
                 this.deletedSubtasks = [];
             } finally {
                 this.loading = false;
             }
+        },
+
+        async loadDeletedSubtasks() {
+            try {
+                const userString = sessionStorage.getItem('user');
+                if (!userString) return;
+                
+                const userData = JSON.parse(userString);
+                const { taskService } = await import('@/services/taskService.js');
+                
+                this.deletedSubtasks = await taskService.getDeletedSubtasks(userData.id) || [];
+            } catch (error) {
+                console.error('Error loading deleted subtasks:', error);
+                this.deletedSubtasks = [];
+            }
+        },
+
+        async getDeletedSubtasks(userId) {
+            const { taskService } = await import('@/services/taskService.js');
+            return await taskService.getDeletedSubtasks(userId);
+        },
+
+        // FIXED: Added proper subtask restore method
+        async restoreSubtask(subtask) {
+            try {
+                console.log('Restoring subtask:', subtask);
+                
+                // Show loading info
+                this.infoMessage = 'Restoring subtask...';
+                
+                const { taskService } = await import('@/services/taskService.js');
+                await taskService.restoreSubtask(subtask.id);
+                
+                // Remove from deleted subtasks list
+                this.deletedSubtasks = this.deletedSubtasks.filter(s => s.id !== subtask.id);
+                
+                // Clear loading message and show success
+                this.infoMessage = '';
+                this.successMessage = `✅ Subtask "${subtask.subtask_name || subtask.name}" has been restored successfully!`;
+                
+                // Auto-hide success message after 4 seconds
+                setTimeout(() => {
+                    this.successMessage = '';
+                }, 4000);
+                
+            } catch (error) {
+                console.error('Error restoring subtask:', error);
+                
+                // Clear loading message and show error
+                this.infoMessage = '';
+                this.errorMessage = `❌ Failed to restore subtask: ${error.message}`;
+                
+                // Auto-hide error message after 6 seconds
+                setTimeout(() => {
+                    this.errorMessage = '';
+                }, 6000);
+            }
+        },
+
+        // FIXED: Added proper subtask permanent delete method
+        permanentlyDeleteSubtask(subtask) {
+            this.confirmModalData = {
+                title: 'Permanently Delete Subtask',
+                message: 'Are you sure you want to permanently delete this subtask?',
+                itemName: subtask.subtask_name || subtask.name || 'Unknown Subtask',
+                type: 'subtask',
+                action: 'permanent_delete',
+                item: subtask
+            };
+            this.showConfirmModal = true;
         },
 
         formatDate(date) {
@@ -504,12 +568,15 @@ export default {
                 year: "numeric"
             });
         },
+        
         setSortOrder(order) {
             this.sortOrder = order;
         },
+        
         setSortMode(mode) {
             this.sortMode = mode;
         },
+        
         async restoreTask(task) {
             try {
                 console.log('Restoring task:', task);
@@ -543,54 +610,6 @@ export default {
                 setTimeout(() => {
                     this.errorMessage = '';
                 }, 6000);
-            }
-        },
-
-        // Update your restore and permanent delete methods to handle subtasks:
-        async restoreSubtask(subtask) {
-            try {
-                console.log('Restoring subtask:', subtask);
-                const { taskService } = await import('@/services/taskService.js');
-                await taskService.restoreSubtask(subtask.id);
-                
-                // Remove from deleted subtasks list
-                this.deletedSubtasks = this.deletedSubtasks.filter(s => s.id !== subtask.id);
-                
-                // Show success message
-                this.successMessage = `✅ Subtask "${subtask.name}" has been restored successfully!`;
-                setTimeout(() => {
-                    this.successMessage = '';
-                }, 4000);
-            } catch (error) {
-                console.error('Error restoring subtask:', error);
-                this.errorMessage = `❌ Failed to restore subtask: ${error.message}`;
-                setTimeout(() => {
-                    this.errorMessage = '';
-                }, 6000);
-            }
-        },
-
-        async permanentlyDeleteSubtask(subtask) {
-            if (confirm('Are you sure you want to permanently delete this subtask? This action cannot be undone.')) {
-                try {
-                    console.log('Permanently deleting subtask:', subtask);
-                    const { taskService } = await import('@/services/taskService.js');
-                    await taskService.permanentlyDeleteSubtask(subtask.id);
-                    
-                    // Remove from deleted subtasks list
-                    this.deletedSubtasks = this.deletedSubtasks.filter(s => s.id !== subtask.id);
-                    
-                    this.successMessage = `🗑️ Subtask "${subtask.name}" has been permanently deleted.`;
-                    setTimeout(() => {
-                        this.successMessage = '';
-                    }, 4000);
-                } catch (error) {
-                    console.error('Error permanently deleting subtask:', error);
-                    this.errorMessage = `❌ Failed to permanently delete subtask: ${error.message}`;
-                    setTimeout(() => {
-                        this.errorMessage = '';
-                    }, 6000);
-                }
             }
         },
 
@@ -670,8 +689,7 @@ export default {
                 
                 this.isDeleting = false;
             }
-        },
-
+        }
     },
     computed: {
         sortedDeletedTasks() {
