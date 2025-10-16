@@ -432,7 +432,6 @@ export default {
                 this.selectedStatus.toLowerCase()
             );
         }
-
         // sort due date
         if (this.sortMode === "dueDate") {
             result.sort((a, b) => {
@@ -448,7 +447,7 @@ export default {
                 : b.priority_level - a.priority_level;
             });
         }
-
+        // console.log("RESULTTT", result);
         return result;
         },
     }

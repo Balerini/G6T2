@@ -11,7 +11,7 @@ import CreateProject from '../views/CreateProject.vue'
 import ViewTaskDetails from '../views/ViewTaskDetails.vue'
 import Notifications from '../views/Notifications.vue'
 import ViewProject from '../views/ViewProjectDetails.vue';
-// import ViewOwnTasks from '../views/ViewOwnTasks.vue'
+import DeletedItems from '../views/DeletedItems.vue'
 
 const routes = [
   {
@@ -86,6 +86,12 @@ const routes = [
   //   component: ViewOwnTasks,
   //   meta: { showNav: true }
   // },
+  {
+    path: '/deleted-items',
+    name: 'DeletedItems',
+    component: DeletedItems,
+    meta: { requiresAuth: true } 
+  },
   {
     path: '/:pathMatch(.*)*',
     redirect: '/'
