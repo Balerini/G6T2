@@ -393,37 +393,36 @@ export default {
             return false;
         },
         filteredAndSortedTasks() {
-            let result = [...this.tasks];
-            // excluded completed tasks from all
-            if (this.selectedStatus === "active") {
-                result = result.filter(
-                    (task) => task.task_status?.toLowerCase() !== "completed"
-                );
-            } else if (this.selectedStatus) {
-                result = result.filter(
-                    (task) =>
-                        task.task_status?.toLowerCase() ===
-                        this.selectedStatus.toLowerCase()
-                );
-            }
-
-            // sort due date
-            if (this.sortMode === "dueDate") {
-                result.sort((a, b) => {
-                    const dateA = new Date(a.end_date);
-                    const dateB = new Date(b.end_date);
-                    return this.sortOrder === "asc" ? dateA - dateB : dateB - dateA;
-                });
-            } else if (this.sortMode === "priority") {
-                // sort priority (1–10)
-                result.sort((a, b) => {
-                    return this.sortOrder === "asc"
-                        ? a.priority_level - b.priority_level
-                        : b.priority_level - a.priority_level;
-                });
-            }
-
-            return result;
+        let result = [...this.tasks];
+        // excluded completed tasks from all
+        if (this.selectedStatus === "active") {
+            result = result.filter(
+            (task) => task.task_status?.toLowerCase() !== "completed"
+            );
+        } else if (this.selectedStatus) {
+            result = result.filter(
+            (task) =>
+                task.task_status?.toLowerCase() ===
+                this.selectedStatus.toLowerCase()
+            );
+        }
+        // sort due date
+        if (this.sortMode === "dueDate") {
+            result.sort((a, b) => {
+            const dateA = new Date(a.end_date);
+            const dateB = new Date(b.end_date);
+            return this.sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+            });
+        } else if (this.sortMode === "priority") {
+            // sort priority (1–10)
+            result.sort((a, b) => {
+            return this.sortOrder === "asc"
+                ? a.priority_level - b.priority_level
+                : b.priority_level - a.priority_level;
+            });
+        }
+        // console.log("RESULTTT", result);
+        return result;
         },
     }
 }

@@ -19,64 +19,71 @@ tasks_bp = Blueprint('tasks', __name__)
 def create_task():
     try:
         task_data = request.get_json()
-        print("=== BACKEND TASK CREATION DEBUG ===")
+        print("BACKEND TASK CREATION DEBUG")
         print(f"Received task data: {task_data}")
         print(f"Priority level received: {task_data.get('priority_level')}")  # Changed to priority_level
-        
+
+        # TITLE: CREATE TASK
         # Validate required fields
         required_fields = ['task_name', 'start_date', 'priority_level']  # Changed to priority_level
         for field in required_fields:
             if not task_data.get(field):
-                return jsonify({'error': f'Required field missing: {field}'}), 400
+                return jsonify({"error": f"Required field missing: {field}"}), 400
 
+        # TITLE: Validate required fields
         # Validate priority level range
         try:
             priority_level = int(task_data.get('priority_level'))  # Changed variable name
             if priority_level < 1 or priority_level > 10:
-                return jsonify({'error': 'Priority level must be between 1 and 10'}), 400
+                return jsonify({"error": "Priority level must be between 1 and 10"}), 400
         except (ValueError, TypeError):
-            return jsonify({'error': 'Priority level must be a valid number between 1 and 10'}), 400
+            return jsonify({"error": "Priority level must be a valid number between 1 and 10"}), 400
 
+        # TITLE: Validate priority level range
         # Get Firestore client
         db = get_firestore_client()
 
+        # TITLE: Get Firestore client
         # Get creator ID early so we can use it throughout
         owner_id = task_data.get('owner', '')
 
+        # TITLE: Get creator ID early so we can use it throughout
         # Convert date strings to datetime objects with Singapore timezone
         sg_tz = pytz.timezone('Asia/Singapore')
-        
         start_date = datetime.strptime(task_data['start_date'], '%Y-%m-%d')
         start_date = sg_tz.localize(start_date)
         
         end_date = None
         if task_data.get('end_date'):
             end_date = datetime.strptime(task_data['end_date'], '%Y-%m-%d')
-            # Set end time to end of day in Singapore timezone
+            # TITLE: Convert date strings to datetime objects with Singapore timezone
             end_date = sg_tz.localize(end_date.replace(hour=23, minute=59, second=59))
 
+        # TITLE: Set end time to end of day in Singapore timezone
         # Get project ID from project name if provided
         proj_id = None
         if task_data.get('proj_name'):
-            # Find the project by name to get its ID
+            # TITLE: Get project ID from project name if provided
             projects_ref = db.collection('Projects')
             projects_query = projects_ref.where('proj_name', '==', task_data.get('proj_name')).limit(1)
             project_docs = list(projects_query.stream())
+            
             if project_docs:
                 proj_id = project_docs[0].id
-                print(f"Found project ID {proj_id} for project name: {task_data.get('proj_name')}")
+                print(f"Found project ID: {proj_id} for project name: {task_data.get('proj_name')}")
             else:
                 print(f"Warning: Project not found for name: {task_data.get('proj_name')}")
-                # List all available projects for debugging
+                # TITLE: Find the project by name to get its ID
                 all_projects = projects_ref.stream()
                 print("Available projects:")
                 for proj in all_projects:
                     proj_data = proj.to_dict()
-                    print(f"  - ID: {proj.id}, Name: {proj_data.get('proj_name', 'No name')}")
+                    print(f" - ID: {proj.id}, Name: {proj_data.get('proj_name', 'No name')}")
         else:
             print("No project name provided in task data")
+            # TITLE: List all available projects for debugging
 
-        # Prepare task data for Firestore
+        # TITLE: Prepare task data for Firestore
         firestore_task_data = {
             'proj_name': task_data.get('proj_name', ''),
             'proj_ID': proj_id,
@@ -85,23 +92,25 @@ def create_task():
             'start_date': start_date,
             'end_date': end_date,
             'owner': owner_id,
-            'assigned_to': task_data.get('assigned_to', []), 
+            'assigned_to': task_data.get('assigned_to', []),
             'attachments': task_data.get('attachments', []),
             'task_status': task_data.get('task_status'),
-            'priority_level': priority_level,  
+            'priority_level': priority_level,
             'hasSubtasks': task_data.get('hasSubtasks', False),
+            'is_deleted': task_data.get('is_deleted', False),  # ADD THIS LINE
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
         }
 
-        # Add document to Firestore
         print(f"Adding task to Firestore: {firestore_task_data}")
-        print(f"Creating task: {firestore_task_data['task_name']} with assigned_to: {task_data.get('assigned_to', [])}")  # FIXED THIS LINE
+        print(f"Creating task '{firestore_task_data['task_name']}' with assigned_to: {task_data.get('assigned_to', [])}")  # FIXED THIS LINE
+
+        # TITLE: Add document to Firestore
         doc_ref = db.collection('Tasks').add(firestore_task_data)
         task_id = doc_ref[1].id
         print(f"Task created successfully with ID: {task_id}")
 
-        # Prepare response data
+        # TITLE: Prepare response data
         response_data = firestore_task_data.copy()
         response_data['id'] = task_id
         response_data['start_date'] = start_date.isoformat()
@@ -169,10 +178,10 @@ def create_task():
         return jsonify(response_data), 201
 
     except ValueError as e:
-        return jsonify({'error': f'Invalid date format. Use YYYY-MM-DD: {str(e)}'}), 400
+        return jsonify({"error": f"Invalid date format. Use YYYY-MM-DD: {str(e)}"}), 400
     except Exception as e:
         print(f"Error creating task: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 @tasks_bp.route("/api/tasks", methods=["GET"])
 def get_tasks():
