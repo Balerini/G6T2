@@ -582,3 +582,109 @@ def get_subtasks_by_task(task_id):
     except Exception as e:
         print(f"❌ Error fetching subtasks: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+
+# ==================== GET TEAM SUBTASKS FOR MANAGER ====================
+@subtask_bp.route('/api/subtasks/team/<manager_id>', methods=['GET'])
+def get_team_subtasks(manager_id):
+    """Get all subtasks owned by team members under this manager"""
+    try:
+        print(f"📊 Getting team subtasks for manager: {manager_id}")
+        
+        db = get_firestore_client()
+        
+        # Step 1: Get the manager's info
+        manager_doc = db.collection('Users').document(manager_id).get()
+        
+        if not manager_doc.exists:
+            print(f"Manager not found: {manager_id}")
+            return jsonify({'error': 'Manager not found'}), 404
+        
+        manager_data = manager_doc.to_dict()
+        manager_division = manager_data.get('division_name')
+        manager_role = manager_data.get('role_num')
+        
+        print(f"Manager: {manager_data.get('name')} | Division: {manager_division} | Role: {manager_role}")
+        
+        # Validate that user is actually a manager
+        if manager_role not in [2, 3]:  # 2=Director, 3=Manager
+            print(f"User is not a manager (role_num: {manager_role})")
+            return jsonify({'error': 'User is not authorized to view team subtasks'}), 403
+        
+        if not manager_division:
+            print(f"Manager has no division")
+            return jsonify({'error': 'Manager has no division assigned'}), 400
+        
+        # Step 2: Get all staff in the same division (role_num = 4)
+        staff_query = db.collection('Users').where('division_name', '==', manager_division).where('role_num', '==', 4)
+        staff_docs = staff_query.get()
+        
+        # Create a map of user_id -> user_name for quick lookup
+        staff_map = {}
+        staff_ids = []
+        
+        for staff_doc in staff_docs:
+            staff_data = staff_doc.to_dict()
+            staff_id = staff_doc.id
+            staff_ids.append(staff_id)
+            staff_map[staff_id] = staff_data.get('name', 'Unknown User')
+        
+        print(f"Found {len(staff_ids)} staff members in {manager_division} division")
+        
+        if not staff_ids:
+            print(f"ℹ️ No staff members found in division")
+            return jsonify([]), 200
+        
+        # Step 3: Get all subtasks owned by these staff members
+        # Firebase 'in' operator can only handle up to 10 items
+        all_subtasks = []
+        
+        # Process in batches of 10
+        for i in range(0, len(staff_ids), 10):
+            batch_ids = staff_ids[i:i+10]
+            print(f"🔍 Querying subtasks for batch {i//10 + 1} ({len(batch_ids)} staff)")
+            
+            subtasks_query = db.collection('subtasks').where('owner', 'in', batch_ids).where('is_deleted', '==', False)
+            subtasks_docs = subtasks_query.get()
+            
+            for subtask_doc in subtasks_docs:
+                subtask_data = subtask_doc.to_dict()
+                
+                # Build response object
+                owner_id = subtask_data.get('owner')
+                subtask_response = {
+                    'id': subtask_doc.id,
+                    'name': subtask_data.get('name', 'Untitled Subtask'),
+                    'ownerName': staff_map.get(owner_id, 'Unknown User'),
+                    'owner_id': owner_id,
+                    'description': subtask_data.get('description', ''),
+                    'start_date': subtask_data.get('start_date'),
+                    'end_date': subtask_data.get('end_date'),
+                    'status': subtask_data.get('status', 'Unassigned'),
+                    'priority': None,  # Subtasks have no priority field
+                    'task_id': subtask_data.get('parent_task_id'),
+                    'proj_ID': subtask_data.get('project_id'),
+                    'assigned_to': subtask_data.get('assigned_to', []),
+                    'attachments': subtask_data.get('attachments', [])
+                }
+                
+                # Convert Firestore timestamps to ISO format 
+                for field in ['start_date', 'end_date']:
+                    if field in subtask_response and subtask_response[field]:
+                        try:
+                            if hasattr(subtask_response[field], 'isoformat'):
+                                subtask_response[field] = subtask_response[field].isoformat()
+                        except:
+                            pass
+                
+                all_subtasks.append(subtask_response)
+        
+        print(f"Found {len(all_subtasks)} total subtasks for {manager_division} team")
+        
+        return jsonify(all_subtasks), 200
+        
+    except Exception as e:
+        print(f"Error getting team subtasks: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

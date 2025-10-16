@@ -100,7 +100,6 @@
 </template>
 
 <script>
-// eslint-disable-next-line no-unused-vars
 import { taskService } from '@/services/taskService';
 
 export default {
@@ -153,31 +152,7 @@ export default {
             console.log('TeamSubtasks - User ID:', userId);
 
             // Fetch team subtasks
-            // this.allSubtasks = await taskService.getTeamSubtasks(userId);
-
-            // ADD TEMPORARY TEST DATA
-            this.allSubtasks = [
-                {
-                    id: '1',
-                    name: 'Test Subtask 1',
-                    ownerName: 'John Doe',
-                    end_date: '2025-10-25',
-                    status: 'Ongoing',
-                    priority: 8,
-                    task_id: 'task123',
-                    proj_ID: 'proj456'
-                },
-                {
-                    id: '2',
-                    name: 'Test Subtask 2',
-                    ownerName: 'Jane Smith',
-                    end_date: '2025-10-20',
-                    status: 'Under Review',
-                    priority: 5,
-                    task_id: 'task124',
-                    proj_ID: 'proj456'
-                }
-            ];
+            this.allSubtasks = await taskService.getTeamSubtasks(userId);
 
             console.log('TeamSubtasks - Response:', this.allSubtasks);
 
