@@ -122,7 +122,7 @@ def create_task():
 
         # ================== SEND EMAILS TO ASSIGNED USERS ==================
         try:
-            from email_service import email_service
+            from backend.services.email_service import email_service
 
             # Get creator's info (for the "owner" field)
             creator_name = 'Unknown User'
@@ -280,6 +280,7 @@ def update_task(task_id):
       - Dates are converted to Firestore timestamps (end date set to end-of-day)
       - If task_id is not a valid document id, resolves by task_ID (and proj_ID if provided)
       - status_log is appended (ArrayUnion) instead of overwriting
+      - Sends email to new owner and CC's old owner when ownership changes
     """
     try:
         print(f"\n🔧 === UPDATE TASK CALLED === Task ID: {task_id}")
@@ -325,6 +326,8 @@ def update_task(task_id):
         # Get the OLD document data BEFORE updating (for notification comparison)
         old_doc = doc_ref.get()
         old_assigned_to = old_doc.to_dict().get('assigned_to', []) if old_doc.exists else []
+        # Check both 'owner_id' and 'owner' fields for flexibility
+        old_owner_id = old_doc.to_dict().get('owner_id') or old_doc.to_dict().get('owner') if old_doc.exists else None
         
         # If status_log present, append rather than overwrite
         status_log_update = None
@@ -358,6 +361,105 @@ def update_task(task_id):
                 response_data['updatedAt'] = response_data['updatedAt'].isoformat()
             if 'createdAt' in response_data and response_data['createdAt']:
                 response_data['createdAt'] = response_data['createdAt'].isoformat()
+
+            # ================== SEND EMAILS FOR OWNER CHANGE ==================
+            try:
+                # Check both 'owner_id' and 'owner' fields (depending on your frontend)
+                new_owner_id = update_data.get('owner_id') or update_data.get('owner')
+                
+                print(f"🔍 EMAIL CHECK - Raw update_data: {update_data}")
+                print(f"🔍 EMAIL CHECK - update_data.get('owner'): {update_data.get('owner')}")
+                print(f"🔍 EMAIL CHECK - update_data.get('owner_id'): {update_data.get('owner_id')}")
+                print(f"🔍 EMAIL CHECK - new_owner_id (final): {new_owner_id}")
+                print(f"🔍 EMAIL CHECK - old_owner_id from old_doc: {old_owner_id}")
+                print(f"🔍 EMAIL CHECK - Are they different? {old_owner_id != new_owner_id}")
+                print(f"🔍 EMAIL CHECK - Is new_owner_id truthy? {bool(new_owner_id)}")
+                
+                # Check if owner has changed
+                if new_owner_id and old_owner_id != new_owner_id:
+                    print(f"👤 OWNER CHANGE DETECTED: {old_owner_id} → {new_owner_id}")
+                    from services.email_service import email_service
+                    
+                    # Get new owner's info
+                    print(f"📧 Fetching new owner data for: {new_owner_id}")
+                    new_owner_doc = db.collection('Users').document(new_owner_id).get()
+                    
+                    if new_owner_doc.exists:
+                        new_owner_data = new_owner_doc.to_dict()
+                        new_owner_email = new_owner_data.get('email')
+                        new_owner_name = new_owner_data.get('name', 'User')
+                        print(f"✅ New owner found: {new_owner_name} ({new_owner_email})")
+                        
+                        # Get old owner's info (for CC)
+                        old_owner_email = None
+                        old_owner_name = 'Previous Owner'
+                        if old_owner_id:
+                            print(f"📧 Fetching old owner data for: {old_owner_id}")
+                            old_owner_doc = db.collection('Users').document(old_owner_id).get()
+                            if old_owner_doc.exists:
+                                old_owner_data = old_owner_doc.to_dict()
+                                old_owner_email = old_owner_data.get('email')
+                                old_owner_name = old_owner_data.get('name', 'Previous Owner')
+                                print(f"✅ Old owner found: {old_owner_name} ({old_owner_email})")
+                        
+                        # Prepare task details for email
+                        task_name = response_data.get('task_name', 'Unknown Task')
+                        task_desc = response_data.get('task_desc', '')
+                        project_name = response_data.get('proj_name', '')
+                        
+                        # Get who made the transfer (from request context or use new owner as fallback)
+                        transferred_by_name = new_owner_name  # You can enhance this with actual user context
+                        
+                        # Format dates safely
+                        start_date_str = 'Not specified'
+                        end_date_str = None
+                        
+                        if 'start_date' in response_data and response_data['start_date']:
+                            try:
+                                start_date_str = datetime.fromisoformat(response_data['start_date']).strftime('%Y-%m-%d')
+                            except:
+                                start_date_str = str(response_data['start_date'])[:10]
+                        
+                        if 'end_date' in response_data and response_data['end_date']:
+                            try:
+                                end_date_str = datetime.fromisoformat(response_data['end_date']).strftime('%Y-%m-%d')
+                            except:
+                                end_date_str = str(response_data['end_date'])[:10]
+                        
+                        print(f"📧 Preparing to send ownership transfer email...")
+                        print(f"   To: {new_owner_email}")
+                        print(f"   CC: {old_owner_email}")
+                        print(f"   Task: {task_name}")
+                        
+                        # Send email to new owner (with old owner CC'd)
+                        if new_owner_email:
+                            success = email_service.send_task_transfer_ownership_email(
+                                new_owner_email=new_owner_email,
+                                new_owner_name=new_owner_name,
+                                old_owner_email=old_owner_email if old_owner_email else '',
+                                old_owner_name=old_owner_name,
+                                task_name=task_name,
+                                task_desc=task_desc,
+                                project_name=project_name,
+                                transferred_by_name=transferred_by_name,
+                                start_date=start_date_str,
+                                end_date=end_date_str
+                            )
+                            if success:
+                                print(f"✅ OWNERSHIP TRANSFER EMAIL SENT to {new_owner_email} (CC: {old_owner_email})")
+                            else:
+                                print(f"❌ FAILED to send ownership transfer email")
+                        else:
+                            print(f"⚠️ No email found for new owner {new_owner_id}")
+                    else:
+                        print(f"⚠️ New owner document not found: {new_owner_id}")
+                else:
+                    print(f"⏭️  No owner change detected (both are {new_owner_id})")
+                        
+            except Exception as e:
+                print(f"❌ Failed to send owner change email: {e}")
+                import traceback
+                traceback.print_exc()
 
             # ================== CREATE NOTIFICATIONS FOR TASK UPDATES ==================
             try:
