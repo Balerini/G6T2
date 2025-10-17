@@ -463,9 +463,9 @@ def test_route_works():
 # =============== GET DELETED SUBTASKS ===============
 @subtask_bp.route('/api/subtasks/deleted-new', methods=['GET'])
 def get_deleted_subtasks_NEW():
-    """Get deleted subtasks for a user"""
+    """Get deleted subtasks for a user (including cascade deleted ones)"""
     try:
-        print("🔥 DELETED SUBTASKS ROUTE HIT!")
+        print("🔥 DELETED SUBTASKS ROUTE HIT (FIXED VERSION)!")
         
         db = get_firestore_client()
         user_id = request.args.get("userId")
@@ -475,31 +475,59 @@ def get_deleted_subtasks_NEW():
         
         print(f"🔍 Looking for deleted subtasks for user: {user_id}")
         
-        # Get deleted subtasks where user is owner
-        owner_query = db.collection("subtasks").where("owner", "==", user_id).where("is_deleted", "==", True)
-        owner_results = owner_query.stream()
+        # Query ALL deleted subtasks (not just owned ones)
+        all_deleted_query = db.collection("subtasks").where("is_deleted", "==", True)
+        all_deleted_results = all_deleted_query.stream()
         
         subtasks = []
-        for doc in owner_results:
+        
+        for doc in all_deleted_results:
             subtask = doc.to_dict()
             subtask["id"] = doc.id
             
-            # Convert timestamps to ISO format
-            for field in ['deleted_at', 'start_date', 'end_date']:
-                if field in subtask and subtask[field]:
-                    try:
-                        subtask[field] = subtask[field].isoformat()
-                    except:
-                        pass
+            # Check if this subtask should be included for this user
+            include_subtask = False
             
-            subtasks.append(subtask)
-            print(f"✅ FOUND: {subtask.get('name', 'Unknown')}")
+            # Method 1: User directly owns the subtask
+            if subtask.get('owner') == user_id:
+                include_subtask = True
+                print(f"✅ FOUND USER-OWNED: {subtask.get('name', 'Unknown')}")
+            
+            # Method 2: Cascade deleted from user's task
+            elif subtask.get('deleted_by_cascade', False):
+                cascade_parent_id = subtask.get('cascade_parent_id')
+                if cascade_parent_id:
+                    # Check if the parent task belongs to this user
+                    try:
+                        parent_task_ref = db.collection('Tasks').document(cascade_parent_id)
+                        parent_task = parent_task_ref.get()
+                        if parent_task.exists:
+                            parent_data = parent_task.to_dict()
+                            if str(parent_data.get('owner', '')) == str(user_id):
+                                include_subtask = True
+                                print(f"✅ FOUND CASCADE DELETED: {subtask.get('name', 'Unknown')} (from task {cascade_parent_id})")
+                    except Exception as parent_check_error:
+                        print(f"   Error checking parent task {cascade_parent_id}: {parent_check_error}")
+            
+            # Only include if it belongs to this user
+            if include_subtask:
+                # Convert timestamps to ISO format
+                for field in ['deleted_at', 'start_date', 'end_date']:
+                    if field in subtask and subtask[field]:
+                        try:
+                            subtask[field] = subtask[field].isoformat()
+                        except:
+                            pass
+                
+                subtasks.append(subtask)
         
         print(f"📊 TOTAL FOUND: {len(subtasks)} deleted subtasks")
         return jsonify(subtasks), 200
 
     except Exception as e:
         print(f"❌ ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 # =============== RESTORE SUBTASK ===============

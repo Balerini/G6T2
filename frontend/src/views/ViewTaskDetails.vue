@@ -425,17 +425,28 @@
                 <!-- Warning Icon -->
                 <div class="warning-icon-container">
                     <svg class="warning-icon-svg" width="64" height="64" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" 
+                              stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </div>
                 
                 <!-- Content -->
                 <div class="delete-modal-content">
                     <p class="delete-question">
-                        Are you sure you want to delete 
-                        <span class="task-name-highlight">"{{ task.task_name }}"</span>?
+                        Are you sure you want to delete <span class="task-name-highlight">{{ task.taskname }}</span>?
                     </p>
-                    <p class="delete-description">
+                    
+                    <!-- Show cascade warning if task has subtasks -->
+                    <div v-if="taskSubtaskCount > 0" class="cascade-warning">
+                        <p class="cascade-details">
+                            ⚠️ <strong>{{ taskSubtaskCount }} subtask{{ taskSubtaskCount > 1 ? 's' : '' }}</strong> will also be moved to trash
+                        </p>
+                        <p class="restore-note">
+                            💡 You can restore the task and all its subtasks from the deleted items later if needed.
+                        </p>
+                    </div>
+                    
+                    <p v-else class="delete-description">
                         This task will be moved to deleted items and can be restored later.
                     </p>
                 </div>
@@ -563,6 +574,7 @@ export default {
       showSubtaskDeleteModal: false,
       selectedSubtaskForDelete: null,
       isDeletingSubtask: false,
+      taskSubtaskCount: 0,
     }
   },
 
@@ -1299,8 +1311,24 @@ export default {
       setTimeout(() => { this.successMessage = ""; }, 3000);
     },
 
-    confirmDeleteTask() {
-        this.showDeleteConfirmModal = true;
+    async confirmDeleteTask() {
+        try {
+            // Load subtasks if not already loaded to get accurate count
+            if (!this.subtasks) {
+                await this.loadSubtasks();
+            }
+            
+            const subtaskCount = this.subtasks ? this.subtasks.length : 0;
+            
+            // Store subtask count for use in delete confirmation
+            this.taskSubtaskCount = subtaskCount;
+            
+            this.showDeleteConfirmModal = true;
+            
+        } catch (error) {
+            console.error('Error preparing task deletion:', error);
+            this.errorMessage = `Error: ${error.message}`;
+        }
     },
 
     closeDeleteConfirmModal() {
@@ -1310,32 +1338,39 @@ export default {
     async deleteTask() {
         try {
             this.isDeletingTask = true;
+            console.log('Soft deleting task (setting is_deleted=true):', this.task.id);
             
-            console.log('Soft deleting task (setting is_deleted = true):', this.task.id);
+            // Remove this line that's causing the error:
+            // const subtaskCount = this.subtasks ? this.subtasks.length : 0;
             
-            // This calls the backend to UPDATE the task, not delete it
-            await taskService.deleteTask(this.task.id);
+            // Call the backend to soft delete
+            const result = await taskService.deleteTask(this.task.id);
             
-            // Update local task state to reflect the change
+            // Update local task state
             this.task.is_deleted = true;
             
             // Close the confirmation modal
             this.closeDeleteConfirmModal();
             
-            // Show success message
-            this.successMessage = '✅ Task moved to deleted items!';
+            // Use the result from backend instead
+            if (result.deleted_subtasks_count > 0) {
+                this.successMessage = `🗑️ Task "${this.task.taskname}" and ${result.deleted_subtasks_count} subtask${result.deleted_subtasks_count > 1 ? 's' : ''} moved to trash!`;
+            } else {
+                this.successMessage = `🗑️ Task "${this.task.taskname}" moved to trash!`;
+            }
+            
             setTimeout(() => {
                 this.successMessage = '';
-            }, 3000);
+            }, 4000);
             
-            // Redirect back after a short delay
             setTimeout(() => {
                 this.goBack();
             }, 2000);
             
         } catch (error) {
             console.error('Error soft deleting task:', error);
-            this.errorMessage = `❌ Failed to delete task: ${error.message}`;
+            this.errorMessage = `Failed to delete task: ${error.message}`;
+            
             setTimeout(() => {
                 this.errorMessage = '';
             }, 5000);
@@ -2987,6 +3022,28 @@ export default {
 
 .delete-subtask-btn svg {
     flex-shrink: 0;
+}
+
+.cascade-warning {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    text-align: left;
+}
+
+.cascade-details {
+    color: #92400e;
+    font-weight: 500;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.restore-note {
+    color: #78716c;
+    font-size: 13px;
+    margin: 0;
 }
 
 </style>
