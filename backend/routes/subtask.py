@@ -5,11 +5,19 @@ from firebase_admin import firestore
 subtask_bp = Blueprint('subtask', __name__)
 
 # ==================== NEW SUBTASK CREATION ====================
-@subtask_bp.route('/subtasks', methods=['POST'])
+@subtask_bp.route('/api/subtasks', methods=['POST', 'OPTIONS'])  # Add /api/ prefix and OPTIONS
 def create_subtask():
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'OK'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
+    
     try:
         data = request.get_json()
-        print(f"=== BACKEND SUBTASK CREATION DEBUG ===")
+        print(f"🔥 BACKEND SUBTASK CREATION DEBUG")
         print(f"Received subtask data: {data}")
         print(f"Data keys: {list(data.keys()) if data else 'No data'}")
         
@@ -23,7 +31,7 @@ def create_subtask():
         # Get Firestore client
         db = get_firestore_client()
         
-        # Create subtask document
+        # Create subtask document with proper structure
         subtask_data = {
             'name': data['name'],
             'description': data.get('description', ''),
@@ -36,19 +44,22 @@ def create_subtask():
             'owner': data.get('owner'),
             'attachments': data.get('attachments', []),
             'status_history': data.get('status_history', []),
+            'is_deleted': False,  # Ensure new subtasks are not deleted
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
         }
         
-        # Add to Firebase
         print(f"Adding subtask to Firestore: {subtask_data}")
-        _, doc_ref = db.collection('subtasks').add(subtask_data)
-        print(f"Subtask created successfully with ID: {doc_ref.id}")
         
-        # Prepare response data without Firestore sentinels
+        # Use lowercase 'subtasks' collection
+        doc_ref = db.collection('subtasks').add(subtask_data)
+        
+        print(f"Subtask created successfully with ID: {doc_ref[1].id}")
+        
+        # Prepare response data
         response_data = {
             'message': 'Subtask created successfully',
-            'subtaskId': doc_ref.id,
+            'subtaskId': doc_ref[1].id,
             'data': {
                 'name': subtask_data['name'],
                 'description': subtask_data['description'],
@@ -59,7 +70,8 @@ def create_subtask():
                 'project_id': subtask_data['project_id'],
                 'assigned_to': subtask_data['assigned_to'],
                 'owner': subtask_data.get('owner'),
-                'attachments': subtask_data['attachments']
+                'attachments': subtask_data['attachments'],
+                'is_deleted': False
             }
         }
         
@@ -102,8 +114,16 @@ def get_task_subtasks(task_id):
         return jsonify({'error': str(e)}), 500
     
 # ==================== UPDATE SUBTASK ====================
-@subtask_bp.route('/subtasks/<subtask_id>', methods=['PUT'])
+@subtask_bp.route('/api/subtasks/<subtask_id>', methods=['PUT', 'OPTIONS'])  # Add /api/ prefix and OPTIONS
 def update_subtask(subtask_id):
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'OK'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-User-Id,X-User-Role')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
+    
     try:
         data = request.get_json()
         print(f"=== BACKEND SUBTASK UPDATE DEBUG ===")
@@ -130,8 +150,8 @@ def update_subtask(subtask_id):
         # Get Firestore client
         db = get_firestore_client()
         
-        # Check if subtask exists
-        subtask_ref = db.collection('subtasks').document(subtask_id)
+        # Check if subtask exists - USE LOWERCASE COLLECTION
+        subtask_ref = db.collection('subtasks').document(subtask_id)  # Changed to lowercase
         subtask_doc = subtask_ref.get()
         
         if not subtask_doc.exists:
@@ -181,7 +201,6 @@ def update_subtask(subtask_id):
             update_data['status_history'] = data['status_history']
         if 'owner' in data:
             update_data['owner'] = data['owner']
-        
         
         # Always update the timestamp
         update_data['updatedAt'] = firestore.SERVER_TIMESTAMP
@@ -463,9 +482,9 @@ def test_route_works():
 # =============== GET DELETED SUBTASKS ===============
 @subtask_bp.route('/api/subtasks/deleted-new', methods=['GET'])
 def get_deleted_subtasks_NEW():
-    """Get deleted subtasks for a user"""
+    """Get deleted subtasks for a user (only subtasks they directly own)"""
     try:
-        print("🔥 DELETED SUBTASKS ROUTE HIT!")
+        print("🔥 DELETED SUBTASKS ROUTE HIT (OWNERSHIP RESTRICTED)!")
         
         db = get_firestore_client()
         user_id = request.args.get("userId")
@@ -473,33 +492,52 @@ def get_deleted_subtasks_NEW():
         if not user_id:
             return jsonify({"error": "userId parameter is required"}), 400
         
-        print(f"🔍 Looking for deleted subtasks for user: {user_id}")
+        print(f"🔍 Looking for deleted subtasks OWNED BY user: {user_id}")
         
-        # Get deleted subtasks where user is owner
-        owner_query = db.collection("subtasks").where("owner", "==", user_id).where("is_deleted", "==", True)
-        owner_results = owner_query.stream()
+        # Query ALL deleted subtasks
+        all_deleted_query = db.collection("subtasks").where("is_deleted", "==", True)
+        all_deleted_results = all_deleted_query.stream()
         
         subtasks = []
-        for doc in owner_results:
+        
+        for doc in all_deleted_results:
             subtask = doc.to_dict()
             subtask["id"] = doc.id
             
-            # Convert timestamps to ISO format
-            for field in ['deleted_at', 'start_date', 'end_date']:
-                if field in subtask and subtask[field]:
-                    try:
-                        subtask[field] = subtask[field].isoformat()
-                    except:
-                        pass
+            # ✅ ONLY include subtasks that the user directly owns
+            # ⛔ EXCLUDE cascade deleted subtasks owned by other users
+            if subtask.get('owner') == user_id:
+                # Convert timestamps to ISO format
+                for field in ['deleted_at', 'start_date', 'end_date']:
+                    if field in subtask and subtask[field]:
+                        try:
+                            subtask[field] = subtask[field].isoformat()
+                        except:
+                            pass
+                
+                subtasks.append(subtask)
+                
+                # Debug: Show what type of deletion this was
+                if subtask.get('deleted_by_cascade', False):
+                    print(f"✅ INCLUDED CASCADE (user owns subtask): {subtask.get('name', 'Unknown')}")
+                else:
+                    print(f"✅ INCLUDED DIRECT DELETE: {subtask.get('name', 'Unknown')}")
             
-            subtasks.append(subtask)
-            print(f"✅ FOUND: {subtask.get('name', 'Unknown')}")
+            else:
+                # Debug: Show what we're excluding
+                if subtask.get('deleted_by_cascade', False):
+                    cascade_parent_id = subtask.get('cascade_parent_id')
+                    print(f"⛔ EXCLUDED CASCADE (not subtask owner): {subtask.get('name', 'Unknown')} (subtask owner: {subtask.get('owner')}, task: {cascade_parent_id})")
+                else:
+                    print(f"⛔ EXCLUDED (not owner): {subtask.get('name', 'Unknown')} (owner: {subtask.get('owner')})")
         
-        print(f"📊 TOTAL FOUND: {len(subtasks)} deleted subtasks")
+        print(f"📊 TOTAL FOUND: {len(subtasks)} deleted subtasks owned by user")
         return jsonify(subtasks), 200
 
     except Exception as e:
         print(f"❌ ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 # =============== RESTORE SUBTASK ===============

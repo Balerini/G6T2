@@ -708,38 +708,178 @@ def get_all_projects():
 @tasks_bp.route('/api/tasks/<task_id>/delete', methods=['PUT'])
 def soft_delete_task(task_id):
     try:
+        print(f"🗑️ CASCADE DELETE for task: {task_id}", flush=True)
+        
         db = get_firestore_client()
+        deleted_at = firestore.SERVER_TIMESTAMP
         
-        # Get the task first
-        task_ref = db.collection('Tasks').document(task_id)
-        task_doc = task_ref.get()
-        
-        if not task_doc.exists:
-            return jsonify({'error': 'Task not found'}), 404
-        
-        task_data = task_doc.to_dict()
-        
-        # CRITICAL: Get user ID from request
+        # Get user validation
         request_data = request.get_json()
         user_id = request_data.get('userId') if request_data else None
         
         if not user_id:
             return jsonify({'error': 'User ID required'}), 400
         
-        # CRITICAL: Validate ownership
-        if str(task_data.get('owner')) != str(user_id):
+        # Validate task ownership
+        task_ref = db.collection('Tasks').document(task_id)
+        task_doc = task_ref.get()
+        
+        if not task_doc.exists:
+            return jsonify({'error': 'Task not found'}), 404
+            
+        task_data = task_doc.to_dict()
+        
+        # 🔍 DEBUG: Print ALL task fields to find the correct name field
+        print(f"🔍 DEBUG: ALL task fields: {list(task_data.keys())}", flush=True)
+        print(f"🔍 DEBUG: Full task data: {task_data}", flush=True)
+        
+        # 🔍 DEBUG: Test different possible field names
+        taskname_field = task_data.get('taskname')
+        task_name_field = task_data.get('task_name') 
+        name_field = task_data.get('name')
+        title_field = task_data.get('title')
+        
+        print(f"🔍 DEBUG: taskname = '{taskname_field}'", flush=True)
+        print(f"🔍 DEBUG: task_name = '{task_name_field}'", flush=True)
+        print(f"🔍 DEBUG: name = '{name_field}'", flush=True)
+        print(f"🔍 DEBUG: title = '{title_field}'", flush=True)
+        
+        if str(task_data.get('owner', '')) != str(user_id):
             return jsonify({'error': 'Only task owner can delete this task'}), 403
         
-        # Now safe to delete
+        # Delete the task
         task_ref.update({
             'is_deleted': True,
-            'deleted_at': firestore.SERVER_TIMESTAMP
+            'deleted_at': deleted_at
         })
+        print(f"✅ Task {task_id} soft deleted", flush=True)
         
-        return jsonify({"message": "Task deleted successfully"}), 200
+        # Find and cascade delete subtasks
+        subtasks_ref = db.collection('subtasks')  # LOWERCASE
+        subtasks_query = subtasks_ref.where('parent_task_id', '==', task_id)
+        subtasks = list(subtasks_query.stream())
+        
+        deleted_count = 0
+        for subtask_doc in subtasks:
+            subtask_data = subtask_doc.to_dict()
+            
+            if not subtask_data.get('is_deleted', False):
+                subtask_ref = db.collection('subtasks').document(subtask_doc.id)
+                subtask_ref.update({
+                    'is_deleted': True,
+                    'deleted_at': deleted_at,
+                    'deleted_by_cascade': True,
+                    'cascade_parent_id': task_id
+                })
+                deleted_count += 1
+                print(f"✅ Subtask {subtask_doc.id} cascade deleted", flush=True)
+        
+        print(f"🎉 CASCADE COMPLETE: {deleted_count} subtasks deleted", flush=True)
+        
+        # Try multiple field names for task name (with proper fallback)
+        final_task_name = (
+            taskname_field or 
+            task_name_field or 
+            name_field or 
+            title_field or 
+            'Unknown Task'
+        )
+        
+        print(f"🔍 DEBUG: Final task name will be: '{final_task_name}'", flush=True)
+        
+        return jsonify({
+            'message': f'Task and {deleted_count} subtasks moved to trash',
+            'task_id': task_id,
+            'deleted_subtasks_count': deleted_count,
+            'task_name': final_task_name  # Use the debugged name
+        }), 200
         
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"💥 CASCADE ERROR: {str(e)}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+    
+@tasks_bp.route('/api/test/update-subtask/<subtask_id>', methods=['PUT'])
+def test_update_subtask(subtask_id):
+    try:
+        db = get_firestore_client()
+        
+        print(f"🧪 TEST: Attempting to update subtask {subtask_id}", flush=True)
+        
+        # Get the subtask first
+        subtask_ref = db.collection('subtasks').document(subtask_id)
+        subtask_doc = subtask_ref.get()
+        
+        if not subtask_doc.exists:
+            print(f"❌ TEST: Subtask {subtask_id} not found", flush=True)
+            return jsonify({'error': 'Subtask not found'}), 404
+        
+        current_data = subtask_doc.to_dict()
+        print(f"📋 TEST: Current subtask data: is_deleted = {current_data.get('is_deleted')}", flush=True)
+        
+        # Try to update it
+        print(f"🔄 TEST: Updating subtask...", flush=True)
+        subtask_ref.update({
+            'is_deleted': True,
+            'test_field': 'updated_by_test'
+        })
+        
+        # Verify the update
+        updated_doc = subtask_ref.get()
+        updated_data = updated_doc.to_dict()
+        
+        print(f"✅ TEST: Update result: is_deleted = {updated_data.get('is_deleted')}", flush=True)
+        print(f"✅ TEST: Test field = {updated_data.get('test_field')}", flush=True)
+        
+        return jsonify({
+            'message': 'Test update successful',
+            'before': current_data.get('is_deleted'),
+            'after': updated_data.get('is_deleted'),
+            'test_field': updated_data.get('test_field')
+        }), 200
+        
+    except Exception as e:
+        print(f"💥 TEST ERROR: {str(e)}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@tasks_bp.route('/api/debug/task/<task_id>/subtasks', methods=['GET'])
+def debug_subtasks(task_id):
+    try:
+        db = get_firestore_client()
+        
+        print(f"🔍 DEBUG: Looking for ALL subtasks for task {task_id}", flush=True)
+        
+        # Query ALL subtasks (including deleted ones)
+        subtasks_ref = db.collection('subtasks')
+        all_query = subtasks_ref.where('parent_task_id', '==', task_id)
+        all_docs = all_query.stream()
+        
+        results = []
+        for doc in all_docs:
+            data = doc.to_dict()
+            results.append({
+                'id': doc.id,
+                'name': data.get('name', data.get('subtask_name', 'Unknown')),
+                'is_deleted': data.get('is_deleted', False),
+                'deleted_at': data.get('deleted_at'),
+                'parent_task_id': data.get('parent_task_id')
+            })
+            
+            print(f"   📋 Subtask {doc.id}: is_deleted={data.get('is_deleted')}, name={data.get('name')}", flush=True)
+        
+        return jsonify({
+            'task_id': task_id,
+            'total_subtasks': len(results),
+            'subtasks': results
+        }), 200
+        
+    except Exception as e:
+        print(f"💥 DEBUG ERROR: {str(e)}", flush=True)
+        return jsonify({'error': str(e)}), 500
+
     
 # =============== GET DELETED TASKS ===============
 @tasks_bp.route('/api/tasks/deleted', methods=['GET'])
@@ -811,99 +951,82 @@ def get_deleted_tasks():
         return jsonify({"error": str(e)}), 500
 
 # =============== GET DELETED SUBTASKS ===============
-@tasks_bp.route('/api/subtasks/deleted', methods=['GET'])
+@tasks_bp.route('/api/subtasks/deleted', methods=['GET']) 
 def get_deleted_subtasks():
-    """Get all deleted subtasks (where is_deleted = True)"""
     try:
-        print("📋 === GET DELETED SUBTASKS ===")
-        
+        print("🔍 GET DELETED SUBTASKS API CALLED", flush=True)
         db = get_firestore_client()
+        
         user_id = request.args.get('userId')
+        print(f"   User ID: {user_id}", flush=True)
         
         if not user_id:
-            return jsonify({"error": "userId parameter is required"}), 400
+            return jsonify({'error': 'userId parameter is required'}), 400
         
-        # Query for deleted subtasks where user is assigned or owns the parent task
-        subtasks_ref = db.collection('Subtasks')
-        query = subtasks_ref.where('is_deleted', '==', True)
+        # Query ALL deleted subtasks (no owner filter for cascade deleted ones)
+        subtasks_ref = db.collection('subtasks')  # LOWERCASE
+        query = subtasks_ref.where('is_deleted', '==', True)  # ONLY filter by is_deleted
         
         subtasks = []
-        seen_ids = set()
+        docs = query.stream()
         
-        # Get subtasks where user is assigned
-        try:
-            assigned_query = query.where('assignedto', 'array_contains', user_id)
-            for doc in assigned_query.stream():
-                if doc.id not in seen_ids:
-                    subtask_data = doc.to_dict()
-                    subtask_data['id'] = doc.id
-                    
-                    # Convert timestamps to ISO format
-                    if 'deleted_at' in subtask_data and subtask_data['deleted_at']:
-                        subtask_data['deleted_at'] = subtask_data['deleted_at'].isoformat()
-                    if 'startdate' in subtask_data and subtask_data['startdate']:
-                        subtask_data['startdate'] = subtask_data['startdate'].isoformat()
-                    if 'enddate' in subtask_data and subtask_data['enddate']:
-                        subtask_data['enddate'] = subtask_data['enddate'].isoformat()
-                    
-                    # Get parent task name if available
-                    if 'task_id' in subtask_data:
-                        try:
-                            parent_task = db.collection('Tasks').document(subtask_data['task_id']).get()
-                            if parent_task.exists:
-                                parent_data = parent_task.to_dict()
-                                subtask_data['parent_task_name'] = parent_data.get('taskname', 'Unknown Task')
-                        except Exception as e:
-                            print(f"Error getting parent task: {e}")
-                    
-                    subtasks.append(subtask_data)
-                    seen_ids.add(doc.id)
-        except Exception as e:
-            print(f"Error querying assigned subtasks: {e}")
-        
-        # Get subtasks where user owns the parent task
-        # This is more complex as we need to join subtasks with tasks
-        try:
-            # Get all user's tasks first
-            user_tasks = db.collection('Tasks').where('owner', '==', user_id).stream()
-            user_task_ids = [task.id for task in user_tasks]
+        for doc in docs:
+            data = doc.to_dict()
             
-            # Then get deleted subtasks for those tasks
-            for task_id in user_task_ids:
-                subtask_query = query.where('task_id', '==', task_id)
-                for doc in subtask_query.stream():
-                    if doc.id not in seen_ids:
-                        subtask_data = doc.to_dict()
-                        subtask_data['id'] = doc.id
-                        
-                        # Convert timestamps to ISO format
-                        if 'deleted_at' in subtask_data and subtask_data['deleted_at']:
-                            subtask_data['deleted_at'] = subtask_data['deleted_at'].isoformat()
-                        if 'startdate' in subtask_data and subtask_data['startdate']:
-                            subtask_data['startdate'] = subtask_data['startdate'].isoformat()
-                        if 'enddate' in subtask_data and subtask_data['enddate']:
-                            subtask_data['enddate'] = subtask_data['enddate'].isoformat()
-                        
-                        # Get parent task name
-                        try:
-                            parent_task = db.collection('Tasks').document(task_id).get()
-                            if parent_task.exists:
-                                parent_data = parent_task.to_dict()
-                                subtask_data['parent_task_name'] = parent_data.get('taskname', 'Unknown Task')
-                        except Exception as e:
-                            print(f"Error getting parent task: {e}")
-                        
-                        subtasks.append(subtask_data)
-                        seen_ids.add(doc.id)
-        except Exception as e:
-            print(f"Error querying owned subtasks: {e}")
+            # Include subtasks that are either:
+            # 1. Owned by the user, OR
+            # 2. Cascade deleted from tasks owned by the user
+            include_subtask = False
+            
+            # Check if user owns the subtask directly
+            if data.get('owner') == user_id:
+                include_subtask = True
+                print(f"   Found user-owned deleted subtask: {doc.id}", flush=True)
+            
+            # Check if it's cascade deleted from user's task
+            elif data.get('deleted_by_cascade', False):
+                cascade_parent_id = data.get('cascade_parent_id')
+                if cascade_parent_id:
+                    # Check if the parent task belongs to this user
+                    parent_task_ref = db.collection('Tasks').document(cascade_parent_id)
+                    parent_task = parent_task_ref.get()
+                    if parent_task.exists:
+                        parent_data = parent_task.to_dict()
+                        if str(parent_data.get('owner', '')) == str(user_id):
+                            include_subtask = True
+                            print(f"   Found cascade deleted subtask: {doc.id} (from task {cascade_parent_id})", flush=True)
+            
+            if include_subtask:
+                subtask_info = {
+                    'id': doc.id,
+                    'name': data.get('name', 'Unknown Subtask'),
+                    'subtaskname': data.get('name', 'Unknown Subtask'),
+                    'description': data.get('description', ''),
+                    'subtaskdescription': data.get('description', ''),
+                    'is_deleted': data.get('is_deleted', False),
+                    'deleted_at': data.get('deleted_at'),
+                    'parent_task_id': data.get('parent_task_id'),
+                    'deleted_by_cascade': data.get('deleted_by_cascade', False),
+                    'cascade_parent_id': data.get('cascade_parent_id')
+                }
+                
+                # Convert timestamp
+                if subtask_info['deleted_at']:
+                    try:
+                        subtask_info['deleted_at'] = subtask_info['deleted_at'].isoformat()
+                    except:
+                        pass
+                
+                subtasks.append(subtask_info)
         
-        print(f"📊 Found {len(subtasks)} deleted subtasks for user {user_id}")
+        print(f"📊 Returning {len(subtasks)} deleted subtasks for user", flush=True)
         return jsonify(subtasks), 200
         
     except Exception as e:
-        print(f"❌ Error fetching deleted subtasks: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        print(f"💥 Error getting deleted subtasks: {str(e)}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 # =============== RESTORE TASK ===============
 @tasks_bp.route('/api/tasks/<task_id>/restore', methods=['PUT'])
@@ -963,7 +1086,7 @@ def restore_subtask(subtask_id):
         print(f"🔄 Restoring subtask: {subtask_id}")
         
         db = get_firestore_client()
-        doc_ref = db.collection('Subtasks').document(subtask_id)
+        doc_ref = db.collection('subtasks').document(subtask_id)
         
         # Check if document exists
         doc = doc_ref.get()
@@ -1046,7 +1169,7 @@ def permanently_delete_subtask(subtask_id):
         print(f"💥 Permanently deleting subtask: {subtask_id}")
         
         db = get_firestore_client()
-        doc_ref = db.collection('Subtasks').document(subtask_id)
+        doc_ref = db.collection('subtasks').document(subtask_id)
         
         # Check if document exists
         doc = doc_ref.get()
