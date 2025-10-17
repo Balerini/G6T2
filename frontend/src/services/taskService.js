@@ -100,14 +100,34 @@ export const taskService = {
   },
 
   async getDeletedSubtasks(userId) {
-      try {
-          const response = await api.get(`/api/subtasks/deleted?userId=${userId}`);
-          return response.data;
-      } catch (error) {
-          console.error('Get deleted subtasks error:', error);
-          throw new Error(error.response?.data?.error || 'Failed to get deleted subtasks');
-      }
-  },
+    try {
+        const response = await api.get(`/api/subtasks/deleted-new?userId=${userId}`);
+        return response.data;
+    } catch (error) {
+        console.error('Get deleted subtasks error:', error);
+        throw new Error(error.response?.data?.error || 'Failed to get deleted subtasks');
+    }
+},
+
+async restoreSubtask(subtaskId) {
+    try {
+        const response = await api.put(`/api/subtasks/${subtaskId}/restore-new`);
+        return response.data;
+    } catch (error) {
+        console.error('Restore subtask error:', error);
+        throw new Error(error.response?.data?.error || 'Failed to restore subtask');
+    }
+},
+
+async permanentlyDeleteSubtask(subtaskId) {
+    try {
+        const response = await api.delete(`/api/subtasks/${subtaskId}/permanent-new`);
+        return response.data;
+    } catch (error) {
+        console.error('Permanent delete subtask error:', error);
+        throw new Error(error.response?.data?.error || 'Failed to permanently delete subtask');
+    }
+},
 
   async restoreTask(taskId) {
       try {
@@ -119,16 +139,6 @@ export const taskService = {
       }
   },
 
-  async restoreSubtask(subtaskId) {
-      try {
-          const response = await api.put(`/api/subtasks/${subtaskId}/restore`);
-          return response.data;
-      } catch (error) {
-          console.error('Restore subtask error:', error);
-          throw new Error(error.response?.data?.error || 'Failed to restore subtask');
-      }
-  },
-
   async permanentlyDeleteTask(taskId) {
       try {
           const response = await api.delete(`/api/tasks/${taskId}/permanent`);
@@ -136,16 +146,6 @@ export const taskService = {
       } catch (error) {
           console.error('Permanent delete task error:', error);
           throw new Error(error.response?.data?.error || 'Failed to permanently delete task');
-      }
-  },
-
-  async permanentlyDeleteSubtask(subtaskId) {
-      try {
-          const response = await api.delete(`/api/subtasks/${subtaskId}/permanent`);
-          return response.data;
-      } catch (error) {
-          console.error('Permanent delete subtask error:', error);
-          throw new Error(error.response?.data?.error || 'Failed to permanently delete subtask');
       }
   },
 
@@ -194,12 +194,13 @@ export const taskService = {
 
   async getSubtasksByTask(taskId) {
     try {
-      const response = await api.get(`/api/tasks/${taskId}/subtasks`);
-      return response.data.subtasks || [];
+        const response = await api.get(`/api/tasks/${taskId}/subtasks`);
+        return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.error || 'Failed to fetch subtasks');
+        console.error('Get subtasks by task error:', error);
+        throw new Error(error.response?.data?.error || 'Failed to fetch subtasks');
     }
-  },
+},
 
   async updateSubtask(subtaskId, subtaskData) {
     try {
@@ -216,6 +217,31 @@ export const taskService = {
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.error || 'Failed to update subtask');
+    }
+  },
+
+  async deleteSubtask(subtaskId) {
+    try {
+      const userString = sessionStorage.getItem('user');
+      const userData = JSON.parse(userString);
+      const userId = userData.id;
+      
+      const response = await api.put(`/api/subtasks/${subtaskId}/delete`, {
+        userId: userId
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Delete subtask error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to delete subtask');
+    }
+  },
+  
+  async getTeamSubtasks(managerId) {
+    try {
+      const response = await api.get(`/api/subtasks/team/${managerId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to fetch team subtasks');
     }
   },
 };

@@ -80,15 +80,21 @@ def get_task_subtasks(task_id):
         db = get_firestore_client()
         subtasks = db.collection('subtasks').where('parent_task_id', '==', task_id).get()
 
-        print(f"Found {len(subtasks)} subtasks")
+        print(f"Found {len(subtasks)} total subtasks")
         
         subtasks_list = []
         for subtask in subtasks:
             subtask_data = subtask.to_dict()
             subtask_data['id'] = subtask.id
-            subtasks_list.append(subtask_data)
-            print(f"  - Subtask: {subtask_data.get('name')} (ID: {subtask.id})")
+            
+            # FILTER OUT DELETED SUBTASKS (only show active ones)
+            if not subtask_data.get('is_deleted', False):
+                subtasks_list.append(subtask_data)
+                print(f"  - Active Subtask: {subtask_data.get('name')} (ID: {subtask.id})")
+            else:
+                print(f"  - Skipped Deleted Subtask: {subtask_data.get('name')} (ID: {subtask.id})")
         
+        print(f"Returning {len(subtasks_list)} active subtasks")
         return jsonify({'subtasks': subtasks_list}), 200
         
     except Exception as e:
@@ -333,4 +339,352 @@ def update_subtask(subtask_id):
         print(f"Error updating subtask: {str(e)}")
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+    
+# =============== SOFT DELETE SUBTASK ===============
+@subtask_bp.route('/api/subtasks/<subtask_id>/delete', methods=['PUT'])
+def soft_delete_subtask(subtask_id):
+    try:
+        print(f"🗑️ Soft deleting subtask: {subtask_id}")
+        
+        db = get_firestore_client()
+        
+        # Get the subtask first
+        subtask_ref = db.collection('subtasks').document(subtask_id)
+        subtask_doc = subtask_ref.get()
+        
+        if not subtask_doc.exists:
+            print(f"❌ Subtask {subtask_id} not found")
+            return jsonify({'error': 'Subtask not found'}), 404
+        
+        subtask_data = subtask_doc.to_dict()
+        
+        # Get user ID from request body
+        request_data = request.get_json()
+        user_id = request_data.get('userId') if request_data else None
+        
+        if not user_id:
+            return jsonify({'error': 'User ID is required'}), 400
+        
+        # VALIDATE: Only subtask owner can delete
+        if str(subtask_data.get('owner')) != str(user_id):
+            return jsonify({'error': 'Only the subtask owner can delete this subtask'}), 403
+        
+        # SOFT DELETE: Set is_deleted = True
+        update_data = {
+            'is_deleted': True,
+            'deleted_at': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        
+        subtask_ref.update(update_data)
+        print(f"✅ Subtask {subtask_id} soft deleted successfully")
+        
+        return jsonify({
+            "message": "Subtask moved to deleted items successfully",
+            "subtask_id": subtask_id,
+            "is_deleted": True,
+            "subtask_name": subtask_data.get('name', 'Unknown Subtask')
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error soft deleting subtask {subtask_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@subtask_bp.route('/subtasks/test-debug', methods=['GET'])
+def test_debug():
+    """Simple test to see if subtask routes work"""
+    try:
+        db = get_firestore_client()
+        user_id = request.args.get('userId', 'test')
+        
+        print(f"🔍 TEST DEBUG: Looking for user {user_id}")
+        
+        # Get ALL subtasks (no filtering)
+        all_subtasks = db.collection('subtasks').get()
+        
+        result = {
+            "total_subtasks": len(list(all_subtasks)),
+            "test_user_id": user_id,
+            "message": "Subtask routes are working!",
+            "collection_name": "subtasks"
+        }
+        
+        # Reset the iterator and get deleted ones
+        deleted_subtasks = db.collection('subtasks').where('is_deleted', '==', True).get()
+        result["deleted_count"] = len(list(deleted_subtasks))
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@subtask_bp.route('/subtasks/debug-everything', methods=['GET'])
+def debug_everything():
+    """Ultimate debug - show EVERYTHING"""
+    try:
+        db = get_firestore_client()
+        
+        # Get ALL subtasks, no filtering at all
+        all_subtasks = db.collection('subtasks').get()
+        
+        debug_info = {
+            "total_subtasks_found": len(list(all_subtasks)),
+            "collection_name": "subtasks",
+            "server_working": True,
+            "subtasks": []
+        }
+        
+        # Reset iterator and get actual data
+        all_docs = db.collection('subtasks').get()
+        for doc in all_docs:
+            data = doc.to_dict()
+            debug_info["subtasks"].append({
+                "id": doc.id,
+                "name": data.get('name', 'NO NAME'),
+                "owner": data.get('owner', 'NO OWNER'),
+                "is_deleted": data.get('is_deleted', 'NO IS_DELETED FIELD'),
+                "all_field_names": list(data.keys())
+            })
+        
+        return jsonify(debug_info), 200
+        
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "server_working": False,
+            "message": "Something is broken"
+        }), 500
+
+@subtask_bp.route('/api/test-route-works', methods=['GET'])
+def test_route_works():
+    return jsonify({"message": "ROUTE WORKS!", "success": True}), 200
+
+# =============== GET DELETED SUBTASKS ===============
+@subtask_bp.route('/api/subtasks/deleted-new', methods=['GET'])
+def get_deleted_subtasks_NEW():
+    """Get deleted subtasks for a user"""
+    try:
+        print("🔥 DELETED SUBTASKS ROUTE HIT!")
+        
+        db = get_firestore_client()
+        user_id = request.args.get("userId")
+        
+        if not user_id:
+            return jsonify({"error": "userId parameter is required"}), 400
+        
+        print(f"🔍 Looking for deleted subtasks for user: {user_id}")
+        
+        # Get deleted subtasks where user is owner
+        owner_query = db.collection("subtasks").where("owner", "==", user_id).where("is_deleted", "==", True)
+        owner_results = owner_query.stream()
+        
+        subtasks = []
+        for doc in owner_results:
+            subtask = doc.to_dict()
+            subtask["id"] = doc.id
+            
+            # Convert timestamps to ISO format
+            for field in ['deleted_at', 'start_date', 'end_date']:
+                if field in subtask and subtask[field]:
+                    try:
+                        subtask[field] = subtask[field].isoformat()
+                    except:
+                        pass
+            
+            subtasks.append(subtask)
+            print(f"✅ FOUND: {subtask.get('name', 'Unknown')}")
+        
+        print(f"📊 TOTAL FOUND: {len(subtasks)} deleted subtasks")
+        return jsonify(subtasks), 200
+
+    except Exception as e:
+        print(f"❌ ERROR: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# =============== RESTORE SUBTASK ===============
+@subtask_bp.route('/api/subtasks/<subtask_id>/restore-new', methods=['PUT'])
+def restore_subtask_NEW(subtask_id):
+    try:
+        print(f"🔄 Restoring subtask: {subtask_id}")
+        
+        db = get_firestore_client()
+        subtask_ref = db.collection('subtasks').document(subtask_id)
+        
+        doc = subtask_ref.get()
+        if not doc.exists:
+            return jsonify({'error': 'Subtask not found'}), 404
+        
+        # Restore subtask
+        subtask_ref.update({
+            'is_deleted': False,
+            'deleted_at': None,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+        
+        return jsonify({"message": "Subtask restored successfully"}), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# =============== PERMANENTLY DELETE SUBTASK ===============
+@subtask_bp.route('/api/subtasks/<subtask_id>/permanent-new', methods=['DELETE'])
+def permanently_delete_subtask_NEW(subtask_id):
+    try:
+        print(f"💥 Permanently deleting subtask: {subtask_id}")
+        
+        db = get_firestore_client()
+        subtask_ref = db.collection('subtasks').document(subtask_id)
+        
+        doc = subtask_ref.get()
+        if not doc.exists:
+            return jsonify({'error': 'Subtask not found'}), 404
+        
+        # Hard delete
+        subtask_ref.delete()
+        
+        return jsonify({"message": "Subtask permanently deleted"}), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@subtask_bp.route('/api/tasks/<task_id>/subtasks', methods=['GET'])
+def get_subtasks_by_task(task_id):
+    """Get all active subtasks for a specific task"""
+    try:
+        print(f"📋 Getting subtasks for task: {task_id}")
+        
+        db = get_firestore_client()
+        
+        # Query subtasks by parent_task_id and not deleted
+        subtasks_ref = db.collection('subtasks')
+        query = subtasks_ref.where('parent_task_id', '==', task_id).where('is_deleted', '==', False)
+        subtasks = query.get()
+        
+        subtask_list = []
+        for doc in subtasks:
+            subtask_data = doc.to_dict()
+            subtask_data['id'] = doc.id
+            
+            # Convert Firestore timestamps to ISO format
+            for field in ['createdAt', 'updatedAt', 'start_date', 'end_date']:
+                if field in subtask_data and subtask_data[field]:
+                    try:
+                        subtask_data[field] = subtask_data[field].isoformat()
+                    except:
+                        pass
+            
+            subtask_list.append(subtask_data)
+        
+        print(f"✅ Found {len(subtask_list)} subtasks for task {task_id}")
+        return jsonify(subtask_list), 200
+        
+    except Exception as e:
+        print(f"❌ Error fetching subtasks: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    
+
+# ==================== GET TEAM SUBTASKS FOR MANAGER ====================
+@subtask_bp.route('/api/subtasks/team/<manager_id>', methods=['GET'])
+def get_team_subtasks(manager_id):
+    """Get all subtasks owned by team members under this manager"""
+    try:
+        print(f"📊 Getting team subtasks for manager: {manager_id}")
+        
+        db = get_firestore_client()
+        
+        # Step 1: Get the manager's info
+        manager_doc = db.collection('Users').document(manager_id).get()
+        
+        if not manager_doc.exists:
+            print(f"Manager not found: {manager_id}")
+            return jsonify({'error': 'Manager not found'}), 404
+        
+        manager_data = manager_doc.to_dict()
+        manager_division = manager_data.get('division_name')
+        manager_role = manager_data.get('role_num')
+        
+        print(f"Manager: {manager_data.get('name')} | Division: {manager_division} | Role: {manager_role}")
+        
+        # Validate that user is actually a manager
+        if manager_role not in [2, 3]:  # 2=Director, 3=Manager
+            print(f"User is not a manager (role_num: {manager_role})")
+            return jsonify({'error': 'User is not authorized to view team subtasks'}), 403
+        
+        if not manager_division:
+            print(f"Manager has no division")
+            return jsonify({'error': 'Manager has no division assigned'}), 400
+        
+        # Step 2: Get all staff in the same division (role_num = 4)
+        staff_query = db.collection('Users').where('division_name', '==', manager_division).where('role_num', '==', 4)
+        staff_docs = staff_query.get()
+        
+        # Create a map of user_id -> user_name for quick lookup
+        staff_map = {}
+        staff_ids = []
+        
+        for staff_doc in staff_docs:
+            staff_data = staff_doc.to_dict()
+            staff_id = staff_doc.id
+            staff_ids.append(staff_id)
+            staff_map[staff_id] = staff_data.get('name', 'Unknown User')
+        
+        print(f"Found {len(staff_ids)} staff members in {manager_division} division")
+        
+        if not staff_ids:
+            print(f"ℹ️ No staff members found in division")
+            return jsonify([]), 200
+        
+        # Step 3: Get all subtasks owned by these staff members
+        # Firebase 'in' operator can only handle up to 10 items
+        all_subtasks = []
+        
+        # Process in batches of 10
+        for i in range(0, len(staff_ids), 10):
+            batch_ids = staff_ids[i:i+10]
+            print(f"🔍 Querying subtasks for batch {i//10 + 1} ({len(batch_ids)} staff)")
+            
+            subtasks_query = db.collection('subtasks').where('owner', 'in', batch_ids).where('is_deleted', '==', False)
+            subtasks_docs = subtasks_query.get()
+            
+            for subtask_doc in subtasks_docs:
+                subtask_data = subtask_doc.to_dict()
+                
+                # Build response object
+                owner_id = subtask_data.get('owner')
+                subtask_response = {
+                    'id': subtask_doc.id,
+                    'name': subtask_data.get('name', 'Untitled Subtask'),
+                    'ownerName': staff_map.get(owner_id, 'Unknown User'),
+                    'owner_id': owner_id,
+                    'description': subtask_data.get('description', ''),
+                    'start_date': subtask_data.get('start_date'),
+                    'end_date': subtask_data.get('end_date'),
+                    'status': subtask_data.get('status', 'Unassigned'),
+                    'priority': None,  # Subtasks have no priority field
+                    'task_id': subtask_data.get('parent_task_id'),
+                    'proj_ID': subtask_data.get('project_id'),
+                    'assigned_to': subtask_data.get('assigned_to', []),
+                    'attachments': subtask_data.get('attachments', [])
+                }
+                
+                # Convert Firestore timestamps to ISO format 
+                for field in ['start_date', 'end_date']:
+                    if field in subtask_response and subtask_response[field]:
+                        try:
+                            if hasattr(subtask_response[field], 'isoformat'):
+                                subtask_response[field] = subtask_response[field].isoformat()
+                        except:
+                            pass
+                
+                all_subtasks.append(subtask_response)
+        
+        print(f"Found {len(all_subtasks)} total subtasks for {manager_division} team")
+        
+        return jsonify(all_subtasks), 200
+        
+    except Exception as e:
+        print(f"Error getting team subtasks: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
