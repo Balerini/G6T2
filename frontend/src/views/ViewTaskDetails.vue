@@ -1354,9 +1354,9 @@ export default {
             
             // Use the result from backend instead
             if (result.deleted_subtasks_count > 0) {
-                this.successMessage = `🗑️ Task "${this.task.taskname}" and ${result.deleted_subtasks_count} subtask${result.deleted_subtasks_count > 1 ? 's' : ''} moved to trash!`;
+                this.successMessage = `🗑️ Task "${this.task.task_name}" and ${result.deleted_subtasks_count} subtask${result.deleted_subtasks_count > 1 ? 's' : ''} moved to trash!`;
             } else {
-                this.successMessage = `🗑️ Task "${this.task.taskname}" moved to trash!`;
+                this.successMessage = `🗑️ Task "${this.task.task_name}" moved to trash!`;
             }
             
             setTimeout(() => {

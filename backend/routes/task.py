@@ -728,6 +728,22 @@ def soft_delete_task(task_id):
             return jsonify({'error': 'Task not found'}), 404
             
         task_data = task_doc.to_dict()
+        
+        # 🔍 DEBUG: Print ALL task fields to find the correct name field
+        print(f"🔍 DEBUG: ALL task fields: {list(task_data.keys())}", flush=True)
+        print(f"🔍 DEBUG: Full task data: {task_data}", flush=True)
+        
+        # 🔍 DEBUG: Test different possible field names
+        taskname_field = task_data.get('taskname')
+        task_name_field = task_data.get('task_name') 
+        name_field = task_data.get('name')
+        title_field = task_data.get('title')
+        
+        print(f"🔍 DEBUG: taskname = '{taskname_field}'", flush=True)
+        print(f"🔍 DEBUG: task_name = '{task_name_field}'", flush=True)
+        print(f"🔍 DEBUG: name = '{name_field}'", flush=True)
+        print(f"🔍 DEBUG: title = '{title_field}'", flush=True)
+        
         if str(task_data.get('owner', '')) != str(user_id):
             return jsonify({'error': 'Only task owner can delete this task'}), 403
         
@@ -760,11 +776,22 @@ def soft_delete_task(task_id):
         
         print(f"🎉 CASCADE COMPLETE: {deleted_count} subtasks deleted", flush=True)
         
+        # Try multiple field names for task name (with proper fallback)
+        final_task_name = (
+            taskname_field or 
+            task_name_field or 
+            name_field or 
+            title_field or 
+            'Unknown Task'
+        )
+        
+        print(f"🔍 DEBUG: Final task name will be: '{final_task_name}'", flush=True)
+        
         return jsonify({
             'message': f'Task and {deleted_count} subtasks moved to trash',
             'task_id': task_id,
             'deleted_subtasks_count': deleted_count,
-            'task_name': task_data.get('taskname', 'Unknown Task')
+            'task_name': final_task_name  # Use the debugged name
         }), 200
         
     except Exception as e:
