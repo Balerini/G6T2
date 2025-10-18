@@ -55,8 +55,18 @@
                 </div>
             </div>
             
+            <!-- Empty State Message -->
+            <div v-if="allEvents.length === 0 && myEvents.length === 0" class="empty-calendar-state">
+                <div class="empty-icon">📅</div>
+                <h3 class="empty-title">No Tasks Scheduled</h3>
+                <p class="empty-message">
+                  {{ activeTab === 'my' ? "You don't have any tasks assigned yet." : "No tasks have been assigned to your team yet." }}
+                </p>
+                <p class="empty-subtitle">Tasks will appear here once they are created and assigned to you.</p>
+            </div>
+            
             <!-- Calendar Grid -->
-            <FullCalendar :options="calendarOptions" />
+            <FullCalendar v-else :options="calendarOptions" />
         </div>
     </div>
 </template>
@@ -170,8 +180,21 @@ export default {
             const myEvents = [];
             const allCategories = this.data.pending_tasks_by_age;
 
+            // Handle case where there are no tasks (new user)
+            if (!allCategories || Object.keys(allCategories).length === 0) {
+                console.log('TaskCalendar - No tasks found, showing empty calendar');
+                this.allEvents = allEvents;
+                this.myEvents = myEvents;
+                return;
+            }
+
             Object.keys(allCategories).forEach(category => {
                 const tasks = allCategories[category];
+
+                // Skip empty categories
+                if (!tasks || tasks.length === 0) {
+                    return;
+                }
 
                 tasks.forEach(task => {
                     let color = '#3b82f6';
@@ -415,6 +438,41 @@ export default {
     font-size: 0.875rem;
     margin: 0;
     font-weight: 500;
+}
+
+.empty-calendar-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 2px dashed #d1d5db;
+    margin: 1rem 0;
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.6;
+}
+
+.empty-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #374151;
+    margin: 0 0 0.5rem 0;
+}
+
+.empty-message {
+    font-size: 1rem;
+    color: #6b7280;
+    margin: 0 0 0.5rem 0;
+    font-weight: 500;
+}
+
+.empty-subtitle {
+    font-size: 0.875rem;
+    color: #9ca3af;
+    margin: 0;
 }
 
 @media (max-width: 768px) {

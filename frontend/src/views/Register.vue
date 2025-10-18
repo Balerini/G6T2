@@ -99,6 +99,10 @@
           <div class="error-message" :class="{ 'visible': error }">
             {{ error }}
           </div>
+          
+          <div class="success-message" :class="{ 'visible': successMessage }">
+            {{ successMessage }}
+          </div>
 
           <button type="submit" class="btn-primary" :disabled="loading">
             <span v-if="loading">Creating account...</span>
@@ -136,7 +140,8 @@ export default {
       },
       errors: {},
       loading: false,
-      error: ''
+      error: '',
+      successMessage: ''
     }
   },
   methods: {
@@ -146,6 +151,9 @@ export default {
       }
       if (this.error) {
         this.error = ''
+      }
+      if (this.successMessage) {
+        this.successMessage = ''
       }
     },
 
@@ -266,16 +274,25 @@ export default {
         })
 
         if (response.ok) {
-          // Auto-login the user after successful registration
-          console.log('Registration response:', response)
-          console.log('User data to login:', response.user)
-          authService.login(response.user)
-          console.log('Auth status after login:', authService.checkAuthStatus())
+          // Registration successful - redirect to login for security
+          console.log('Registration successful:', response)
           
-          // Small delay to ensure auth service processes the login
+          // Show success message and redirect to login
+          this.successMessage = 'Registration successful! Please log in with your credentials.'
+          
+          // Clear form
+          this.form = {
+            name: '',
+            email: '',
+            password: '',
+            confirmPassword: '',
+            division: ''
+          }
+          
+          // Redirect to login after a short delay
           setTimeout(() => {
-            this.$router.push('/')
-          }, 100)
+            this.$router.push('/login')
+          }, 2000)
         } else {
           this.error = response.error || 'Registration failed'
         }
@@ -451,6 +468,25 @@ label {
   margin-top: 1rem;
   margin-bottom: 1rem;
   min-height: auto;
+}
+
+/* Success message styling */
+.success-message {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.success-message.visible {
+  opacity: 1;
 }
 
 
