@@ -435,7 +435,7 @@ def update_task(task_id):
                             except:
                                 end_date_str = str(response_data['end_date'])[:10]
                         
-                        print(f"📧 Preparing to send ownership transfer email...")
+                        print("📧 Preparing to send ownership transfer email...")
                         print(f"   To: {new_owner_email}")
                         print(f"   CC: {old_owner_email}")
                         print(f"   Task: {task_name}")
@@ -457,7 +457,7 @@ def update_task(task_id):
                             if success:
                                 print(f"✅ OWNERSHIP TRANSFER EMAIL SENT to {new_owner_email} (CC: {old_owner_email})")
                             else:
-                                print(f"❌ FAILED to send ownership transfer email")
+                                print("❌ FAILED to send ownership transfer email")
                         else:
                             print(f"⚠️ No email found for new owner {new_owner_id}")
                     else:
@@ -472,7 +472,7 @@ def update_task(task_id):
 
             # ================== CREATE NOTIFICATIONS FOR TASK UPDATES ==================
             try:
-                print(f"🔔 NOTIFICATION BLOCK REACHED")
+                print("🔔 NOTIFICATION BLOCK REACHED")
                 
                 # Get the NEW assigned_to list (after update)
                 # old_assigned_to was captured before the update above
@@ -554,9 +554,9 @@ def update_task(task_id):
                 elif other_fields_changed and new_assigned_to:
                     print(f"🎯 Notifying {len(new_assigned_to)} users about task details update (no assignment change)")
                     notification_service.notify_task_updated(notification_task_data, new_assigned_to, other_fields_changed, old_values, new_values)
-                    print(f"✅ Task update notifications sent")
+                    print("✅ Task update notifications sent")
                 else:
-                    print(f"⏭️  No notifications needed (no changes or no assignees)")
+                    print("⏭️  No notifications needed (no changes or no assignees)")
                 
             except Exception as e:
                 print(f"❌ Failed to create update notifications: {e}")
