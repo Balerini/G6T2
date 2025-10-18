@@ -53,8 +53,8 @@
                             <th>Owner</th>
                             <th>Due Date</th>
                             <th>Status</th>
-                            <th>Priority</th>
-                            <th>Actions</th>
+                            <!-- <th>Priority</th> -->
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -76,11 +76,11 @@
                                     {{ subtask.status || 'Unassigned' }}
                                 </span>
                             </td>
-                            <td class="subtask-priority">
+                            <!-- <td class="subtask-priority">
                                 <span class="priority-badge" :class="getPriorityClass(subtask.priority)">
                                     {{ formatPriority(subtask.priority) }}
                                 </span>
-                            </td>
+                            </td> -->
                             <td class="subtask-actions">
                                 <button @click="viewSubtask(subtask)" class="view-btn">
                                     View
@@ -224,14 +224,15 @@ export default {
         },
 
         viewSubtask(subtask) {
-            // Navigate to the task that contains this subtask
-            this.$router.push({
-                name: 'ViewTaskDetails',
-                params: {
-                    projectId: subtask.proj_ID,
-                    taskId: subtask.task_id
-                }
-            });
+            // // Navigate to the task that contains this subtask
+            // this.$router.push({
+            //     name: 'ViewTaskDetails',
+            //     params: {
+            //         projectId: subtask.proj_ID,
+            //         taskId: subtask.task_id
+            //     }
+            // });
+            this.$router.push(`/projects/${subtask.proj_ID}/tasks/${subtask.task_id}`);
         }
     }
 };
