@@ -122,7 +122,7 @@ def create_task():
 
         # ================== SEND EMAILS TO ASSIGNED USERS ==================
         try:
-            from backend.services.email_service import email_service
+            from services.email_service import email_service
 
             # Get creator's info (for the "owner" field)
             creator_name = 'Unknown User'
