@@ -125,7 +125,6 @@
 
 <script>
 import { authAPI } from '@/services/api'
-import authService from '@/services/auth'
 
 export default {
   name: 'Register',

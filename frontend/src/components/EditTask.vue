@@ -52,6 +52,7 @@
               class="form-input"
               :class="{ 'input-error': errors.task_name }"
               :placeholder="task?.task_name || 'Enter task name'"
+              :disabled="!canEditAllFields"
               @input="clearError('task_name')"
             />
             <span v-if="errors.task_name" class="error-message">{{ errors.task_name }}</span>
@@ -65,6 +66,7 @@
               v-model="localForm.task_desc"
               class="form-textarea"
               :placeholder="task?.task_desc || 'Enter task description (max 500 characters)'"
+              :disabled="!canEditDescription"
               rows="4"
             ></textarea>
             <div class="char-count">
@@ -82,6 +84,7 @@
               class="form-input"
               :class="{ 'input-error': errors.start_date }"
               :max="getTaskMaxEndDate()"
+              :disabled="!canEditAllFields"
               @change="() => { clearError('start_date'); validateDates(); }"
             />
             <span v-if="errors.start_date" class="error-message">{{ errors.start_date }}</span>
@@ -101,6 +104,7 @@
               :class="{ 'input-error': errors.end_date }"
               :min="localForm.start_date"
               :max="getTaskMaxEndDate()"
+              :disabled="!canEditAllFields"
               @change="validateDates"
             />
             <span v-if="errors.end_date || dateValidationError" class="error-message">
@@ -144,31 +148,31 @@
           <div class="form-group">
             <label class="form-label" for="assignedTo">
               Collaborators
-              <span v-if="!isTaskOwner" class="label-note">(Only task owner can modify)</span>
+              <span v-if="!canEditCollaborators" class="label-note">(Only task owner can modify)</span>
             </label>
 
             <!-- Combined search input with dropdown -->
-            <div class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown && isTaskOwner }">
+            <div class="search-dropdown-container" :class="{ 'dropdown-open': showDropdown && canEditCollaborators }">
               <input
                 id="assignedTo"
                 v-model="userSearch"
                 type="text"
                 class="form-input"
                 :class="{ 'input-error': errors.collaborators }"
-                :placeholder="isLoadingUsers ? 'Loading users...' : (isTaskOwner ? 'Search and select collaborators...' : 'Only task owner can modify collaborators')"
-                @focus="isTaskOwner ? handleInputFocus : null; clearError('collaborators')"
+                :placeholder="isLoadingUsers ? 'Loading users...' : (canEditCollaborators ? 'Search and select collaborators...' : 'Only task owner can modify collaborators')"
+                @focus="canEditCollaborators ? handleInputFocus : null; clearError('collaborators')"
                 @blur="handleInputBlur"
                 @input="handleSearchInput"
                 @keydown.enter.prevent="selectFirstMatch"
                 @keydown.escape="closeDropdown"
                 @keydown.arrow-down.prevent="navigateDown"
                 @keydown.arrow-up.prevent="navigateUp"
-                :disabled="isLoadingUsers || !isTaskOwner"
+                :disabled="isLoadingUsers || !canEditCollaborators"
               />
 
               <!-- Dropdown icon -->
               <div
-                v-if="isTaskOwner"
+                v-if="canEditCollaborators"
                 class="dropdown-toggle-icon"
                 @click="toggleDropdown"
                 :class="{ 'rotated': showDropdown }"
@@ -178,7 +182,7 @@
 
               <!-- Dropdown options list -->
               <div
-                v-if="showDropdown"
+                v-if="showDropdown && canEditCollaborators"
                 class="dropdown-list"
                 @mousedown.prevent
                 @click.prevent
@@ -234,7 +238,7 @@
               >
                 {{ assignee.name }}
                 <button
-                  v-if="isTaskOwner"
+                  v-if="canEditCollaborators"
                   type="button"
                   class="remove-tag"
                   @click="removeAssignee(index)"
@@ -270,13 +274,13 @@
                 class="file-input"
                 multiple
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                :disabled="existingAttachments.length + newAttachments.length >= maxAttachments || isSubmitting"
+                :disabled="!canEditAttachments || existingAttachments.length + newAttachments.length >= maxAttachments || isSubmitting"
                 @change="handleFileSelection"
               />
               <label
                 for="attachments"
                 class="file-upload-label"
-                :class="{ disabled: existingAttachments.length + newAttachments.length >= maxAttachments || isSubmitting }"
+                :class="{ disabled: !canEditAttachments || existingAttachments.length + newAttachments.length >= maxAttachments || isSubmitting }"
               >
                 Choose Files
               </label>
@@ -301,6 +305,7 @@
                   type="button"
                   class="remove-file-btn"
                   @click="markExistingAttachmentForRemoval(index)"
+                  :disabled="!canEditAttachments"
                   title="Remove attachment"
                 >
                   x
@@ -326,6 +331,7 @@
                   type="button"
                   class="remove-file-btn"
                   @click="removeNewAttachment(index)"
+                  :disabled="!canEditAttachments"
                   title="Remove attachment"
                 >
                   x
@@ -569,6 +575,7 @@
               v-model="localForm.priority_level"
               class="form-select"
               :class="{ 'input-error': errors.priority_level }"
+              :disabled="!canEditAllFields"
               @change="clearError('priority_level')"
             >
               <option value="" disabled>Select priority level (1-10)</option>
@@ -598,6 +605,7 @@
               v-model="localForm.task_status"
               class="form-select"
               :class="{ 'input-error': errors.task_status }"
+              :disabled="!canEditStatus"
               @change="clearError('task_status')"
             >
               <option value="" disabled>Select status</option>
@@ -911,6 +919,21 @@ export default {
       }
     };
 
+    const currentUser = computed(() => getCurrentUser() || null);
+
+    const taskOwnerId = computed(() => {
+      if (localForm.owner !== undefined && localForm.owner !== null && localForm.owner !== '') {
+        return String(localForm.owner);
+      }
+      if (props.task?.owner !== undefined && props.task?.owner !== null) {
+        return String(props.task.owner);
+      }
+      if (props.task?.owner_id !== undefined && props.task?.owner_id !== null) {
+        return String(props.task.owner_id);
+      }
+      return '';
+    });
+
     const roleFilteredUsers = computed(() => {
       // If task belongs to a project, allow all project collaborators (no role restriction)
       if (localForm.proj_name && props.parentProject) {
@@ -919,35 +942,84 @@ export default {
       }
       
       // For standalone tasks, apply role hierarchy
-      const currentUser = getCurrentUser();
-      if (!currentUser || !currentUser.role_num) {
+      const user = currentUser.value;
+      if (!user || !user.role_num) {
         return filteredUsers.value;
       }
 
       console.log('📝 Edit Task - Standalone task, applying role hierarchy');
-      return filteredUsers.value.filter(user => {
-        return user.role_num >= currentUser.role_num;
+      return filteredUsers.value.filter(userOption => {
+        return userOption.role_num >= user.role_num;
       });
     });
+
+    const collaboratorIds = computed(() => {
+      const ids = new Set();
+
+      if (Array.isArray(localForm.assigned_to)) {
+        localForm.assigned_to.forEach(collaborator => {
+          if (!collaborator) {
+            return;
+          }
+
+          if (collaborator.id !== undefined && collaborator.id !== null) {
+            ids.add(String(collaborator.id));
+          } else if (collaborator.user_id !== undefined && collaborator.user_id !== null) {
+            ids.add(String(collaborator.user_id));
+          }
+        });
+      }
+
+      const originalAssigned = props.task?.assigned_to;
+      if (Array.isArray(originalAssigned)) {
+        originalAssigned.forEach(entry => {
+          if (entry === undefined || entry === null) {
+            return;
+          }
+
+          if (typeof entry === 'string' || typeof entry === 'number') {
+            ids.add(String(entry));
+          } else if (entry.id !== undefined && entry.id !== null) {
+            ids.add(String(entry.id));
+          } else if (entry.user_id !== undefined && entry.user_id !== null) {
+            ids.add(String(entry.user_id));
+          }
+        });
+      }
+
+      return ids;
+    });
+
+    const isTaskOwner = computed(() => {
+      const user = currentUser.value;
+      if (!user) {
+        return false;
+      }
+
+      const ownerId = taskOwnerId.value;
+      return ownerId !== '' && String(user.id) === ownerId;
+    });
+
+    const isTaskCollaborator = computed(() => {
+      const user = currentUser.value;
+      if (!user) {
+        return false;
+      }
+      return collaboratorIds.value.has(String(user.id));
+    });
+
+    const canEditAllFields = computed(() => isTaskOwner.value);
+    const canEditDescription = computed(() => isTaskOwner.value || isTaskCollaborator.value);
+    const canEditStatus = computed(() => isTaskOwner.value || isTaskCollaborator.value);
+    const canEditCollaborators = computed(() => isTaskOwner.value);
+    const canEditAttachments = computed(() => isTaskOwner.value);
+    const canEditRecurrence = computed(() => true);
 
     const isFormValid = computed(() => {
       const hasErrors = Object.values(errors).some(error => error !== '');
       const hasDateError = Boolean(dateValidationError.value);
       const hasAttachmentError = Boolean(attachmentErrors.value);
       return !hasErrors && !hasDateError && !hasAttachmentError;
-    });
-
-    const isTaskOwner = computed(() => {
-      try {
-        const currentUser = getCurrentUser();
-        if (!currentUser || !props.task) {
-          return false;
-        }
-        return String(props.task.owner) === String(currentUser.id);
-      } catch (error) {
-        console.error('Error checking task ownership:', error);
-        return false;
-      }
     });
 
     // Cleanup on unmount
@@ -1209,20 +1281,24 @@ export default {
 
     // Add this computed property
     const canTransferOwnership = computed(() => {
-      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
-      
+      const user = currentUser.value;
+      if (!user) {
+        return false;
+      }
+
       // Check if current user is the owner AND has manager role
-      const isOwner = String(localForm.owner) === String(currentUser.id);
-      const isManager = currentUser.role_num === 3;
-      
+      const ownerId = taskOwnerId.value;
+      const isOwner = ownerId !== '' && String(user.id) === ownerId;
+      const isManager = Number(user.role_num) === 3;
+
       console.log('Transfer permission check:', {
-        currentUserId: currentUser.id,
-        taskOwnerId: localForm.owner,
+        currentUserId: user.id,
+        taskOwnerId: ownerId,
         isOwner,
         isManager,
         canTransfer: isOwner && isManager
       });
-      
+
       return isOwner && isManager;
     });
 
@@ -1247,8 +1323,16 @@ export default {
     })
 
     const handleFileSelection = (event) => {
-      attachmentErrors.value = ''
       const inputEl = event && event.target ? event.target : null
+
+      if (!canEditAttachments.value) {
+        if (inputEl) {
+          inputEl.value = ''
+        }
+        return
+      }
+
+      attachmentErrors.value = ''
       const files = inputEl && inputEl.files ? Array.from(inputEl.files) : []
       if (files.length === 0) {
         if (fileInput.value) {
@@ -1296,6 +1380,10 @@ export default {
     }
 
     const markExistingAttachmentForRemoval = (index) => {
+      if (!canEditAttachments.value) {
+        return
+      }
+
       if (index < 0 || index >= existingAttachments.value.length) {
         return
       }
@@ -1308,6 +1396,10 @@ export default {
     }
 
     const removeNewAttachment = (index) => {
+      if (!canEditAttachments.value) {
+        return
+      }
+
       if (index < 0 || index >= newAttachments.value.length) {
         return
       }
@@ -1318,6 +1410,10 @@ export default {
 
     // Dropdown interaction methods
     const handleInputFocus = () => {
+      if (!canEditCollaborators.value) {
+        return;
+      }
+
       if (!isLoadingUsers.value) {
         showDropdown.value = true;
         highlightedIndex.value = -1;
@@ -1346,6 +1442,9 @@ export default {
     };
 
     const handleSearchInput = () => {
+      if (!canEditCollaborators.value) {
+        return;
+      }
       if (!showDropdown.value) {
         showDropdown.value = true;
       }
@@ -1353,6 +1452,10 @@ export default {
     };
 
     const toggleDropdown = () => {
+      if (!canEditCollaborators.value) {
+        return;
+      }
+
       if (isLoadingUsers.value) return;
 
       // Clear any pending close timeout when manually toggling
@@ -1383,6 +1486,10 @@ export default {
     };
 
     const selectUser = (user) => {
+      if (!canEditCollaborators.value) {
+        return;
+      }
+
       if (isUserSelected(user)) return;
 
       // Clear any pending close timeout
@@ -1442,6 +1549,10 @@ export default {
 
     // Remove assignee method for dropdown (works with objects now)
     const removeAssignee = (index) => {
+      if (!canEditCollaborators.value) {
+        return;
+      }
+
       localForm.assigned_to.splice(index, 1);
       // Validate collaborators after removing
       validateField('collaborators', localForm.assigned_to);
@@ -2104,7 +2215,17 @@ export default {
     const handleSubmit = async () => {
       if (isSubmitting.value) return
 
-      // Trigger validation for all fields
+      if (
+        !canEditAllFields.value &&
+        !canEditDescription.value &&
+        !canEditStatus.value &&
+        !canEditRecurrence.value
+      ) {
+        showToastNotification('You do not have permission to edit this task', 'error')
+        return
+      }
+
+      // Trigger validation for all fields so required values are always present
       validateField('task_name', localForm.task_name);
       validateField('task_desc', localForm.task_desc);
       validateField('start_date', localForm.start_date);
@@ -2114,16 +2235,22 @@ export default {
       validateField('collaborators', localForm.assigned_to);
       validateField('recurrence', localForm.recurrence);
 
-      // Check if form is valid
       if (!isFormValid.value) {
         return;
       }
 
-      const totalAttachments = existingAttachments.value.length + newAttachments.value.length
-      const allowedLimit = Math.max(maxAttachments, existingAttachments.value.length)
-      if (totalAttachments > allowedLimit) {
-        attachmentErrors.value = `Maximum ${maxAttachments} files allowed`
+      if (!canEditAttachments.value && newAttachments.value.length > 0) {
+        showToastNotification('Only the task owner can manage attachments', 'error')
         return
+      }
+
+      if (canEditAttachments.value) {
+        const totalAttachments = existingAttachments.value.length + newAttachments.value.length
+        const allowedLimit = Math.max(maxAttachments, existingAttachments.value.length)
+        if (totalAttachments > allowedLimit) {
+          attachmentErrors.value = `Maximum ${maxAttachments} files allowed`
+          return
+        }
       }
 
       isSubmitting.value = true
@@ -2132,11 +2259,12 @@ export default {
         const id = localForm.task_ID || props.task?.task_ID || props.task?.id
         if (!id) throw new Error('Missing task identifier')
 
+        const userContext = currentUser.value || {}
+
         let uploadedAttachments = []
-        if (newAttachments.value.length > 0) {
+        if (canEditAttachments.value && newAttachments.value.length > 0) {
           const filesToUpload = newAttachments.value.map(item => item.file)
-          const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
-          const userId = currentUser.id || currentUser.user_ID || currentUser.uid || localForm.owner || 'anonymous'
+          const userId = userContext.id || userContext.user_ID || userContext.uid || localForm.owner || 'anonymous'
           const taskStorageId = props.task?.id || props.task?.task_ID || localForm.task_ID || id
 
           try {
@@ -2148,37 +2276,48 @@ export default {
           }
         }
 
-        const finalAttachments = [
-          ...existingAttachments.value.map(attachment => ({ ...attachment })),
-          ...uploadedAttachments
-        ]
+        const baseAttachments = existingAttachments.value.map(attachment => ({ ...attachment }))
+        const finalAttachments = canEditAttachments.value
+          ? [...baseAttachments, ...uploadedAttachments]
+          : baseAttachments
 
         let updatedHistory = statusHistory.value
 
-        const payload = {
-          proj_name: localForm.proj_name,
-          task_ID: localForm.task_ID || props.task?.task_ID || id || '',
-          task_name: localForm.task_name.trim(),
-          task_desc: localForm.task_desc.trim(),
-          start_date: localForm.start_date,
-          end_date: localForm.end_date || null,
-          owner: localForm.owner,
-          assigned_to: localForm.assigned_to.map(user => user.id),
-          task_status: localForm.task_status || null,
-          priority_level: localForm.priority_level ? parseInt(localForm.priority_level, 10) : null,
-          status_history: statusHistory.value,
-          attachments: finalAttachments,
-          recurrence: buildRecurrencePayload()
+        let payload
+        if (canEditAllFields.value) {
+          payload = {
+            proj_name: localForm.proj_name,
+            task_ID: localForm.task_ID || props.task?.task_ID || id || '',
+            task_name: localForm.task_name.trim(),
+            task_desc: localForm.task_desc.trim(),
+            start_date: localForm.start_date,
+            end_date: localForm.end_date || null,
+            owner: localForm.owner,
+            assigned_to: localForm.assigned_to.map(user => user.id),
+            task_status: localForm.task_status || null,
+            priority_level: localForm.priority_level ? parseInt(localForm.priority_level, 10) : null,
+            status_history: statusHistory.value,
+            attachments: finalAttachments,
+            recurrence: buildRecurrencePayload()
+          }
+        } else {
+          payload = {
+            task_ID: localForm.task_ID || props.task?.task_ID || id || '',
+            task_desc: localForm.task_desc.trim(),
+            task_status: localForm.task_status || null
+          }
+
+          if (canEditRecurrence.value) {
+            payload.recurrence = buildRecurrencePayload()
+          }
         }
 
-        // Status change log
         if ((originalStatus.value || '') !== (localForm.task_status || '')) {
-          const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
           const changeLog = {
             timestamp: new Date().toISOString(),
             old_status: originalStatus.value || 'Unassigned',
             new_status: localForm.task_status || 'Unassigned',
-            staff_name: currentUser.name || findUserNameById(currentUser.id) || 'Unknown User'
+            staff_name: userContext.name || findUserNameById(userContext.id) || 'Unknown User'
           }
           updatedHistory = [...statusHistory.value, changeLog]
           payload.status_history = updatedHistory
@@ -2190,7 +2329,7 @@ export default {
         const updated = await Promise.race([updatePromise, timeoutPromise])
 
         let deletionError = null
-        if (attachmentsToDelete.value.length > 0) {
+        if (canEditAttachments.value && attachmentsToDelete.value.length > 0) {
           const deletions = attachmentsToDelete.value
             .filter(attachment => attachment && attachment.storagePath)
             .map(attachment => fileUploadService.deleteFile(attachment.storagePath))
@@ -2204,7 +2343,12 @@ export default {
           }
         }
 
-        existingAttachments.value = finalAttachments
+        if (canEditAttachments.value) {
+          existingAttachments.value = finalAttachments
+        } else if (Array.isArray(updated?.attachments)) {
+          existingAttachments.value = updated.attachments.map(attachment => ({ ...attachment }))
+        }
+
         newAttachments.value = []
         attachmentsToDelete.value = []
         attachmentErrors.value = ''
@@ -2295,7 +2439,15 @@ export default {
       filteredUsers,
       roleFilteredUsers,
       isFormValid,
+      currentUser,
       isTaskOwner,
+      isTaskCollaborator,
+      canEditAllFields,
+      canEditDescription,
+      canEditStatus,
+      canEditCollaborators,
+      canEditAttachments,
+      canEditRecurrence,
       getSelectedProjectInfo,
       getTaskMinStartDate,
       getTaskMaxEndDate,

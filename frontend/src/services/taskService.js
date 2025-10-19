@@ -65,7 +65,25 @@ export const taskService = {
   async updateTask(id, taskData) {
     try {
       // id can be Firestore doc id or business task_ID; backend resolves both
-      const response = await api.put(`/api/tasks/${id}`, taskData);
+      const userString = sessionStorage.getItem('user') || '{}';
+      let userData = {};
+      try {
+        userData = JSON.parse(userString);
+      } catch (parseError) {
+        userData = {};
+      }
+
+      const response = await api.put(
+        `/api/tasks/${id}`,
+        taskData,
+        {
+          headers: {
+            'X-User-Id': userData.id || userData.user_ID || userData.uid || '',
+            'X-User-Role': userData.role_num || userData.rank || 4,
+            'X-User-Name': userData.name || userData.email || ''
+          }
+        }
+      );
       // Trigger notification refresh after task update
       notificationService.triggerRefresh();
       return response.data;

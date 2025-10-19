@@ -568,8 +568,6 @@ export default {
         // Get all tasks for this user
         const allTasks = await ownTasksService.getTasks(currentUserId, { status: ['Active', 'Completed'] });
         console.log('All tasks for user:', allTasks);
-
-        const allTasks = await ownTasksService.getTasks(currentUserId);
         this.standaloneTasks = allTasks.filter(task => !task.proj_ID || task.proj_ID === null);
       } catch (error) {
         console.error('Error loading standalone tasks:', error);

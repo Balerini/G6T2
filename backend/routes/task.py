@@ -343,9 +343,22 @@ def update_task(task_id):
     """
     try:
         print(f"\n🔧 === UPDATE TASK CALLED === Task ID: {task_id}")
-        update_data = request.get_json()
-        print(f"📦 Update data received: {list(update_data.keys())}")
+        incoming_data = request.get_json() or {}
+        if not isinstance(incoming_data, dict):
+            return jsonify({"error": "Invalid payload format"}), 400
+
+        print(f"📦 Update data received: {list(incoming_data.keys())}")
+
+        current_user_id = str(request.headers.get('X-User-Id', '')).strip()
+        current_user_role = request.headers.get('X-User-Role')
+        current_user_name = str(request.headers.get('X-User-Name', '') or '').strip()
+        print(f"👤 Update requested by user_id={current_user_id} role={current_user_role}")
+
+        if not current_user_id:
+            return jsonify({"error": "Missing user context"}), 400
+
         db = get_firestore_client()
+        update_data = dict(incoming_data)
         
         # Handle date conversion if dates are being updated with Singapore timezone
         sg_tz = pytz.timezone('Asia/Singapore')
@@ -359,8 +372,10 @@ def update_task(task_id):
             # Set to start of day (12:00 AM) instead of end of day (11:59 PM)
             update_data['end_date'] = sg_tz.localize(end_date.replace(hour=0, minute=0, second=0))
 
-        # Add updated timestamp
-        update_data['updatedAt'] = firestore.SERVER_TIMESTAMP
+        status_log_entries = None
+        if 'status_log' in update_data and isinstance(update_data['status_log'], list) and update_data['status_log']:
+            status_log_entries = update_data['status_log']
+        update_data.pop('status_log', None)
 
         tasks_col = db.collection('Tasks')
 
@@ -383,26 +398,108 @@ def update_task(task_id):
                 return jsonify({'error': 'Task not found'}), 404
             doc_ref = results[0].reference
 
-        # Get the OLD document data BEFORE updating (for notification comparison)
+        # Get the OLD document data BEFORE updating (for notification comparison and permissions)
         old_doc = doc_ref.get()
-        old_assigned_to = old_doc.to_dict().get('assigned_to', []) if old_doc.exists else []
-        # Check both 'owner_id' and 'owner' fields for flexibility
-        old_owner_id = old_doc.to_dict().get('owner_id') or old_doc.to_dict().get('owner') if old_doc.exists else None
-        
-        # If status_log present, append rather than overwrite
-        status_log_update = None
-        if 'status_log' in update_data and isinstance(update_data['status_log'], list) and update_data['status_log']:
+        old_data = old_doc.to_dict() if old_doc.exists else {}
+        old_assigned_to = old_data.get('assigned_to', []) if old_data else []
+        old_owner_id = (old_data.get('owner_id') or old_data.get('owner')) if old_data else None
+
+        owner_id_str = str(old_owner_id) if old_owner_id is not None else ''
+
+        collaborator_ids = set()
+        if isinstance(old_assigned_to, list):
+            for entry in old_assigned_to:
+                if entry is None:
+                    continue
+                if isinstance(entry, (str, int)):
+                    collaborator_ids.add(str(entry))
+                elif isinstance(entry, dict):
+                    for key in ('id', 'user_id', 'userId'):
+                        if entry.get(key) is not None:
+                            collaborator_ids.add(str(entry[key]))
+                            break
+
+        is_owner = owner_id_str != '' and owner_id_str == current_user_id
+        is_collaborator = current_user_id in collaborator_ids
+
+        if not is_owner and not is_collaborator:
+            return jsonify({'error': 'You do not have permission to update this task'}), 403
+
+        allowed_fields_for_collaborators = {'task_desc', 'task_status', 'status_history', 'recurrence'}
+
+        if is_owner:
+            permitted_update = dict(update_data)
+        else:
+            permitted_update = {key: value for key, value in update_data.items() if key in allowed_fields_for_collaborators}
+            print(f"🔒 Collaborator update permitted keys: {list(permitted_update.keys())}")
+
+        # Determine status change
+        def normalize_status(value):
+            if value in (None, '', 'None'):
+                return 'Unassigned'
+            return str(value)
+
+        old_status_value = old_data.get('task_status') if old_data else None
+        old_status_normalized = normalize_status(old_status_value)
+        new_status_value = permitted_update.get('task_status') if 'task_status' in permitted_update else old_status_value
+        new_status_normalized = normalize_status(new_status_value)
+        status_changed = 'task_status' in permitted_update and new_status_normalized != old_status_normalized
+
+        # Resolve staff display name
+        user_display_name = current_user_name
+        if not user_display_name:
             try:
-                entry = update_data['status_log'][0]
-                status_log_update = firestore.ArrayUnion([entry])
+                user_doc = db.collection('Users').document(current_user_id).get()
+                if user_doc.exists:
+                    user_display_name = user_doc.to_dict().get('name', '') or ''
             except Exception:
-                status_log_update = None
-            # remove from direct update to avoid overwrite
-            update_data.pop('status_log', None)
+                user_display_name = ''
+        if not user_display_name:
+            user_display_name = 'Unknown User'
+
+        status_log_entries_to_append = []
+        change_log_entry = None
+
+        if status_log_entries:
+            try:
+                first_entry = status_log_entries[0]
+                change_log_entry = {
+                    'timestamp': first_entry.get('timestamp') or datetime.utcnow().replace(tzinfo=pytz.UTC).isoformat(),
+                    'old_status': first_entry.get('old_status', old_status_normalized),
+                    'new_status': first_entry.get('new_status', new_status_normalized),
+                    'staff_name': first_entry.get('staff_name', user_display_name),
+                    'changed_by': first_entry.get('changed_by', current_user_id)
+                }
+                status_log_entries_to_append.append(change_log_entry)
+            except Exception:
+                status_log_entries_to_append = []
+                change_log_entry = None
+
+        if status_changed and change_log_entry is None:
+            change_log_entry = {
+                'timestamp': datetime.utcnow().replace(tzinfo=pytz.UTC).isoformat(),
+                'old_status': old_status_normalized,
+                'new_status': new_status_normalized,
+                'staff_name': user_display_name,
+                'changed_by': current_user_id
+            }
+            status_log_entries_to_append.append(change_log_entry)
+
+        if change_log_entry and 'status_history' not in permitted_update:
+            existing_history = old_data.get('status_history') if old_data else []
+            if existing_history is None:
+                existing_history = []
+            permitted_update['status_history'] = [*existing_history, change_log_entry]
+
+        if not permitted_update and not status_log_entries_to_append:
+            return jsonify({'error': 'No permitted fields to update'}), 400
+
+        permitted_update['updatedAt'] = firestore.SERVER_TIMESTAMP
+        status_log_update = firestore.ArrayUnion(status_log_entries_to_append) if status_log_entries_to_append else None
 
         # Apply the update
-        if update_data:
-            doc_ref.update(update_data)
+        if permitted_update:
+            doc_ref.update(permitted_update)
         if status_log_update is not None:
             doc_ref.update({'status_log': status_log_update})
 
