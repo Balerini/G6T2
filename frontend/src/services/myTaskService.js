@@ -10,11 +10,30 @@ const api = axios.create({
 });
 
 export const ownTasksService = {
-  async getTasks(userId = null) {
+  async getTasks(userId = null, options = {}) {
     try {
-      const url = userId ? `/api/tasks?userId=${userId}` : `/api/tasks`;
-      const response = await api.get(url);
-      console.log("enter mytaskservice", url);
+      const params = {};
+
+      if (userId) {
+        params.userId = userId;
+      }
+
+      const statusesInput = options.statuses ?? options.status;
+      if (statusesInput) {
+        let statusParam;
+        if (Array.isArray(statusesInput)) {
+          statusParam = statusesInput.map(status => status?.toString().trim()).filter(Boolean).join(',');
+        } else {
+          statusParam = statusesInput.toString().trim();
+        }
+
+        if (statusParam) {
+          params.status = statusParam;
+        }
+      }
+
+      const response = await api.get('/api/tasks', { params });
+      console.log("enter mytaskservice", params);
       return response.data;
     } catch (error) {
       console.error("Error in getTasks:", error);

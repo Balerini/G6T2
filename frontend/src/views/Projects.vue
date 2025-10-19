@@ -558,8 +558,16 @@ export default {
         this.error = null;
 
         const userString = sessionStorage.getItem('user');
-        const userData = JSON.parse(userString);
-        const currentUserId = userData.id;
+        const userData = userString ? JSON.parse(userString) : null;
+        const currentUserId = userData?.id;
+
+        if (!currentUserId) {
+          throw new Error('Unable to determine the current user');
+        }
+        
+        // Get all tasks for this user
+        const allTasks = await ownTasksService.getTasks(currentUserId, { status: ['Active', 'Completed'] });
+        console.log('All tasks for user:', allTasks);
 
         const allTasks = await ownTasksService.getTasks(currentUserId);
         this.standaloneTasks = allTasks.filter(task => !task.proj_ID || task.proj_ID === null);
