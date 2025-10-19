@@ -369,6 +369,12 @@
             <p class="recurrence-helper-text">
               Schedule this task to repeat automatically on a cadence.
             </p>
+            <p
+              v-if="projectHasEndDate"
+              class="recurrence-helper-text project-warning"
+            >
+              Project tasks can only recur up to {{ projectEndDateDisplay }}.
+            </p>
 
             <div v-if="localForm.recurrence.enabled" class="recurrence-config">
               <div class="recurrence-field">
@@ -502,6 +508,7 @@
                       type="radio"
                       value="never"
                       v-model="localForm.recurrence.endCondition"
+                      :disabled="projectHasEndDate"
                       @change="handleRecurrenceEndConditionChange"
                     />
                     <span>Never</span>
@@ -511,6 +518,7 @@
                       type="radio"
                       value="after"
                       v-model="localForm.recurrence.endCondition"
+                      :disabled="projectHasEndDate"
                       @change="handleRecurrenceEndConditionChange"
                     />
                     <span>After</span>
@@ -547,7 +555,9 @@
                   <input
                     type="date"
                     class="form-input"
+                    :class="{ 'limited-date': projectHasEndDate }"
                     :min="recurrenceEndDateMin"
+                    :max="recurrenceEndDateMax || null"
                     v-model="localForm.recurrence.endDate"
                     @change="handleRecurrenceEndDateChange"
                   />
@@ -828,6 +838,14 @@ export default {
       recurrence: createDefaultRecurrence()
     })
 
+    watch(
+      () => props.parentProject,
+      () => {
+        enforceProjectRecurrenceConstraints(false)
+      },
+      { deep: true }
+    )
+
     const getRecurrenceEndDateMinValue = () => {
       const today = getCurrentDate()
       const startDate = localForm.start_date
@@ -857,6 +875,54 @@ export default {
 
       if (currentEnd && min && currentEnd < min) {
         localForm.recurrence.endDate = minDate
+        return
+      }
+
+      if (projectHasEndDate.value) {
+        const projectEnd = toDate(projectEndDateIso.value)
+        if (currentEnd && projectEnd && currentEnd > projectEnd) {
+          localForm.recurrence.endDate = projectEndDateIso.value
+        }
+      }
+    }
+
+    const enforceProjectRecurrenceConstraints = (showMessage = false) => {
+      if (!projectHasEndDate.value || !localForm.recurrence.enabled) {
+        return
+      }
+
+      const allowedEndDate = projectEndDateIso.value
+      if (!allowedEndDate) {
+        return
+      }
+
+      const endCondition = localForm.recurrence.endCondition
+
+      if (endCondition === 'never' || endCondition === 'after') {
+        localForm.recurrence.endCondition = 'onDate'
+        localForm.recurrence.endAfterOccurrences = ''
+        if (
+          !localForm.recurrence.endDate ||
+          new Date(localForm.recurrence.endDate) > new Date(allowedEndDate)
+        ) {
+          localForm.recurrence.endDate = allowedEndDate
+        }
+        if (showMessage) {
+          showToastNotification('Recurring project tasks must end on or before the project end date.', 'error')
+        }
+        return
+      }
+
+      if (!localForm.recurrence.endDate) {
+        localForm.recurrence.endDate = allowedEndDate
+        return
+      }
+
+      if (new Date(localForm.recurrence.endDate) > new Date(allowedEndDate)) {
+        localForm.recurrence.endDate = allowedEndDate
+        if (showMessage) {
+          showToastNotification('Adjusted recurrence end date to stay within the project timeline.', 'info')
+        }
       }
     }
 
@@ -932,6 +998,44 @@ export default {
         return String(props.task.owner_id);
       }
       return '';
+    });
+
+    const projectInfoComputed = computed(() => getSelectedProjectInfo());
+
+    const projectEndDateIso = computed(() => {
+      const info = projectInfoComputed.value;
+      if (!info || !info.endDate) {
+        return '';
+      }
+
+      try {
+        const parsed = new Date(info.endDate);
+        if (Number.isNaN(parsed.getTime())) {
+          return '';
+        }
+        return parsed.toISOString().split('T')[0];
+      } catch (error) {
+        console.error('Failed to parse project end date:', error);
+        return '';
+      }
+    });
+
+    const projectHasEndDate = computed(() => Boolean(projectEndDateIso.value));
+
+    const projectEndDateDisplay = computed(() => {
+      if (!projectHasEndDate.value) {
+        return '';
+      }
+      try {
+        return new Date(projectEndDateIso.value).toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      } catch (error) {
+        console.error('Failed to format project end date:', error);
+        return projectEndDateIso.value;
+      }
     });
 
     const roleFilteredUsers = computed(() => {
@@ -1069,6 +1173,10 @@ export default {
       const normalizedRecurrence = normalizeRecurrence(t.recurrence)
       Object.assign(localForm.recurrence, normalizedRecurrence)
 
+      if (localForm.recurrence.enabled) {
+        enforceProjectRecurrenceConstraints(false)
+      }
+
       statusHistory.value = Array.isArray(t.status_history)
         ? [...t.status_history]
         : []
@@ -1148,7 +1256,15 @@ export default {
       ensureRecurrenceEndDateMin()
 
       validateRecurrence(false)
+      enforceProjectRecurrenceConstraints(false)
     })
+
+    watch(
+      () => projectEndDateIso.value,
+      () => {
+        enforceProjectRecurrenceConstraints(false)
+      }
+    )
 
     // Watch for changes to task_status or assigned_to to validate constraint
     watch(() => localForm.task_status, () => {
@@ -1183,32 +1299,96 @@ export default {
       }
     })
 
-    const getSelectedProjectInfo = () => {
-      if (!props.task) {
-        return { startDate: null, endDate: null, name: null }
+    function normalizeToIsoDate(value) {
+      if (!value) {
+        return null
       }
 
-      const project = props.task.project || props.task.selectedProject || {}
-      const startDate =
-        project.start_date ||
-        project.startDate ||
-        props.task.project_start_date ||
-        props.task.proj_start_date ||
-        props.task.projectStartDate ||
-        null
-      const endDate =
-        project.end_date ||
-        project.endDate ||
-        props.task.project_end_date ||
-        props.task.proj_end_date ||
-        props.task.projectEndDate ||
-        null
+      let dateObject = null
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim()
+        if (!trimmed) {
+          return null
+        }
+
+        const directDate = new Date(trimmed)
+        if (!Number.isNaN(directDate.getTime())) {
+          dateObject = directDate
+        } else {
+          const prefix = trimmed.slice(0, 10)
+          const fallbackDate = new Date(prefix)
+          if (!Number.isNaN(fallbackDate.getTime())) {
+            dateObject = fallbackDate
+          }
+        }
+      } else if (value instanceof Date) {
+        dateObject = value
+      } else if (typeof value.toDate === 'function') {
+        try {
+          dateObject = value.toDate()
+        } catch (error) {
+          console.error('Failed to convert Firestore timestamp via toDate:', error)
+        }
+      } else if (typeof value.seconds === 'number') {
+        try {
+          dateObject = new Date(value.seconds * 1000)
+        } catch (error) {
+          console.error('Failed to convert timestamp seconds:', error)
+        }
+      }
+
+      if (dateObject && !Number.isNaN(dateObject.getTime())) {
+        return dateObject.toISOString().split('T')[0]
+      }
+      return null
+    }
+
+    function pickFirstDateIso(candidateValues) {
+      for (const candidate of candidateValues) {
+        const normalized = normalizeToIsoDate(candidate)
+        if (normalized) {
+          return normalized
+        }
+      }
+      return null
+    }
+
+    function getSelectedProjectInfo() {
+      const projectSource = props.parentProject || props.task || {}
+      const nestedProject = projectSource.project || projectSource.selectedProject || {}
+
+      const startDate = pickFirstDateIso([
+        nestedProject.start_date,
+        nestedProject.startDate,
+        projectSource.start_date,
+        projectSource.startDate,
+        projectSource.project_start_date,
+        projectSource.proj_start_date,
+        projectSource.projectStartDate,
+        localForm.project_start_date,
+        localForm.start_date
+      ])
+
+      const endDate = pickFirstDateIso([
+        nestedProject.end_date,
+        nestedProject.endDate,
+        projectSource.end_date,
+        projectSource.endDate,
+        projectSource.project_end_date,
+        projectSource.proj_end_date,
+        projectSource.projectEndDate,
+        localForm.project_end_date,
+        localForm.end_date
+      ])
+
       const name =
-        project.proj_name ||
-        project.name ||
-        project.project_name ||
-        props.task.proj_name ||
-        props.task.project_name ||
+        nestedProject.proj_name ||
+        nestedProject.name ||
+        nestedProject.project_name ||
+        projectSource.proj_name ||
+        projectSource.project_name ||
+        localForm.proj_name ||
         null
 
       return { startDate, endDate, name }
@@ -1478,12 +1658,12 @@ export default {
       userSearch.value = '';
     };
 
-    const handleOutsideClick = (event) => {
+    function handleOutsideClick(event) {
       const dropdownContainer = document.querySelector('.search-dropdown-container');
       if (dropdownContainer && !dropdownContainer.contains(event.target)) {
         closeDropdown();
       }
-    };
+    }
 
     const selectUser = (user) => {
       if (!canEditCollaborators.value) {
@@ -1825,6 +2005,8 @@ export default {
         const occurrences = Number(localForm.recurrence.endAfterOccurrences);
         if (!Number.isInteger(occurrences) || occurrences < 1) {
           endError = 'Occurrences must be at least 1';
+        } else if (projectHasEndDate.value) {
+          endError = 'Project-based recurring tasks must end on or before the project end date';
         }
       } else if (localForm.recurrence.endCondition === 'onDate') {
         const minDate = getRecurrenceEndDateMinValue();
@@ -1845,9 +2027,21 @@ export default {
             year: 'numeric'
           });
           endError = `End date cannot be before ${formattedMin}`;
+        } else if (projectHasEndDate.value) {
+          const projectEnd = new Date(projectEndDateIso.value);
+          if (Number.isFinite(projectEnd.getTime()) && new Date(localForm.recurrence.endDate) > projectEnd) {
+            const formattedProjectEnd = projectEnd.toLocaleDateString('en-SG', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric'
+            });
+            endError = `End date cannot be after the project end (${formattedProjectEnd})`;
+          }
         }
       } else if (!localForm.recurrence.endCondition) {
         endError = 'Choose how the recurrence ends';
+      } else if (projectHasEndDate.value) {
+        endError = 'Project-based recurring tasks must end on or before the project end date';
       }
 
       errors.recurrence_end = recurrenceTouched.end ? endError : '';
@@ -1880,6 +2074,10 @@ export default {
         localForm.recurrence.customUnit = 'days';
       }
 
+      if (projectHasEndDate.value) {
+        localForm.recurrence.endCondition = 'onDate';
+      }
+
       if (localForm.recurrence.frequency === 'weekly' && localForm.recurrence.weeklyDays.length === 0) {
         const defaultDay = deriveWeekdayFromDate(localForm.start_date) || 'mon';
         localForm.recurrence.weeklyDays = [defaultDay];
@@ -1889,6 +2087,7 @@ export default {
         localForm.recurrence.monthlyDay = deriveDefaultMonthlyDay();
       }
 
+      enforceProjectRecurrenceConstraints(false);
       validateRecurrence(false);
     };
 
@@ -1918,6 +2117,7 @@ export default {
         recurrenceTouched.customUnit = false;
       }
 
+      enforceProjectRecurrenceConstraints(false);
       validateRecurrence(false);
     };
 
@@ -1928,11 +2128,13 @@ export default {
       } else {
         localForm.recurrence.interval = Math.floor(Number(localForm.recurrence.interval));
       }
+      enforceProjectRecurrenceConstraints(false);
       validateRecurrence(false);
     };
 
     const handleWeeklyDaysChange = () => {
       recurrenceTouched.weeklyDays = true;
+      enforceProjectRecurrenceConstraints(false);
       validateRecurrence(false);
     };
 
@@ -1944,6 +2146,7 @@ export default {
         if (value > 31) value = 31;
         localForm.recurrence.monthlyDay = String(value);
       }
+      enforceProjectRecurrenceConstraints(false);
       validateRecurrence(false);
     };
 
@@ -1954,6 +2157,8 @@ export default {
 
     const handleRecurrenceEndConditionChange = () => {
       recurrenceTouched.end = true;
+
+      const selectedCondition = localForm.recurrence.endCondition;
 
       if (localForm.recurrence.endCondition === 'after') {
         if (!localForm.recurrence.endAfterOccurrences) {
@@ -1973,6 +2178,7 @@ export default {
         localForm.recurrence.endDate = '';
       }
 
+      enforceProjectRecurrenceConstraints(projectHasEndDate.value && selectedCondition !== 'onDate');
       validateRecurrence(false);
     };
 
@@ -1983,12 +2189,14 @@ export default {
         if (value < 1) value = 1;
         localForm.recurrence.endAfterOccurrences = String(Math.floor(value));
       }
+      enforceProjectRecurrenceConstraints(false);
       validateRecurrence(false);
     };
 
     const handleRecurrenceEndDateChange = () => {
       recurrenceTouched.end = true;
       ensureRecurrenceEndDateMin();
+      enforceProjectRecurrenceConstraints(false);
       validateRecurrence(false);
     };
 
@@ -2008,6 +2216,13 @@ export default {
     });
 
     const recurrenceEndDateMin = computed(() => getRecurrenceEndDateMinValue());
+
+    const recurrenceEndDateMax = computed(() => {
+      if (!projectHasEndDate.value) {
+        return '';
+      }
+      return projectEndDateIso.value;
+    });
 
     const recurrenceSummary = computed(() => {
       if (!localForm.recurrence.enabled || !localForm.recurrence.frequency) {
@@ -2448,6 +2663,8 @@ export default {
       canEditCollaborators,
       canEditAttachments,
       canEditRecurrence,
+      projectHasEndDate,
+      projectEndDateDisplay,
       getSelectedProjectInfo,
       getTaskMinStartDate,
       getTaskMaxEndDate,
@@ -2468,6 +2685,7 @@ export default {
       CUSTOM_INTERVAL_UNITS,
       recurrenceIntervalSuffix,
       recurrenceEndDateMin,
+      recurrenceEndDateMax,
       recurrenceSummary,
       handleRecurrenceToggle,
       handleRecurrenceFrequencyChange,
@@ -2741,6 +2959,22 @@ export default {
   color: #555;
 }
 
+.recurrence-helper-text.project-warning {
+  color: #b45309;
+  font-weight: 500;
+}
+
+.form-input.limited-date {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+.form-input.limited-date:focus {
+  border-color: #6b7280;
+  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2);
+}
+
 .recurrence-config {
   display: flex;
   flex-direction: column;
@@ -2794,6 +3028,14 @@ export default {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+.recurrence-radio-group .radio-option input:disabled + span {
+  color: #9ca3af;
+}
+
+.recurrence-radio-group .radio-option input:disabled {
+  cursor: not-allowed;
 }
 
 .radio-option {

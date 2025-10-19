@@ -433,6 +433,75 @@ def update_task(task_id):
             permitted_update = {key: value for key, value in update_data.items() if key in allowed_fields_for_collaborators}
             print(f"🔒 Collaborator update permitted keys: {list(permitted_update.keys())}")
 
+        project_end_limit = None
+        project_identifier = (
+            old_data.get('proj_ID')
+            or old_data.get('proj_id')
+            or update_data.get('proj_ID')
+            or update_data.get('proj_id')
+        )
+
+        def parse_date_value(value):
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value.date()
+            if isinstance(value, str):
+                try:
+                    return datetime.fromisoformat(value).date()
+                except ValueError:
+                    try:
+                        return datetime.strptime(value, '%Y-%m-%d').date()
+                    except ValueError:
+                        return None
+            return None
+
+        try:
+            if project_identifier:
+                project_doc = db.collection('Projects').document(project_identifier).get()
+                if project_doc.exists:
+                    project_data = project_doc.to_dict() or {}
+                    project_end_limit = parse_date_value(project_data.get('end_date'))
+        except Exception as resolve_error:
+            print(f"⚠️ Failed to resolve project end date for task {task_id}: {resolve_error}")
+
+        if project_end_limit is None:
+            fallback_project_end = (
+                old_data.get('proj_end_date')
+                or old_data.get('project_end_date')
+                or update_data.get('proj_end_date')
+                or update_data.get('project_end_date')
+            )
+            project_end_limit = parse_date_value(fallback_project_end)
+
+        recurrence_payload = permitted_update.get('recurrence')
+        if recurrence_payload is not None:
+            if not isinstance(recurrence_payload, dict):
+                return jsonify({'error': 'Invalid recurrence payload'}), 400
+
+            if project_end_limit and recurrence_payload.get('enabled'):
+                allowed_end_str = project_end_limit.isoformat()
+                end_condition = recurrence_payload.get('endCondition') or recurrence_payload.get('end_condition')
+
+                if end_condition != 'onDate':
+                    recurrence_payload['endCondition'] = 'onDate'
+                    recurrence_payload['endDate'] = allowed_end_str
+                    recurrence_payload.pop('endAfterOccurrences', None)
+                else:
+                    end_date_value = recurrence_payload.get('endDate') or recurrence_payload.get('end_date')
+                    parsed_end = parse_date_value(end_date_value)
+                    if parsed_end is None:
+                        recurrence_payload['endDate'] = allowed_end_str
+                    elif parsed_end > project_end_limit:
+                        recurrence_payload['endDate'] = allowed_end_str
+
+                if 'end_condition' in recurrence_payload:
+                    recurrence_payload.pop('end_condition', None)
+                if 'end_date' in recurrence_payload:
+                    recurrence_payload['endDate'] = recurrence_payload.pop('end_date')
+
+                permitted_update['recurrence'] = recurrence_payload
+
         # Determine status change
         def normalize_status(value):
             if value in (None, '', 'None'):
