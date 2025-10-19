@@ -57,9 +57,10 @@ def create_task():
         if task_data.get('end_date'):
             end_date = datetime.strptime(task_data['end_date'], '%Y-%m-%d')
             # TITLE: Convert date strings to datetime objects with Singapore timezone
-            end_date = sg_tz.localize(end_date.replace(hour=23, minute=59, second=59))
+            # Set to start of day (12:00 AM) instead of end of day (11:59 PM)
+            end_date = sg_tz.localize(end_date.replace(hour=0, minute=0, second=0))
 
-        # TITLE: Set end time to end of day in Singapore timezone
+        # TITLE: Set end time to start of day (12:00 AM) in Singapore timezone
         # Get project ID from project name if provided
         proj_id = None
         if task_data.get('proj_name'):
@@ -306,7 +307,8 @@ def update_task(task_id):
         
         if 'end_date' in update_data and update_data['end_date']:
             end_date = datetime.strptime(update_data['end_date'], '%Y-%m-%d')
-            update_data['end_date'] = sg_tz.localize(end_date.replace(hour=23, minute=59, second=59))
+            # Set to start of day (12:00 AM) instead of end of day (11:59 PM)
+            update_data['end_date'] = sg_tz.localize(end_date.replace(hour=0, minute=0, second=0))
 
         # Add updated timestamp
         update_data['updatedAt'] = firestore.SERVER_TIMESTAMP
