@@ -12,6 +12,7 @@ import pytz
 # Add parent directory to path to import firebase_utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from firebase_utils import get_firestore_client
+from services.email_service import email_service
 
 class NotificationService:
     def __init__(self):
@@ -201,6 +202,7 @@ class NotificationService:
                                         title = "❗ Deadline Approaching!"
                                         message = f'{task_data.get("task_name", "A task")} is due in {hours_remaining} hours'
                                         
+                                        # Create in-app notification
                                         self.create_notification(
                                             user_id=user_id,
                                             notification_type='deadline',
@@ -209,6 +211,48 @@ class NotificationService:
                                             task_id=task_id,
                                             project_id=task_data.get('proj_ID')
                                         )
+                                        
+                                        # Send email notification
+                                        try:
+                                            user_email = user_data.get('email')
+                                            if user_email:
+                                                # Get project name if it's a project task
+                                                project_name = None
+                                                if task_data.get('proj_ID'):
+                                                    project_doc = self.db.collection('Projects').document(task_data['proj_ID']).get()
+                                                    if project_doc.exists:
+                                                        project_name = project_doc.to_dict().get('project_name')
+                                                
+                                                # Determine priority level
+                                                priority_num = task_data.get('priority_level', 1)
+                                                if priority_num >= 4:
+                                                    priority_level = 'High'
+                                                elif priority_num >= 2:
+                                                    priority_level = 'Medium'
+                                                else:
+                                                    priority_level = 'Low'
+                                                
+                                                # Send email
+                                                email_sent = email_service.send_deadline_reminder_email(
+                                                    to_email=user_email,
+                                                    user_name=user_data.get('name', 'User'),
+                                                    task_name=task_data.get('task_name', 'A task'),
+                                                    task_desc=task_data.get('description', ''),
+                                                    project_name=project_name,
+                                                    hours_until_due=hours_remaining,
+                                                    due_date=end_date.strftime('%Y-%m-%d %H:%M'),
+                                                    priority_level=priority_level
+                                                )
+                                                
+                                                if email_sent:
+                                                    print(f"📧 Email sent to {user_email} for deadline reminder")
+                                                else:
+                                                    print(f"❌ Failed to send email to {user_email}")
+                                            else:
+                                                print(f"⚠️ No email address found for user {user_id}")
+                                        except Exception as email_error:
+                                            print(f"❌ Error sending email to {user_id}: {str(email_error)}")
+                                        
                                         notification_count += 1
                 
                 except Exception as date_error:
