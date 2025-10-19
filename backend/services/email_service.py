@@ -250,5 +250,82 @@ class EmailService:
             print(f"❌ Failed to send subtask ownership transfer email: {str(e)}")
             return False
         
+    # ===================== SEND EMAIL NOTIF FOR UPCOMING DEADLINES =====================
+    def send_deadline_reminder_email(self, to_email, user_name, task_name, task_desc, project_name, 
+                                   hours_until_due, due_date, priority_level):
+        """Send email notification for upcoming task deadline"""
+        try:
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['From'] = self.smtp_user
+            msg['To'] = to_email
+            msg['Subject'] = f'⚠️ Deadline Approaching: {task_name}'
+            
+            # Set priority badge color
+            priority_colors = {
+                'High': '#ef4444',
+                'Medium': '#f59e0b', 
+                'Low': '#10b981'
+            }
+            priority_color = priority_colors.get(priority_level, '#6b7280')
+            
+            # Format hours until due
+            if hours_until_due < 1:
+                time_remaining = f"{int(hours_until_due * 60)} minutes"
+            elif hours_until_due < 24:
+                time_remaining = f"{int(hours_until_due)} hours"
+            else:
+                days = int(hours_until_due / 24)
+                time_remaining = f"{days} day{'s' if days > 1 else ''}"
+            
+            # Email body
+            html = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2 style="color: #dc2626;">⚠️ Deadline Approaching</h2>
+                        <p>Hi {user_name},</p>
+                        <p>This is a reminder that you have a task due soon:</p>
+                        
+                        <div style="background-color: #fef2f2; border: 2px solid #fecaca; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                            <h3 style="margin-top: 0; color: #dc2626;">{task_name}</h3>
+                            <p style="margin: 10px 0;"><strong>Description:</strong> {task_desc or 'No description provided'}</p>
+                            {f'<p style="margin: 10px 0;"><strong>Project:</strong> {project_name}</p>' if project_name else ''}
+                            <p style="margin: 10px 0;"><strong>Due Date:</strong> {due_date}</p>
+                            <p style="margin: 10px 0;"><strong>Time Remaining:</strong> <span style="color: #dc2626; font-weight: bold;">{time_remaining}</span></p>
+                            <p style="margin: 10px 0;"><strong>Priority:</strong> <span style="background-color: {priority_color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">{priority_level}</span></p>
+                        </div>
+                        
+                        <div style="background-color: #fef3c7; padding: 12px; border-left: 4px solid #f59e0b; border-radius: 4px; margin: 20px 0;">
+                            <p style="margin: 0; color: #92400e;">
+                                <strong>⏰ Action Required:</strong> Please complete this task before the deadline to avoid delays.
+                            </p>
+                        </div>
+                        
+                        <p>Please log in to the system to view full details and update the task status.</p>
+                        
+                        <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
+                            This is an automated deadline reminder. Please do not reply to this email.
+                        </p>
+                    </div>
+                </body>
+            </html>
+            """
+            
+            msg.attach(MIMEText(html, 'html'))
+            
+            # Send email
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls()
+                server.login(self.smtp_user, self.smtp_password)
+                server.send_message(msg)
+            
+            print(f"✅ Deadline reminder email sent successfully to {to_email}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to send deadline reminder email to {to_email}: {str(e)}")
+            return False
+
 # Create singleton instance
 email_service = EmailService()

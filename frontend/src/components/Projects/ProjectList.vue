@@ -1,14 +1,11 @@
 <template>
-  <div class="project-list">
-    <ProjectCard
-      v-for="project in projects"
-      :key="project.id"
-      :project="project"
-      :users="users"
-      @edit-project="$emit('edit-project', $event)"
-      @view-task="$emit('view-task', $event)"
-      @add-task="$emit('add-task', $event)"
-    />
+  <div class="project-list-container">
+    <!-- Project List -->
+    <div class="project-list">
+      <ProjectCard v-for="project in projects" :key="project.id" :project="project" :users="users"
+        @edit-project="$emit('edit-project', $event)" @view-task="$emit('view-task', $event)"
+        @add-task="$emit('add-task', $event)" />
+    </div>
   </div>
 </template>
 
@@ -35,6 +32,12 @@ export default {
 </script>
 
 <style scoped>
+.project-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .project-list {
   display: flex;
   flex-direction: column;

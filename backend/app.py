@@ -231,11 +231,13 @@ def create_app() -> Flask:
             
             # Add user to Firestore
             doc_ref = users_ref.add(user_data)
+            user_id = doc_ref[1].id  # Get the document ID
             
             return jsonify({
                 "ok": True,
                 "message": "Registration successful",
                 "user": {
+                    "id": user_id,  # Include the user ID
                     "name": name.strip(),
                     "email": email.lower().strip(),
                     "role_name": role.capitalize(),

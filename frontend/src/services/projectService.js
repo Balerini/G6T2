@@ -13,7 +13,9 @@ const api = axios.create({
 /* global process */
 
 export const projectService = {
-  getAllProjectsWithTasks: (divisionName, userId) => projectAPI.getFilteredProjectsByDivision(divisionName, userId),
+  getAllProjectsWithTasks: (divisionName, userId, showCompleted = false) => {
+    return projectAPI.getFilteredProjectsByDivision(divisionName, userId, showCompleted);
+  },
   getAllUsers: (divisionName) => userAPI.getFilteredUsersByDivision(divisionName),
 
   // ============== Get all projects ==============

@@ -16,6 +16,50 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 projects_bp = Blueprint('projects', __name__)
 
+# =============== HELPER FUNCTION TO CHECK PROJECT COMPLETION ===============
+def is_project_completed(project_id, db):
+    """
+    Check if all tasks and subtasks in a project are completed.
+    Returns True if project should be hidden, False otherwise.
+    """
+    try:
+        # Get all tasks for this project
+        tasks_ref = db.collection('Tasks')
+        tasks_query = tasks_ref.where('proj_ID', '==', project_id)
+        tasks = list(tasks_query.stream())
+        
+        # If no tasks exist, project is not complete
+        if not tasks:
+            return False
+        
+        # Check if all tasks are completed
+        for task_doc in tasks:
+            task_data = task_doc.to_dict()
+            
+            # Skip deleted tasks
+            if task_data.get('is_deleted', False):
+                continue
+            
+            # If any task is not completed, project is not complete
+            if task_data.get('task_status') != 'Completed':
+                return False
+            
+            # Check subtasks if they exist
+            subtasks = task_data.get('subtasks', [])
+            for subtask in subtasks:
+                # Skip deleted subtasks
+                if subtask.get('is_deleted', False):
+                    continue
+                    
+                # If any subtask is not completed, project is not complete
+                if subtask.get('status') != 'Completed':
+                    return False
+        
+        return True
+    except Exception as e:
+        print(f"Error checking project completion: {str(e)}")
+        return False
+
 # =============== CALENDAR GENERATION HELPER FUNCTIONS ===============
 def generate_calendar_months(tasks, project_name):
     """Generate calendar months with tasks for PDF"""
@@ -136,7 +180,6 @@ def get_users_from_same_division(division_name):
         print(f"Error getting users from division {division_name}: {str(e)}")
         return []
 
-# =============== GET FILTERED PROJECTS BY DIVISION ===============
 @projects_bp.route('/api/projects/filtered/<division_name>', methods=['GET'])
 def get_filtered_projects_by_division(division_name):
     """Get projects filtered by division - only shows projects where current user is a collaborator"""
@@ -149,7 +192,10 @@ def get_filtered_projects_by_division(division_name):
             print("No user ID provided in query parameters")
             return jsonify({'error': 'User ID required'}), 400
         
-        print(f"Filtering projects for division: {division_name}, user: {current_user_id}")
+        # Get show_completed parameter (default to False to hide completed projects)
+        show_completed = request.args.get('show_completed', 'false').lower() == 'true'
+        
+        print(f"Filtering projects for division: {division_name}, user: {current_user_id}, show_completed: {show_completed}")
         
         # Get all projects
         projects_ref = db.collection('Projects')
@@ -166,6 +212,16 @@ def get_filtered_projects_by_division(division_name):
             is_user_collaborator = current_user_id in collaborators
             
             if is_user_collaborator:
+                project_id = project.id
+                
+                # Check if project is completed
+                is_complete = is_project_completed(project_id, db)
+                
+                # Skip completed projects unless show_completed is True
+                if is_complete and not show_completed:
+                    print(f"Project {project_data.get('proj_name', 'Unknown')} excluded - completed and filter is off")
+                    continue
+                
                 print(f"Project {project_data.get('proj_name', 'Unknown')} included - user is collaborator")
                 
                 # Convert timestamps to ISO format
@@ -205,6 +261,7 @@ def get_filtered_projects_by_division(division_name):
                     task_list.append(task_data)
                 
                 project_data['tasks'] = task_list
+                project_data['is_completed'] = is_complete
                 filtered_projects.append(project_data)
             else:
                 print(f"Project {project_data.get('proj_name', 'Unknown')} excluded - user is not collaborator")
