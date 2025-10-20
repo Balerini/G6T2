@@ -37,25 +37,31 @@ py app.py
 ---
 
 ## ⚙️ Tech Stack
-Frontend
 
-Framework: Vue.js
-Language: JavaScript
-Styling: CSS3 with responsive design
+### 🖥️ Frontend
 
-Backend
+- **Framework:** Vue.js  
+- **Language:** JavaScript  
+- **Styling:** CSS3 with **responsive design** for cross-device compatibility  
 
-Language: Python
-Framework: Flask (API server)
-- RESTful API endpoints
-- Authentication and authorization
-- Data validation
-- Firebase integration
+---
 
-Database
+### 🧠 Backend
 
-Platform: Firebase
-Services Used:
-- Firestore (NoSQL database)
-- Firebase Authentication
-- Real-time data synchronization
+- **Language:** Python  
+- **Framework:** Flask *(API server)*  
+- **Key Features:**
+  - RESTful API endpoints  
+  - Authentication and authorization  
+  - Data validation  
+  - Firebase integration  
+
+---
+
+### 🗄️ Database
+
+- **Platform:** Firebase  
+- **Services Used:**
+  - **Firestore** – NoSQL cloud database  
+  - **Firebase Authentication** – Secure user sign-in  
+  - **Real-time Data Synchronization** – Instant updates across clients  
