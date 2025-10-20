@@ -379,10 +379,15 @@ export default {
             try {
                 this.closeEditModal()
 
-                // Update local data directly instead of reloading
+                // Update project data 
                 this.projectData = {
                     ...this.projectData,
                     ...updatedProject
+                }
+
+                // If collaborators changed, might need to reload users to ensure proper display
+                if (updatedProject.collaborators) {
+                    await this.loadProjectData() // Or create a lighter refresh method
                 }
 
                 this.showNotification('Project updated successfully!', 'success')
