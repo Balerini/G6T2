@@ -36,11 +36,40 @@
                     </span>
                 </div>
                 <p class="project-desc">{{ projectData.proj_desc || 'No description' }}</p>
-                <button @click="exportProject" class="export-btn">
+                
+                <!-- <button @click="exportProjectPDF" class="export-btn">
                     ⬇ Export Tasks to PDF
                 </button>
-            </div>
+                <button class="export-btn" :disabled="downloading" @click="exportProjectEXCEL">
+                    <span v-if="!downloading">📊 Export Excel Report</span>
+                    <span v-else>⏳ Generating...</span>
+                </button>    -->
 
+                <div class="export-dropdown">
+                    <button @click="toggleDropdown" class="export-btn">
+                    📤 Export Report ▾
+                    </button>
+
+                    <transition name="fade">
+                    <div v-if="dropdownOpen" class="dropdown-menu">
+                        <button
+                        @click="exportProjectPDF"
+                        class="dropdown-item"
+                        >
+                        📄 Download as PDF
+                        </button>
+                        <button
+                        @click="exportProjectEXCEL"
+                        class="dropdown-item"
+                        >
+                        📊 Download as Excel
+                        </button>
+                    </div>
+                    </transition>
+                </div>
+            
+            </div>
+            
             <!-- Collaborators Section -->
             <div class="collaborators-section">
                 <h2>👥 Team Collaborators</h2>
@@ -162,6 +191,7 @@ export default {
             projectData: null,
             loading: false,
             error: null,
+            downloading: false,
             projectId: null,
             usersMap: {}, // Map of userId -> user object
             showEditModal: false,
@@ -169,7 +199,8 @@ export default {
                 show: false,
                 message: '',
                 type: 'success'
-            }
+            },
+            dropdownOpen: false,
         };
     },
     components: {
@@ -348,7 +379,7 @@ export default {
         goBack() {
             this.$router.push('/projects');
         },
-        async exportProject() {
+        async exportProjectPDF() {
             try {
                 const projectId = this.projectId;
                 const response = await fetch(`http://localhost:8000/api/projects/${projectId}/export`);
@@ -406,6 +437,43 @@ export default {
             setTimeout(() => {
             this.notification.show = false
             }, 3000)
+        },
+
+        async exportProjectEXCEL() {
+            this.downloading = true;
+            this.error = null;
+
+            try {
+                const projectId = this.projectId;
+                // console.log("What is going on: ", this.projectData);
+                const projectName = this.projectData.proj_name;
+                const response = await fetch(`http://localhost:8000/api/projects/${projectId}/export/xlsx`);
+                if (!response.ok) throw new Error("Failed to export tasks");
+
+                const blob = await response.blob();
+
+                // Create a temporary download link
+                const url = window.URL.createObjectURL(new Blob([blob]));
+                const link = document.createElement("a");
+
+                // Filename: <projectName>_Tasks_Report.xlsx
+                const safeName = (projectName || "Project_Report").replace(/\s+/g, "_");
+                link.href = url;
+                link.setAttribute("download", `${safeName}_Tasks_Report.xlsx`);
+
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error("Error downloading XLSX:", error);
+                this.error = "Failed to download Excel report.";
+            } finally {
+                this.downloading = false;
+            }
+        },
+        toggleDropdown() {
+            this.dropdownOpen = !this.dropdownOpen;
         },
     }
 };
@@ -827,20 +895,71 @@ export default {
     }
 }
 
+.export-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+/* Main button */
 .export-btn {
-  background-color: #111827;
-  color: white;
+  background: #111827; /* matches your theme */
+  color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 0.6rem 1.2rem;
-  font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.3s ease;
+  transition: background 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
+
 .export-btn:hover {
-  background-color: #374151;
+  background: #374151;
 }
+
+/* Dropdown menu */
+.dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: 110%;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 180px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Dropdown items */
+.dropdown-item {
+  padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  text-align: left;
+  color: #111827;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dropdown-item:hover {
+  background: #f3f4f6;
+}
+
+/* Fade-in animation */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 
 /* Header actions layout */
 .header-actions {

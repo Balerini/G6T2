@@ -11,8 +11,9 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 from statistics import mean
-from openpyxl import Workbook
+from openpyxl import Workbook, cell
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.chart import PieChart, Reference
 
 projects_bp = Blueprint('projects', __name__)
 
@@ -873,7 +874,7 @@ def create_project():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-# =============== EXPORT PROJECT ===============
+# =============== EXPORT PROJECT TASKS TO PDF ===============
 @projects_bp.route("/api/projects/<project_id>/export", methods=["GET"])
 def export_project_tasks(project_id):
     try:
@@ -1675,6 +1676,185 @@ def update_project(project_id):
         print(f"Error updating project: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+# =============== EXPORT PROJECT TASKS TO EXCEL ===============
+@projects_bp.route("/api/projects/<project_id>/export/xlsx", methods=["GET"])
+def export_project_tasks_xlsx(project_id):
+    try:
+        db = get_firestore_client()
+
+        # --- Fetch project info ---
+        project_doc = db.collection("Projects").document(project_id).get()
+        project_name = "Unnamed Project"
+        if project_doc.exists:
+            project_data = project_doc.to_dict()
+            project_name = project_data.get("project_name", project_name)
+
+        # --- Fetch tasks ---
+        tasks_ref = db.collection("Tasks").where("proj_ID", "==", project_id)
+        tasks = [doc.to_dict() for doc in tasks_ref.stream()]
+        tasks.sort(key=lambda task: task.get("end_date"))
+
+        if not tasks:
+            return jsonify({"error": f"No tasks found for project ID: {project_id}"}), 404
+
+        # --- Fetch user info ---
+        users_ref = db.collection("Users")
+        users = {u.id: u.to_dict() for u in users_ref.stream()}
+
+        def get_user_info(uid):
+            user = users.get(uid)
+            if not user:
+                return "Unknown"
+            name = user.get("name", "Unknown")
+            dept = user.get("division_name", "N/A")
+            return f"{name} ({dept})"
+
+        # --- Summary statistics ---
+        total_tasks = len(tasks)
+        completed_tasks = sum(1 for t in tasks if t.get("task_status") == "Completed")
+        incomplete_tasks = total_tasks - completed_tasks
+        avg_priority = round(mean([t.get("priority_level", 0) for t in tasks if isinstance(t.get("priority_level"), (int, float))]), 1)
+
+        # --- Prepare workbook ---
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Project Tasks"
+
+        # --- Title section ---
+        ws["A1"] = f"Project Report: {project_name}"
+        ws["A1"].font = Font(size=14, bold=True)
+        ws["A2"] = f"Project ID: {project_id}"
+        ws["A2"].font = Font(italic=True)
+
+        # --- Summary section ---
+        ws.append([])
+        summary_headers = ["Total Tasks", "Completed", "Incomplete", "Average Priority"]
+        summary_values = [total_tasks, completed_tasks, incomplete_tasks, avg_priority]
+
+        ws.append(summary_headers)
+        ws.append(summary_values)
+
+        for cell in ws[4]:
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill("solid", fgColor="DDDDDD")
+            cell.alignment = Alignment(horizontal="center")
+
+        for cell in ws[5]:
+            cell.alignment = Alignment(horizontal="center")
+
+        ws.append([])
+
+        # --- Task Table ---
+        headers = ["Name", "Due Date", "Status", "Priority", "Owner", "Collaborators"]
+        ws.append(headers)
+        for cell in ws[7]:
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill("solid", fgColor="DDDDDD")
+            cell.alignment = Alignment(horizontal="center")
+
+        for task in tasks:
+            task_name = task.get("task_name")
+            due_date = task.get("end_date")
+            if isinstance(due_date, str):
+                try:
+                    dt = datetime.fromisoformat(due_date.replace("Z", "+00:00"))
+                    due_date = dt.strftime("%d-%m-%Y")
+                except Exception:
+                    due_date = due_date[:10]
+            elif isinstance(due_date, datetime):
+                due_date = due_date.strftime("%d-%m-%Y")
+
+            owner_name = get_user_info(task.get("owner"))
+            collaborators_list = task.get("assigned_to", [])
+            collaborators_str = ", ".join([get_user_info(uid) for uid in collaborators_list]) if collaborators_list else "—"
+
+            ws.append([
+                task_name,
+                due_date,
+                task.get("task_status", "N/A"),
+                task.get("priority_level", "—"),
+                owner_name,
+                collaborators_str,
+            ])
+
+        # --- Auto column widths ---
+        for col in ws.columns:
+            max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = max_length + 2
+
+        # --- Add Charts ---
+        ws.append([])
+        ws.append(["Tasks by Status"])
+        last_row_index = ws.max_row
+
+        # for cell in ws[last_row_index]:
+        ws[last_row_index][0].font = Font(bold=True)
+        ws[last_row_index][0].fill = PatternFill("solid", fgColor="DDDDDD")
+        ws[last_row_index][0].alignment = Alignment(horizontal="center")
+        chart_start_row = ws.max_row + 2
+
+        # Count tasks by status and priority
+        from collections import Counter
+        status_counts = Counter(t.get("task_status", "Unknown") for t in tasks)
+        priority_counts = Counter(
+            "High" if t.get("priority_level", 0) >= 7 else
+            "Medium" if t.get("priority_level", 0) >= 4 else
+            "Low"
+            for t in tasks
+        )
+
+        # Insert status data
+        ws.append(["Status", "Count"])
+        for k, v in status_counts.items():
+            ws.append([k, v])
+        status_table_end = ws.max_row
+
+        # Create pie chart for Status
+        pie_status = PieChart()
+        labels = Reference(ws, min_col=1, min_row=status_table_end - len(status_counts) + 1, max_row=status_table_end)
+        data = Reference(ws, min_col=2, min_row=status_table_end - len(status_counts), max_row=status_table_end)
+        pie_status.add_data(data, titles_from_data=True)
+        pie_status.set_categories(labels)
+        pie_status.title = "Tasks by Status"
+        ws.add_chart(pie_status, f"E{chart_start_row}")
+
+        # Insert Priority data
+        ws.append([])
+        ws.append(["Tasks by Priority"])
+        last_row_index = ws.max_row
+        ws[last_row_index][0].font = Font(bold=True)
+        ws[last_row_index][0].fill = PatternFill("solid", fgColor="DDDDDD")
+        ws[last_row_index][0].alignment = Alignment(horizontal="center")
+        ws.append(["Priority Level", "Count"])
+        for k, v in priority_counts.items():
+            ws.append([k, v])
+        priority_table_end = ws.max_row
+
+        # Create pie chart for Priority
+        pie_priority = PieChart()
+        labels = Reference(ws, min_col=1, min_row=priority_table_end - len(priority_counts) + 1, max_row=priority_table_end)
+        data = Reference(ws, min_col=2, min_row=priority_table_end - len(priority_counts), max_row=priority_table_end)
+        pie_priority.add_data(data, titles_from_data=True)
+        pie_priority.set_categories(labels)
+        pie_priority.title = "Tasks by Priority"
+        ws.add_chart(pie_priority, f"E{chart_start_row + 15}")
+
+        # --- Save workbook to memory ---
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=f"{project_name.replace(' ', '_')}_Tasks_Report.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # # =============== DELETE PROJECT ===============
 # @projects_bp.route('/api/projects/<project_id>', methods=['DELETE'])

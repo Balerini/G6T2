@@ -111,5 +111,18 @@ export const projectService = {
       console.error('Error in getAllUsersUnfiltered:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch users');
     }
-  }
+  },
+
+  // Getting export excel request
+  async exportProjectTasksXlsx(projectId) {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/projects/${projectId}/export/xlsx`, {
+        responseType: "blob", // important for binary Excel files
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error exporting project tasks XLSX:", error);
+      throw error;
+    }
+  },
 };
