@@ -33,3 +33,29 @@ py app.py
 
 ### 3️⃣ The application will be available at:
 👉 http://localhost:8080
+
+---
+
+## ⚙️ Tech Stack
+Frontend
+
+Framework: Vue.js
+Language: JavaScript
+Styling: CSS3 with responsive design
+
+Backend
+
+Language: Python
+Framework: Flask (API server)
+- RESTful API endpoints
+- Authentication and authorization
+- Data validation
+- Firebase integration
+
+Database
+
+Platform: Firebase
+Services Used:
+- Firestore (NoSQL database)
+- Firebase Authentication
+- Real-time data synchronization
