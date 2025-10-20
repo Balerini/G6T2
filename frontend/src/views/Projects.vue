@@ -545,7 +545,16 @@ export default {
 
     async handleToggleCompleted() {
       console.log(`Toggle completed projects: ${this.showCompletedProjects}`);
+      console.log('Fetching projects with showCompleted:', this.showCompletedProjects);
+      
       await this.fetchProjects();
+      
+      // Log the fetched projects to see their status
+      console.log('Projects after fetch:', this.projects.map(p => ({
+        name: p.proj_name,
+        status: p.proj_status || p.status,
+        tasks: p.tasks?.length || 0
+      })));
     },
 
     toggleFilterMenu() {

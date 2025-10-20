@@ -1,5 +1,13 @@
 <template>
-  <div class="project-card">
+  <div class="project-card" :class="{ 'completed-project': isCompletedProject }">
+    <!-- Debug info (remove in production) -->
+    <div v-if="false" style="background: yellow; padding: 5px; font-size: 11px;">
+      DEBUG: isCompleted={{ isCompletedProject }}, 
+      showCompleted={{ showCompletedProjects }}, 
+      filter={{ taskStatusFilter }},
+      status={{ project.proj_status || project.status }}
+    </div>
+    
     <!-- Project Header -->
     <div class="project-header">
       <h2 class="project-title">{{ project.proj_name }}</h2>
@@ -43,9 +51,9 @@
           <h4 class="tasks-count">
             {{ filteredAndSortedTasks.length }} of {{ project.tasks.length }} Task{{ project.tasks.length !== 1 ? 's' :
             '' }}
-            <span v-if="taskStatusFilter !== 'Active'" class="filter-indicator"
-              :class="`status-${taskStatusFilter.toLowerCase().replace(' ', '-')}`">
-              ({{ taskStatusFilter }})
+            <span v-if="computedTaskStatusFilter !== 'Active'" class="filter-indicator"
+              :class="`status-${computedTaskStatusFilter.toLowerCase().replace(' ', '-')}`">
+              ({{ computedTaskStatusFilter }})
             </span>
           </h4>
         </div>
@@ -54,7 +62,11 @@
           <!-- Status Filter -->
             <div class="status-filter">
               <label class="filter-label">Filter:</label>
-              <select v-model="taskStatusFilter" class="status-filter-select" @change="onStatusFilterChange">
+              <select 
+                :value="computedTaskStatusFilter" 
+                @input="taskStatusFilter = $event.target.value"
+                class="status-filter-select" 
+                @change="onStatusFilterChange">
                 <option value="Active">Active</option>
                 <option value="Unassigned">Unassigned</option>
                 <option value="Ongoing">Ongoing</option>
@@ -90,16 +102,10 @@
       <div class="tasks-list">
         <TaskItem v-for="task in filteredAndSortedTasks" :key="task.task_ID" :task="task" :users="users"
           @view-task="$emit('view-task', $event)" @edit-task="openEdit(task)" />
-
-        <!-- No tasks message when filtered -->
-        <div v-if="filteredAndSortedTasks.length === 0 && project.tasks.length > 0" class="no-tasks-filtered">
-          <p>No tasks found with status: <strong>{{ taskStatusFilter.replace('-', ' ') }}</strong></p>
-          <button class="clear-filter-btn" @click="clearStatusFilter">Show Active Tasks</button>
-        </div>
       </div>
 
       <!-- Add Task Button -->
-      <button class="add-task-btn" @click="$emit('add-task', project)">
+      <button class="add-task-btn" @click="$emit('add-task', project)" :disabled="isCompletedProject">
         + Add Task
       </button>
     </div>
@@ -128,37 +134,77 @@ export default {
     users: {
       type: Array,
       default: () => []
+    },
+    showCompletedProjects: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['edit-project', 'view-task', 'add-task'],
   mounted() {
-    // Debug: Check what data the component receives when mounted
-    console.log('=== ProjectCard Debug ===');
-    console.log('Project name:', this.project.proj_name);
-    console.log('Project ID:', this.project.id);
-    console.log('All project fields:', Object.keys(this.project));
-    console.log('Full project object:', this.project);
+    // // Debug: Check what data the component receives when mounted
+    // console.log('=== ProjectCard Debug ===');
+    // console.log('Project name:', this.project.proj_name);
+    // console.log('Project ID:', this.project.id);
+    // console.log('Project status:', this.project.proj_status || this.project.status);
+    // console.log('Show completed projects:', this.showCompletedProjects);
+    // console.log('isCompletedProject computed:', this.isCompletedProject);
 
     if (!this.project.id) {
       console.error('⚠️ PROJECT ID IS MISSING!');
       console.error('This will cause navigation to fail');
     }
+
+    // Initialize the filter based on project completion status
+    this.initializeFilter();
+  },
+
+  created() {
+    // Also try to initialize in created hook to ensure early setup
+    this.initializeFilter();
   },
   data() {
     return {
       showEdit: false,
       selectedTask: null,
       taskSortOrder: 'asc',
-      taskStatusFilter: 'Active'
+      taskStatusFilter: null, // Will be set based on project status
+      filterInitialized: false
     }
   },
   computed: {
+    isCompletedProject() {
+      // Check multiple possible fields for project completion status
+      const status = this.project.proj_status || this.project.status || this.project.project_status || '';
+      const statusLower = String(status).toLowerCase().trim();
+      
+      // Also check if all tasks are completed
+      const allTasksCompleted = this.project.tasks && this.project.tasks.length > 0 && 
+        this.project.tasks.every(task => {
+          const taskStatus = task.task_status || task.status || '';
+          return String(taskStatus).toLowerCase().trim() === 'completed';
+        });
+      
+      const isCompleted = statusLower === 'completed' || allTasksCompleted;
+      console.log('Project:', this.project.proj_name, 'Status:', status, 'Is Completed:', isCompleted);
+      
+      return isCompleted;
+    },
+
+    computedTaskStatusFilter() {
+      // If taskStatusFilter hasn't been set yet, determine it from project status
+      if (this.taskStatusFilter === null) {
+        return this.isCompletedProject ? 'Completed' : 'Active';
+      }
+      return this.taskStatusFilter;
+    },
+
     filteredAndSortedTasks() {
       if (!this.project.tasks || this.project.tasks.length === 0) {
         return [];
       }
 
-      const filterValue = this.taskStatusFilter;
+      const filterValue = this.computedTaskStatusFilter;
       let filtered = [...this.project.tasks];
 
       if (filterValue === 'Active') {
@@ -231,7 +277,82 @@ export default {
       return collaborators;
     }
   },
+  watch: {
+    showCompletedProjects: {
+      handler(newVal) {
+        console.log('showCompletedProjects changed to:', newVal);
+        // When the parent toggles completed projects visibility,
+        // update the task filter accordingly
+        this.$nextTick(() => {
+          this.updateTaskFilterBasedOnProjectStatus();
+        });
+      },
+      immediate: false // Changed to false since we handle this in mounted
+    },
+    
+    isCompletedProject: {
+      handler(newVal, oldVal) {
+        console.log('isCompletedProject changed from:', oldVal, 'to:', newVal, 'for project:', this.project.proj_name);
+        // When project completion status changes, update filter
+        if (this.filterInitialized) {
+          this.$nextTick(() => {
+            this.updateTaskFilterBasedOnProjectStatus();
+          });
+        }
+      },
+      immediate: false // Changed to false since we handle this in mounted
+    },
+
+    'project.tasks': {
+      handler() {
+        // When tasks change, recheck if project is completed
+        if (this.filterInitialized) {
+          this.$nextTick(() => {
+            this.updateTaskFilterBasedOnProjectStatus();
+          });
+        }
+      },
+      deep: true
+    }
+  },
   methods: {
+    initializeFilter() {
+      if (this.filterInitialized) {
+        return; // Already initialized
+      }
+
+      const initialFilter = this.isCompletedProject ? 'Completed' : 'Active';
+      console.log('🎯 initializeFilter for', this.project.proj_name, ':', initialFilter);
+      console.log('   isCompletedProject:', this.isCompletedProject);
+      
+      this.taskStatusFilter = initialFilter;
+      this.filterInitialized = true;
+      
+      console.log('   taskStatusFilter set to:', this.taskStatusFilter);
+    },
+
+    updateTaskFilterBasedOnProjectStatus() {
+      console.log('=== updateTaskFilterBasedOnProjectStatus ===');
+      console.log('Project:', this.project.proj_name);
+      console.log('isCompletedProject:', this.isCompletedProject);
+      console.log('showCompletedProjects:', this.showCompletedProjects);
+      console.log('Current taskStatusFilter:', this.taskStatusFilter);
+      console.log('filterInitialized:', this.filterInitialized);
+      
+      // If this is a completed project, ALWAYS show completed tasks
+      if (this.isCompletedProject) {
+        console.log('✅ Setting filter to Completed for completed project');
+        this.taskStatusFilter = 'Completed';
+      } else {
+        // For active projects, show active tasks
+        console.log('✅ Setting filter to Active for active project');
+        this.taskStatusFilter = 'Active';
+      }
+      
+      this.filterInitialized = true;
+      console.log('New taskStatusFilter:', this.taskStatusFilter);
+    },
+
     normalizeTaskStatus(status) {
       if (typeof status === 'string') {
         const trimmed = status.trim();
@@ -363,6 +484,83 @@ export default {
 </script>
 
 <style scoped>
+/* Completed Project Styling */
+.project-card.completed-project {
+  opacity: 0.8;
+  background: #fafafa;
+  position: relative;
+  border-color: #d1d5db;
+  filter: grayscale(0.3);
+}
+
+.project-card.completed-project::before {
+  content: '✓ COMPLETED';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: linear-gradient(90deg, #10b981, #059669);
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.5px;
+}
+
+.project-card.completed-project .project-header {
+  margin-top: 28px;
+}
+
+.project-card.completed-project .project-title {
+  color: #9ca3af;
+  text-decoration: line-through;
+  text-decoration-color: #d1d5db;
+}
+
+.project-card.completed-project .project-description {
+  color: #b5b5b5;
+}
+
+.project-card.completed-project .meta-value,
+.project-card.completed-project .meta-label {
+  color: #9ca3af;
+}
+
+.project-card.completed-project .view-btn {
+  color: #9ca3af;
+  opacity: 0.7;
+}
+
+.project-card.completed-project .view-btn:hover {
+  color: #6b7280;
+  opacity: 1;
+}
+
+.project-card.completed-project .collaborator-avatar {
+  opacity: 0.6;
+  filter: grayscale(0.5);
+}
+
+.project-card.completed-project .add-task-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #f9fafb;
+  color: #d1d5db;
+  border-color: #e5e7eb;
+  border-style: solid;
+}
+
+.project-card.completed-project .add-task-btn:disabled:hover {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #d1d5db;
+  transform: none;
+}
+
 .view-btn {
   position: relative;
   display: inline-flex;
@@ -459,6 +657,7 @@ export default {
   border: 1px solid #e5e7eb;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  transition: all 0.3s ease;
 }
 
 .project-header {
@@ -475,6 +674,7 @@ export default {
   color: #111827;
   margin: 0;
   flex: 1;
+  transition: color 0.3s ease;
 }
 
 .edit-btn {
@@ -501,6 +701,7 @@ export default {
   color: #6b7280;
   margin: 0 0 1rem 0;
   line-height: 1.6;
+  transition: color 0.3s ease;
 }
 
 .project-meta {
@@ -646,6 +847,7 @@ export default {
 .meta-value {
   color: #111827;
   font-weight: 500;
+  transition: color 0.3s ease;
 }
 
 .tasks-container {
@@ -904,4 +1106,5 @@ export default {
   background: #d1fae5;
   color: #065f46;
 }
+
 </style>
