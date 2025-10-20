@@ -2,7 +2,7 @@
   <div class="modal-overlay" @click="$emit('close')">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h2 class="modal-title">Create New Project</h2>
+        <h2 class="modal-title">{{ modalTitle }}</h2>
         <button class="close-button" @click="$emit('close')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M13 1L1 13M1 1L13 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -153,7 +153,7 @@
               Cancel
             </button>
             <button type="submit" class="btn btn-primary" :disabled="loading">
-              {{ loading ? 'Creating...' : 'Create Project' }}
+              {{ submitButtonText }}
             </button>
           </div>
         </form>
@@ -168,7 +168,17 @@ import { projectAPI, userAPI } from '../services/api.js'
 
 export default {
   name: 'CreateProjectForm',
-  emits: ['close', 'project-created'],
+  props: {
+    editMode: {
+      type: Boolean, 
+      default: false
+    },
+    existingProject: {
+      type: Object, 
+      default: null
+    }
+  },
+  emits: ['close', 'project-created', 'project-updated'],
   data() {
     return {
       loading: false,
@@ -248,6 +258,17 @@ export default {
 
       return filtered.slice(0, 20) // Limit results
     },
+
+    submitButtonText() {
+      if (this.loading) {
+        return this.editMode ? 'Updating...' : 'Creating...'
+      }
+      return this.editMode ? 'Update Project' : 'Create Project'
+    },
+
+    modalTitle() {
+      return this.editMode ? 'Edit Project' : 'Create New Project'
+    }
   },
 
   async created() {
@@ -260,15 +281,20 @@ export default {
       this.formData.owner = this.currentUser.id || this.currentUser.user_ID || 'Unknown ID'
       console.log('Set owner to:', this.formData.owner)
 
-      // Auto-add current user as collaborator
-      this.formData.assignedto.push({
-        id: this.currentUser.id || this.currentUser.user_ID,
-        name: this.currentUser.name || this.currentUser.email || 'Current User',
-        email: this.currentUser.email || ''
-      })
-
-      // Load ALL users from ALL departments
+      // Load users first
       await this.loadUsers()
+
+      // If edit mode, populate form with existing data
+      if (this.editMode && this.existingProject) {
+        await this.populateFormData()
+      } else {
+        // Only auto-add current user as collaborator for create mode
+        this.formData.assignedto.push({
+          id: this.currentUser.id || this.currentUser.user_ID,
+          name: this.currentUser.name || this.currentUser.email || 'Current User',
+          email: this.currentUser.email || ''
+        })
+      }
     } else {
       console.warn('No current user found!')
     }
@@ -300,6 +326,40 @@ export default {
         this.users = []
       } finally {
         this.isLoadingUsers = false
+      }
+    },
+
+    // Populate form with existing project data 
+    async populateFormData() {
+      const project = this.existingProject
+      console.log('Populating form with existing project:', project)
+      
+      this.formData.proj_name = project.proj_name || ''
+      this.formData.proj_desc = project.proj_desc || ''
+      this.formData.start_date = project.start_date ? project.start_date.split('T')[0] : ''
+      this.formData.end_date = project.end_date ? project.end_date.split('T')[0] : ''
+      this.formData.owner = project.owner || this.currentUser.id
+
+      // Populate collaborators
+      this.formData.assignedto = []
+      
+      if (project.collaborators && Array.isArray(project.collaborators)) {
+        console.log('Loading collaborators:', project.collaborators)
+        
+        for (const collabId of project.collaborators) {
+          const user = this.users.find(u => u.id === collabId)
+          
+          if (user) {
+            this.formData.assignedto.push({
+              id: user.id,
+              name: user.name,
+              email: user.email || '',
+              division_name: user.division_name || ''
+            })
+          }
+        }
+
+        console.log('Populated collaborators:', this.formData.assignedto)
       }
     },
 
@@ -564,16 +624,28 @@ export default {
           collaborators: collaboratorIds
         }
 
-        console.log('Creating project with collaborators:', projectData)
+        // Check if edit mode or create mode 
+        if (this.editMode && this.existingProject) {
+          console.log('Updating project with ID:', this.existingProject.id)
+          console.log('Project data:', projectData)
+          
+          const result = await projectAPI.updateProject(this.existingProject.id, projectData)
+          
+          console.log('Project updated successfully:', result)
+          this.$emit('project-updated', result)
+          
+        } else {
+          console.log('Creating project with collaborators:', projectData)
 
-        const result = await projectAPI.createProject(projectData)
+          const result = await projectAPI.createProject(projectData)
 
-        console.log('Project created successfully:', result)
-
-        this.$emit('project-created', result)
+          console.log('Project created successfully:', result)
+          this.$emit('project-created', result)
+        }
 
       } catch (error) {
         console.error('Error creating project:', error)
+        throw error
       } finally {
         this.loading = false
       }

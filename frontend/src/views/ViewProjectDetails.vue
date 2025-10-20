@@ -18,7 +18,17 @@
         <div v-else-if="projectData" class="project-content">
             <!-- Header -->
             <div class="project-header">
-                <button @click="goBack" class="back-btn">← Back to Projects</button>
+                <div class="header-actions">
+                    <button @click="goBack" class="back-btn">← Back to Projects</button>
+                    <button 
+                        v-if="canEdit"
+                        @click="openEditModal"
+                        class="edit-btn"
+                    >
+                        ✏️ Edit Project
+                    </button>
+                </div>
+
                 <h1>{{ projectData.proj_name }}</h1>
                 <div class="project-meta">
                     <span class="date-range">
@@ -122,12 +132,28 @@
                 <ViewProjectTeamSchedule :projectId="projectId"/> 
             </div>
         </div>
+
+        <!-- Edit Modal -->
+        <CreateProjectForm
+          v-if="showEditModal"
+          :editMode="true"
+          :existingProject="projectData"
+          @close="closeEditModal"
+          @project-updated="handleProjectUpdated"
+        />
+
+        <!-- Notification Toast -->
+        <div v-if="notification.show" class="notification" :class="notification.type">
+                {{ notification.message }}
+        </div>
     </div>
 </template>
 
 <script>
 import ViewProjectTeamSchedule from '@/components/ViewProjectTeamSchedule.vue';
+import CreateProjectForm from '@/components/CreateProjectForm.vue';
 import { projectService } from '../services/projectService.js';
+import AuthService from '../services/auth.js'; 
 
 export default {
     name: 'ViewProject',
@@ -137,11 +163,18 @@ export default {
             loading: false,
             error: null,
             projectId: null,
-            usersMap: {} // Map of userId -> user object
+            usersMap: {}, // Map of userId -> user object
+            showEditModal: false,
+            notification: {
+                show: false,
+                message: '',
+                type: 'success'
+            }
         };
     },
     components: {
-        ViewProjectTeamSchedule
+        ViewProjectTeamSchedule,
+        CreateProjectForm
     },
     computed: {
         allTasks() {
@@ -180,6 +213,14 @@ export default {
             });
 
             return counts;
+        },
+
+        canEdit() {
+            const currentUser = AuthService.getCurrentUser()
+            if (!currentUser || !this.projectData) return false
+
+            const userId = currentUser.id || currentUser.user_ID
+            return this.projectData.owner === userId
         }
     },
     created() {
@@ -324,7 +365,43 @@ export default {
                 console.error("Export failed:", error);
                 alert("Failed to export project tasks. Please try again.");
             }
-        }
+        },
+
+        openEditModal() {
+           this.showEditModal = true 
+        },
+
+        closeEditModal() {
+           this.showEditModal = false 
+        },
+
+        async handleProjectUpdated(updatedProject) {
+            try {
+                this.closeEditModal()
+
+                // Update local data directly instead of reloading
+                this.projectData = {
+                    ...this.projectData,
+                    ...updatedProject
+                }
+
+                this.showNotification('Project updated successfully!', 'success')
+            } catch (error) {
+                console.error('Error handling project update:', error)
+                this.showNotification('Failed to update project', 'error')
+            }
+        },
+
+        showNotification(message, type = 'success') {
+            this.notification = {
+            show: true,
+            message,
+            type
+            }
+            setTimeout(() => {
+            this.notification.show = false
+            }, 3000)
+        },
     }
 };
 </script>
@@ -760,4 +837,75 @@ export default {
   background-color: #374151;
 }
 
+/* Header actions layout */
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Edit button */
+.edit-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.edit-btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Notification toast */
+.notification {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  z-index: 9999;
+  animation: slideIn 0.3s ease-out;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.notification.success {
+  background: #10b981;
+  color: white;
+}
+
+.notification.error {
+  background: #ef4444;
+  color: white;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .notification {
+    left: 1rem;
+    right: 1rem;
+    top: 1rem;
+  }
+  
+  .header-actions {
+    flex-direction: column;
+  }
+}
 </style>
