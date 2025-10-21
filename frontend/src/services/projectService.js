@@ -125,4 +125,16 @@ export const projectService = {
       throw error;
     }
   },
+  
+  async updateProject(projectId, projectData) {
+    try {
+      console.log('Updating project:', projectId, 'with data:', projectData);
+      const response = await api.put(`/api/projects/${projectId}`, projectData);
+      console.log('Update project response:', response.data);
+      return response.data.project; // Return just the project object
+    } catch (error) {
+      console.error('Error in updateProject:', error);
+      throw new Error(error.response?.data?.error || 'Failed to update project');
+    }
+  }
 };
