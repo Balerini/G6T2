@@ -20,6 +20,7 @@
               v-model="email"
               placeholder="name@example.com"
               class="form-control"
+              autocomplete="email"
               @input="error = ''"
             />
           </div>
@@ -32,6 +33,7 @@
               v-model="password"
               placeholder="••••••••"
               class="form-control"
+              autocomplete="new-password"
               @input="validatePassword"
             />
           </div>
@@ -44,6 +46,7 @@
               v-model="confirmPassword"
               placeholder="••••••••"
               class="form-control"
+              autocomplete="new-password"
               @input="validateConfirmPassword"
             />
           </div>
