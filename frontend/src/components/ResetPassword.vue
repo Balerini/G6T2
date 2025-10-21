@@ -11,6 +11,19 @@
         <p class="card-subtitle">Enter your new password below</p>
 
         <div v-if="!resetSuccess">
+          <!-- Email field -->
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              v-model="email"
+              placeholder="name@example.com"
+              class="form-control"
+              @input="error = ''"
+            />
+          </div>
+
           <div class="form-group">
             <label for="password">New Password</label>
             <input
@@ -100,6 +113,7 @@ export default {
   name: 'ResetPassword',
   data() {
     return {
+      email: '',
       password: '',
       confirmPassword: '',
       loading: false,
@@ -157,6 +171,18 @@ export default {
     },
     
     async resetPassword() {
+      // Email validation
+      if (!this.email || !this.email.trim()) {
+        this.error = 'Please enter your email address';
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(this.email)) {
+        this.error = 'Please enter a valid email address';
+        return;
+      }
+
       if (!this.isPasswordValid) {
         this.error = 'Please ensure your password meets all requirements';
         return;
@@ -166,7 +192,8 @@ export default {
       this.error = '';
 
       try {
-        const response = await authAPI.resetPassword(this.password);
+        // Pass email
+        const response = await authAPI.resetPassword(this.email, this.password);
         
         if (response.ok) {
           this.resetSuccess = true;

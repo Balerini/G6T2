@@ -65,19 +65,11 @@ export const authAPI = {
     return !!localStorage.getItem('user')
   },
 
-  // Reset Password - Set new password directly (user must be logged in)
-  resetPassword: async (newPassword) => {
+  // Reset Password - Set new password with email verification
+  resetPassword: async (email, newPassword) => {
     try {
-      // Get current user from localStorage
-      const user = localStorage.getItem('user')
-      if (!user) {
-        throw { error: 'User not logged in' }
-      }
-
-      const userData = JSON.parse(user)
-
       const response = await api.post('/api/auth/reset-password', {
-        userId: userData.id,
+        email: email,
         newPassword
       })
       console.log('Reset password response:', response);

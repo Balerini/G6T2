@@ -251,13 +251,13 @@ def create_app() -> Flask:
 
     @app.route("/api/auth/reset-password", methods=["POST"])
     def reset_password():
-        """Handle password reset - user must be logged in"""
+        """Handle password reset - user enters email to identify themselves"""
         payload = request.get_json(silent=True) or {}
-        user_id = payload.get("userId")
+        email = payload.get("email")
         new_password = payload.get("newPassword")
         
-        if not user_id or not new_password:
-            return jsonify({"ok": False, "error": "User ID and new password are required"}), 400
+        if not email or not new_password:
+            return jsonify({"ok": False, "error": "Email and new password are required"}), 400
         
         # Validate password
         password_error = validate_password(new_password)
@@ -268,13 +268,20 @@ def create_app() -> Flask:
             db = get_firestore_client()
             users_ref = db.collection('Users')
 
-            # Get user document
-            user_doc = users_ref.document(user_id).get()
-            
-            if not user_doc.exists:
+            # Find user by email
+            users = users_ref.where('email', '==', email.lower().strip()).stream()
+            user_doc = None
+            user_id = None
+
+            for doc in users:
+                user_doc = doc
+                user_id = doc.id
+                break
+
+            if not user_doc:
                 return jsonify({
                     "ok": False,
-                    "error": "User not found"
+                    "error": "No account found with this email address"
                 }), 404
             
             # Hash the new password
