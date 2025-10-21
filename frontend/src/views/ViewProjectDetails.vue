@@ -872,12 +872,13 @@ export default {
     background: #111827;
     color: white;
     border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
+    padding: 8px 16px; /* Standardized padding */
+    border-radius: 6px; /* Standardized border radius */
     cursor: pointer;
+    font-size: 14px; 
     font-weight: 500;
     transition: all 0.2s;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
 }
 
 .back-btn:hover,
@@ -969,6 +970,8 @@ export default {
 /* Header actions layout */
 .header-actions {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 1rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
@@ -976,20 +979,20 @@ export default {
 
 /* Edit button */
 .edit-btn {
-  background: #3b82f6;
-  color: white;
+  background: #1f2937;
+  color: #ffffff;
   border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  padding: 8px 16px; /* Same height as back button */
+  border-radius: 6px;
   cursor: pointer;
+  font-size: 14px;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
+  white-space: nowrap;
 }
 
 .edit-btn:hover {
-  background: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  background: #111827;
 }
 
 /* Notification toast */
@@ -1035,6 +1038,12 @@ export default {
   
   .header-actions {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .edit-btn,
+  .back-btn {
+    width: 100%; 
   }
 }
 </style>
