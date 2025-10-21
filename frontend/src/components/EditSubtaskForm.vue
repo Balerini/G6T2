@@ -226,8 +226,7 @@
                 class="dropdown-item"
                 :class="{ 
                   'highlighted': index === highlightedIndex,
-                  'selected': isUserSelected(user),
-                  'disabled': !canAssignTo(user)
+                  'selected': isUserSelected(user)
                 }"
                 @mousedown.prevent="selectUser(user)"
                 @mouseenter="highlightedIndex = index"
@@ -237,9 +236,6 @@
                   <span v-if="user.department" class="user-email">{{ user.department }}</span>
                 </div>
                 <span v-if="isUserSelected(user)" class="selected-indicator">✓</span>
-                <span v-if="!canAssignTo(user)" class="disabled-indicator">
-                  (Cannot assign - higher rank)
-                </span>
               </div>
             </div>
           </div>
@@ -774,11 +770,15 @@ const canAssignTo = (staff) => {
   
   const currentUserId = currentUser.id
   
-  if (staff.id === currentUserId) {
-    return true
-  }
-  
-  return staff.rank > currentUserRank.value
+  console.log('canAssignTo check:', {
+    staffName: staff.name,
+    staffId: staff.id,
+    currentUserId: currentUserId
+  });
+
+  // Subtask owner can invite any collaborator from the parent task
+  // No rank restrictions
+  return true;
 }
 
 // Check if current user
@@ -836,7 +836,7 @@ const closeDropdown = () => {
 }
 
 const selectUser = (user) => {
-  if (isUserSelected(user) || !canAssignTo(user)) {
+  if (isUserSelected(user)) { // Only check if already selected
     return
   }
   

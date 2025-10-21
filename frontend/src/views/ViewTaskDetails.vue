@@ -388,8 +388,11 @@
     <!-- Subtask Modal -->
     <div v-if="showSubtaskModal" class="modal-overlay" @click="closeSubtaskModal">
       <div class="modal-content" @click.stop>
-        <SubtaskForm :parentTaskId="task.id" :parentProjectId="task.proj_ID"
-          :availableCollaborators="getProjectCollaborators()" @subtask-created="handleSubtaskCreated"
+        <SubtaskForm 
+          :parentTaskId="task.id" 
+          :parentProjectId="task.proj_ID"
+          :availableCollaborators="getTaskCollaborators()" 
+          @subtask-created="handleSubtaskCreated"
           @cancel="closeSubtaskModal" />
       </div>
     </div>
@@ -399,7 +402,7 @@
       <div class="modal-content" @click.stop>
         <EditSubtaskForm
           :subtask="selectedSubtask"
-          :availableCollaborators="getProjectCollaborators"
+          :availableCollaborators="getTaskCollaborators"
           @subtask-updated="handleSubtaskUpdated"
           @cancel="closeEditSubtaskModal"
         />

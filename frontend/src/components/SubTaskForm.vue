@@ -205,8 +205,7 @@
               class="dropdown-item"
               :class="{ 
                 'highlighted': index === highlightedIndex,
-                'selected': isUserSelected(user),
-                'disabled': !canAssignTo(user)
+                'selected': isUserSelected(user)
               }"
               @mousedown.prevent="selectUser(user)"
               @mouseenter="highlightedIndex = index"
@@ -216,10 +215,6 @@
                 <span v-if="user.department" class="user-email">{{ user.department }}</span>
               </div>
               <span v-if="isUserSelected(user)" class="selected-indicator">✓</span>
-              <span v-if="!canAssignTo(user)" class="disabled-indicator">
-                (Cannot assign - higher rank) 
-                <br><small>User rank: {{ user.rank }}, Current user rank: {{ currentUserRank }}</small>
-              </span>
             </div>
           </div>
         </div>
@@ -448,6 +443,7 @@ const availableStaff = computed(() => {
     return []
   }
   
+  // Filter to only show collaborators from the parent task
   return props.availableCollaborators.map(collaborator => ({
     id: collaborator.id,
     name: collaborator.name,
@@ -880,25 +876,12 @@ const canAssignTo = (staff) => {
   console.log('canAssignTo check:', {
     staffName: staff.name,
     staffId: staff.id,
-    staffRank: staff.rank,
     currentUserId: currentUserId,
-    currentUserRank: currentUserRank.value,
-    isSelf: staff.id === currentUserId,
-    rankCheck: staff.rank > currentUserRank.value
   });
-  
-  // Can always assign to myself
-  if (staff.id === currentUserId) {
-    console.log('Can assign to self');
-    return true
-  }
-  
-  // Can only assign to users of lower rank (higher number = lower rank)
-  // e.g., if current user is rank 1 (CEO), can assign to rank 2, 3, 4, etc.
-  // e.g., if current user is rank 2, can assign to rank 3, 4, 5, etc.
-  const canAssign = staff.rank > currentUserRank.value;
-  console.log('Rank check result:', canAssign);
-  return canAssign;
+
+  // Subtask owner can invite any collaborators from the parent task 
+  // No rank restrictions 
+  return true;
 }
 
 // Dropdown interaction methods
@@ -951,7 +934,6 @@ const selectUser = (user) => {
   console.log('selectUser called with:', user);
   console.log('isAtLimit:', isAtLimit.value);
   console.log('isUserSelected:', isUserSelected(user));
-  console.log('canAssignTo:', canAssignTo(user));
   
   if (isAtLimit.value || isUserSelected(user) || !canAssignTo(user)) {
     console.log('User selection blocked');

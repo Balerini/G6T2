@@ -17,9 +17,8 @@ def create_subtask():
     
     try:
         data = request.get_json()
-        print(f"🔥 BACKEND SUBTASK CREATION DEBUG")
+        print(f"BACKEND SUBTASK CREATION DEBUG")
         print(f"Received subtask data: {data}")
-        print(f"Data keys: {list(data.keys()) if data else 'No data'}")
         
         # Validate required fields
         required_fields = ['name', 'start_date', 'end_date', 'status', 'parent_task_id', 'project_id']
@@ -30,6 +29,34 @@ def create_subtask():
         
         # Get Firestore client
         db = get_firestore_client()
+
+        # Validate that invited collaborators are from parent task 
+        parent_task_id = data['parent_task_id']
+        invited_collaborators = data.get('assigned_to', [])
+        
+        if invited_collaborators:
+            # Get parent task to check its collaborators
+            parent_task_ref = db.collection('Tasks').document(parent_task_id)
+            parent_task_doc = parent_task_ref.get()
+            
+            if not parent_task_doc.exists:
+                return jsonify({'error': 'Parent task not found'}), 404
+            
+            parent_task_data = parent_task_doc.to_dict()
+            parent_task_collaborators = parent_task_data.get('assigned_to', [])
+            
+            # Convert to strings for comparison
+            parent_collaborator_ids = [str(id) for id in parent_task_collaborators]
+            
+            # Validate each invited collaborator
+            for collab_id in invited_collaborators:
+                if str(collab_id) not in parent_collaborator_ids:
+                    print(f"Collaborator {collab_id} is not in parent task")
+                    return jsonify({
+                        'error': f'All invited collaborators must be collaborators of the parent task'
+                    }), 400
+            
+            print(f"All invited collaborators are valid parent task collaborators")
         
         # Create subtask document with proper structure
         subtask_data = {
@@ -161,6 +188,30 @@ def update_subtask(subtask_id):
         
         subtask_data = subtask_doc.to_dict()
 
+        # Validate assigned_to if being updated 
+        if 'assigned_to' in data:
+            new_assigned_to = data['assigned_to']
+            parent_task_id = subtask_data.get('parent_task_id')
+            
+            if new_assigned_to and parent_task_id:
+                # Get parent task collaborators
+                parent_task_ref = db.collection('Tasks').document(parent_task_id)
+                parent_task_doc = parent_task_ref.get()
+                
+                if parent_task_doc.exists:
+                    parent_task_data = parent_task_doc.to_dict()
+                    parent_collaborators = parent_task_data.get('assigned_to', [])
+                    parent_collaborator_ids = [str(id) for id in parent_collaborators]
+                    
+                    # Validate each new collaborator
+                    for collab_id in new_assigned_to:
+                        if str(collab_id) not in parent_collaborator_ids:
+                            return jsonify({
+                                'error': f'Collaborator {collab_id} is not assigned to the parent task'
+                            }), 400
+                    
+                    print(f"All updated collaborators are valid")
+
         # Validate ownership transfer
         if 'owner' in data:
             # Check if current user is the owner
@@ -176,6 +227,24 @@ def update_subtask(subtask_id):
             assigned_to = subtask_data.get('assigned_to', [])
             if str(new_owner_id) not in [str(id) for id in assigned_to]:
                 return jsonify({'error': 'New owner must be assigned to the subtask'}), 400
+            
+            # Verify new owner is a collaborator of parent task 
+            new_owner_id = data['owner']
+            parent_task_id = subtask_data.get('parent_task_id')
+            
+            if parent_task_id:
+                parent_task_ref = db.collection('Tasks').document(parent_task_id)
+                parent_task_doc = parent_task_ref.get()
+                
+                if parent_task_doc.exists:
+                    parent_task_data = parent_task_doc.to_dict()
+                    parent_collaborators = parent_task_data.get('assigned_to', [])
+                    parent_collaborator_ids = [str(id) for id in parent_collaborators]
+                    
+                    if str(new_owner_id) not in parent_collaborator_ids:
+                        return jsonify({
+                            'error': 'New owner must be a collaborator of the parent task'
+                        }), 400
         
         # Store old owner ID BEFORE updating (for email notification)
         old_owner_id = subtask_data.get('owner')
@@ -380,6 +449,12 @@ def soft_delete_subtask(subtask_id):
             return jsonify({'error': 'Subtask not found'}), 404
         
         subtask_data = subtask_doc.to_dict()
+
+        # Verify user has permission to update this subtask
+        # Only subtask owner can modify collaborators 
+        if 'assigned_to' in data: 
+            if str(subtask_data.get('owner')) != str(current_user_id): 
+                return jsonify({'error': 'Only the subtask owner can modify collaborators'}), 403
         
         # Get user ID from request body
         request_data = request.get_json()
