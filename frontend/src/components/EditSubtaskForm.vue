@@ -321,6 +321,30 @@
           </span>
         </div>
 
+        <!-- Subtask Priority -->
+        <div class="form-group">
+          <label class="form-label" for="priority">
+            Priority (1-10) *
+            <span class="helper-text-inline">1=Lowest, 10=Highest</span>
+          </label>
+          <input
+            id="priority"
+            name="priority"
+            v-model.number="formData.priority"
+            type="number"
+            min="1"
+            max="10"
+            class="form-input priority-input"
+            :class="{ 'error': errors.priority }"
+            placeholder="Enter priority (1-10)"
+            @input="clearError('priority')"
+            @blur="validateField('priority')"
+          />
+          <span v-if="errors.priority" class="error-message">
+            {{ errors.priority }}
+          </span>
+        </div>
+
         <!-- Status Change History -->
         <div class="form-group" v-if="props.subtask.status_history && props.subtask.status_history.length > 0">
           <label class="form-label">Status Change History</label>
@@ -407,7 +431,8 @@ const formData = ref({
   status: '',
   assigned_to: [],
   attachments: [],
-  owner: ''
+  owner: '',
+  priority: 5,
 })
 
 const errors = ref({})
@@ -583,14 +608,15 @@ const initializeForm = () => {
     status: props.subtask.status || '',
     assigned_to: props.subtask.assigned_to ? [...props.subtask.assigned_to] : [],
     attachments: props.subtask.attachments ? [...props.subtask.attachments] : [],
-    owner: props.subtask.owner || ''  
+    owner: props.subtask.owner || '',
+    priority: props.subtask.priority || 5
   }
   
   originalStatus.value = props.subtask.status || ''
 
   loadParentTaskData();
   
-  // Load owner display name - Add this section
+  // Load owner display name 
   if (props.subtask.owner) {
     const ownerUser = getUserById(props.subtask.owner);
     if (ownerUser) {
@@ -675,6 +701,13 @@ const validateField = (fieldName) => {
         errors.value.status = 'Status is required'
       }
       break
+    case 'priority':
+      if (!formData.value.priority && formData.value.priority !== 0) {
+        errors.value.priority = 'Priority is required'
+      } else if (formData.value.priority < 1 || formData.value.priority > 10) {
+        errors.value.priority = 'Priority must be between 1 and 10'
+      }
+      break
   }
 }
 
@@ -707,6 +740,12 @@ const validateForm = () => {
   
   if (!formData.value.status) {
     errors.value.status = 'Status is required'
+  }
+
+  if (!formData.value.priority && formData.value.priority !== 0) {
+    errors.value.priority = 'Priority is required'
+  } else if (formData.value.priority < 1 || formData.value.priority > 10) {
+    errors.value.priority = 'Priority must be between 1 and 10'
   }
   
   // Validate collaborators based on status
@@ -977,6 +1016,7 @@ const handleSubmit = async () => {
       start_date: formData.value.startDate,
       end_date: formData.value.endDate,
       status: formData.value.status,
+      priority: formData.value.priority,
       assigned_to: selectedCollaborators.value.map(collab => collab.id),
       attachments: formData.value.attachments,
     }
@@ -1732,5 +1772,18 @@ onMounted(() => {
 .timestamp {
   color: #888888;
   font-style: italic;
+}
+
+/* Priority Input Styling */
+.priority-input {
+  max-width: 200px;
+}
+
+.helper-text-inline {
+  font-size: 11px;
+  font-weight: 400;
+  color: #6b7280;
+  font-style: italic;
+  margin-left: 8px;
 }
 </style>

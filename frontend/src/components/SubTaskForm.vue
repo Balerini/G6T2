@@ -332,6 +332,29 @@
         </span>
       </div>
 
+      <!-- Subtask Priority -->
+      <div class="form-group">
+        <label class="form-label" for="priority">
+          Priority (1-10) *
+          <span class="helper-text-inline">1=Lowest, 10=Highest</span>
+        </label>
+        <input
+          id="priority"
+          v-model.number="form.priority"
+          type="number"
+          min="1"
+          max="10"
+          class="form-input priority-input"
+          :class="{ 'error': errors.priority }"
+          placeholder="Enter priority (1-10)"
+          @input="clearError('priority')"
+          @blur="validateField('priority')"
+        />
+        <span v-if="errors.priority" class="error-message">
+          {{ errors.priority }}
+        </span>
+      </div>
+
       <!-- SUBMIT BUTTON, DISABLE WHEN SUBMITTING, CHANGE TO CREATING WHEN SUBMITTING -->
       <div class="form-actions">
         <button type="button" class="btn btn-cancel" @click="$emit('cancel')" :disabled="isSubmitting">
@@ -392,6 +415,7 @@ const form = ref({
   endDate: '',
   status: '',
   owner: '',
+  priority: 5, // default medium priority
 })
 
 const errors = ref({})
@@ -534,7 +558,6 @@ const getDateConstraintInfo = () => {
   return null
 }
 
-// Validate dates with cascading logic
 // Validate dates with cascading logic
 const validateUnassignedConstraint = () => {
   // Ensure assigned collaborators exist
@@ -1130,6 +1153,13 @@ const validateField = (fieldName) => {
       }
       break;
     }
+    case 'priority':
+      if (!form.value.priority && form.value.priority !== 0) {
+        errors.value.priority = 'Priority is required'
+      } else if (form.value.priority < 1 || form.value.priority > 10) {
+        errors.value.priority = 'Priority must be between 1 and 10'
+      }
+      break
   }
 }
 
@@ -1156,6 +1186,13 @@ const validateForm = () => {
   
   if (!form.value.status) {
     errors.value.status = 'Status is required'
+  }
+
+  // Priority validation 
+  if (!form.value.priority && form.value.priority !== 0) {
+    errors.value.priority = 'Priority is required'
+  } else if (form.value.priority < 1 || form.value.priority > 10) {
+    errors.value.priority = 'Priority must be between 1 and 10'
   }
 
   // Check unassigned constraint  
@@ -1274,6 +1311,7 @@ const handleSubmit = async () => {
       start_date: form.value.startDate,
       end_date: form.value.endDate,
       status: form.value.status,
+      priority: form.value.priority,
       parent_task_id: props.parentTaskId,
       project_id: props.parentProjectId,
       assigned_to: selectedCollaborators.value.map(collab => collab.id),
@@ -1299,7 +1337,8 @@ const handleSubmit = async () => {
       description: '',
       startDate: '',
       endDate: '',
-      status: ''
+      status: '',
+      priority: 5
     }
     selectedCollaborators.value = []
     selectedFiles.value = []
@@ -1628,6 +1667,19 @@ const handleSubmit = async () => {
   font-size: 0.75rem;
   color: #999;
   font-style: italic;
+}
+
+/* Priority Input Styling */
+.priority-input {
+  max-width: 200px;
+}
+
+.helper-text-inline {
+  font-size: 11px;
+  font-weight: 400;
+  color: #6b7280;
+  font-style: italic;
+  margin-left: 8px;
 }
 
 /* Assignee Tags */

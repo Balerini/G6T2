@@ -53,7 +53,7 @@
                             <th>Owner</th>
                             <th>Due Date</th>
                             <th>Status</th>
-                            <!-- <th>Priority</th> -->
+                            <th>Priority</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -76,11 +76,11 @@
                                     {{ subtask.status || 'Unassigned' }}
                                 </span>
                             </td>
-                            <!-- <td class="subtask-priority">
+                            <td class="subtask-priority">
                                 <span class="priority-badge" :class="getPriorityClass(subtask.priority)">
                                     {{ formatPriority(subtask.priority) }}
                                 </span>
-                            </td> -->
+                            </td>
                             <td class="subtask-actions">
                                 <button @click="viewSubtask(subtask)" class="view-btn">
                                     View

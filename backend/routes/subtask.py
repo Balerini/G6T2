@@ -38,6 +38,7 @@ def create_subtask():
             'start_date': data['start_date'],
             'end_date': data['end_date'],
             'status': data['status'],
+            'priority': data.get('priority', 5), # Default priority is 5 (medium)
             'parent_task_id': data['parent_task_id'],
             'project_id': data['project_id'],
             'assigned_to': data.get('assigned_to', []),
@@ -193,6 +194,8 @@ def update_subtask(subtask_id):
             update_data['end_date'] = data['end_date']
         if 'status' in data:
             update_data['status'] = data['status']
+        if 'priority' in data:
+            update_data['priority'] = data['priority']
         if 'assigned_to' in data:
             update_data['assigned_to'] = data['assigned_to']
         if 'attachments' in data:
@@ -699,7 +702,7 @@ def get_team_subtasks(manager_id):
                     'start_date': subtask_data.get('start_date'),
                     'end_date': subtask_data.get('end_date'),
                     'status': subtask_data.get('status', 'Unassigned'),
-                    'priority': None,  # Subtasks have no priority field
+                    'priority': subtask_data.get('priority', 0), # Get priority from subtask
                     'task_id': subtask_data.get('parent_task_id'),
                     'proj_ID': subtask_data.get('project_id'),
                     'assigned_to': subtask_data.get('assigned_to', []),
