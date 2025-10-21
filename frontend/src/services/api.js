@@ -65,25 +65,19 @@ export const authAPI = {
     return !!localStorage.getItem('user')
   },
 
-  // Forgot Password - Send reset link
-  forgotPassword: async (email) => {
+  // Reset Password - Set new password directly (user must be logged in)
+  resetPassword: async (newPassword) => {
     try {
-      const response = await api.post('/api/auth/forgot-password', {
-        email
-      })
-      console.log('Forgot password response:', response);
-      return response.data
-    } catch (error) {
-      console.error('Forgot password error:', error);
-      throw error.response?.data || { error: 'Failed to send reset link' }
-    }
-  },
+      // Get current user from localStorage
+      const user = localStorage.getItem('user')
+      if (!user) {
+        throw { error: 'User not logged in' }
+      }
 
-  // Reset Password - Set new password with token
-  resetPassword: async (token, newPassword) => {
-    try {
+      const userData = JSON.parse(user)
+
       const response = await api.post('/api/auth/reset-password', {
-        token,
+        userId: userData.id,
         newPassword
       })
       console.log('Reset password response:', response);

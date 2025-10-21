@@ -105,7 +105,6 @@ export default {
       loading: false,
       error: '',
       resetSuccess: false,
-      token: '',
       validations: {
         length: false,
         hasUpperCase: false,
@@ -126,14 +125,6 @@ export default {
         this.validations.hasSpecialChar &&
         this.validations.passwordsMatch
       );
-    }
-  },
-  created() {
-    // Get token from URL query parameters
-    this.token = this.$route.query.token;
-    
-    if (!this.token) {
-      this.error = 'Invalid or missing reset token. Please request a new password reset link.';
     }
   },
   methods: {
@@ -166,11 +157,6 @@ export default {
     },
     
     async resetPassword() {
-      if (!this.token) {
-        this.error = 'Invalid reset token. Please request a new password reset link.';
-        return;
-      }
-
       if (!this.isPasswordValid) {
         this.error = 'Please ensure your password meets all requirements';
         return;
@@ -180,12 +166,12 @@ export default {
       this.error = '';
 
       try {
-        const response = await authAPI.resetPassword(this.token, this.password);
+        const response = await authAPI.resetPassword(this.password);
         
         if (response.ok) {
           this.resetSuccess = true;
         } else {
-          this.error = response.error || 'Failed to reset password. The link may have expired.';
+          this.error = response.error || 'Failed to reset password. Please try again.';
         }
       } catch (error) {
         this.error = error.error || 'An error occurred. Please try again.';

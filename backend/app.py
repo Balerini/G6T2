@@ -248,85 +248,16 @@ def create_app() -> Flask:
             
         except Exception as e:
             return jsonify({"ok": False, "error": f"Database error: {str(e)}"}), 500
-        
-    @app.route("/api/auth/forgot-password", methods=["POST"])
-    def forgot_password():
-        """Handle forgot password request - generate token and send email"""
-        payload = request.get_json(silent=True) or {}
-        email = payload.get("email")
-        
-        if not email:
-            return jsonify({"ok": False, "error": "Email is required"}), 400
-        
-        try: 
-            db = get_firestore_client()
-            users_ref = db.collection('Users')
-            
-            # Find user by email
-            users = users_ref.where('email', '==', email.lower().strip()).stream()
-            user_doc = None
-            user_data = None
-            
-            for doc in users:
-                user_doc = doc
-                user_data = doc.to_dict()
-                break
-            
-            # For security, always return success (don't reveal if email exists)
-            if not user_doc:
-                return jsonify({
-                    "ok": True,
-                    "message": "If the email exists, a reset link has been sent"
-                }), 200
-            
-            # Generate secure random token
-            reset_token = secrets.token_urlsafe(32)
-            
-            # Create token hash for storage (more secure)
-            token_hash = hashlib.sha256(reset_token.encode()).hexdigest()
-            
-            # Set expiration time (1 hour from now)
-            expires_at = datetime.now() + timedelta(hours=1)
-            
-            # Store token in Firestore
-            tokens_ref = db.collection('PasswordResetTokens')
-            tokens_ref.add({
-                'user_id': user_doc.id,
-                'token_hash': token_hash,
-                'expires_at': expires_at,
-                'created_at': datetime.now(),
-                'used': False
-            })
-            
-            # Create reset URL
-            reset_url = f"http://localhost:8080/reset-password?token={reset_token}"
-            
-            # Print to console for testing
-            print("\n" + "="*60)
-            print("PASSWORD RESET LINK:")
-            print(reset_url)
-            print("User:", user_data.get('name'), f"({email})")
-            print("="*60 + "\n")
-            
-            return jsonify({
-                "ok": True,
-                "message": "Password reset link sent to email"
-            }), 200
-            
-        except Exception as e:
-            print(f"Forgot password error: {str(e)}")
-            return jsonify({"ok": False, "error": "Failed to process request"}), 500
-    
 
     @app.route("/api/auth/reset-password", methods=["POST"])
     def reset_password():
-        """Handle password reset with token"""
+        """Handle password reset - user must be logged in"""
         payload = request.get_json(silent=True) or {}
-        token = payload.get("token")
+        user_id = payload.get("userId")
         new_password = payload.get("newPassword")
         
-        if not token or not new_password:
-            return jsonify({"ok": False, "error": "Token and new password are required"}), 400
+        if not user_id or not new_password:
+            return jsonify({"ok": False, "error": "User ID and new password are required"}), 400
         
         # Validate password
         password_error = validate_password(new_password)
@@ -335,46 +266,25 @@ def create_app() -> Flask:
         
         try:
             db = get_firestore_client()
+            users_ref = db.collection('Users')
+
+            # Get user document
+            user_doc = users_ref.document(user_id).get()
             
-            # Hash the token to match what's stored
-            token_hash = hashlib.sha256(token.encode()).hexdigest()
-            
-            # Find valid token
-            tokens_ref = db.collection('PasswordResetTokens')
-            token_docs = tokens_ref.where('token_hash', '==', token_hash).where('used', '==', False).stream()
-            
-            valid_token = None
-            token_doc_id = None
-            
-            for doc in token_docs:
-                token_data = doc.to_dict()
-                # Check if token has expired
-                if token_data['expires_at'] > datetime.now():
-                    valid_token = token_data
-                    token_doc_id = doc.id
-                    break
-            
-            if not valid_token:
+            if not user_doc.exists:
                 return jsonify({
                     "ok": False,
-                    "error": "Invalid or expired reset token"
-                }), 400
+                    "error": "User not found"
+                }), 404
             
             # Hash the new password
             hashed_password = hash_password(new_password)
-            
+
             # Update user's password
-            users_ref = db.collection('Users')
-            user_doc = users_ref.document(valid_token['user_id'])
-            user_doc.update({
+            users_ref.document(user_id).update({
                 'password': hashed_password.hex()
             })
-            
-            # Mark token as used
-            tokens_ref.document(token_doc_id).update({
-                'used': True
-            })
-            
+
             return jsonify({
                 "ok": True,
                 "message": "Password reset successful"

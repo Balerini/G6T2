@@ -24,7 +24,7 @@
         <div class="form-group">
           <div class="password-header">
             <label for="password">Password</label>
-            <router-link to="/forgot-password" class="forgot-link">Forgot password?</router-link>
+            <router-link to="/reset-password" class="forgot-link">Forgot password?</router-link>
           </div>
           <input
             type="password"
