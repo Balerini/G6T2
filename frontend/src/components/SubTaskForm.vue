@@ -824,22 +824,6 @@ onMounted(() => {
 const selectedFiles = ref([])
 const fileInput = ref(null)
 
-// Get current user rank for debugging
-const currentUserRank = computed(() => {
-  if (typeof window !== 'undefined' && window.sessionStorage) {
-    try {
-      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
-      console.log('Current user from sessionStorage:', currentUser)
-      console.log('User rank:', currentUser.rank, 'User role_num:', currentUser.role_num)
-      return currentUser.role_num || currentUser.rank || 3
-    } catch (error) {
-      console.error('Error reading user from sessionStorage:', error)
-      return 3
-    }
-  }
-  return 3
-})
-
 // Add this near the top with other refs
 const ownerDisplayName = ref('');
 

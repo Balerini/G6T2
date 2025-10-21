@@ -542,19 +542,6 @@ const filteredUsers = computed(() => {
   return filtered.slice(0, 20)
 })
 
-// Get current user rank
-const currentUserRank = computed(() => {
-  if (typeof window !== 'undefined' && window.sessionStorage) {
-    try {
-      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
-      return currentUser.role_num || currentUser.rank || 3
-    } catch (error) {
-      console.error('Error reading user from sessionStorage:', error)
-      return 3
-    }
-  }
-  return 3
-})
 
 // Check if current user can transfer ownership  
 const isSubtaskOwner = computed(() => {
@@ -754,31 +741,6 @@ const validateForm = () => {
   const isValid = Object.keys(errors.value).length === 0
 
   return isValid
-}
-
-// Check if user can assign to staff member
-const canAssignTo = (staff) => {
-  let currentUser = {}
-  if (typeof window !== 'undefined' && window.sessionStorage) {
-    try {
-      currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
-    } catch (error) {
-      console.error('Error reading user from sessionStorage:', error)
-      currentUser = {}
-    }
-  }
-  
-  const currentUserId = currentUser.id
-  
-  console.log('canAssignTo check:', {
-    staffName: staff.name,
-    staffId: staff.id,
-    currentUserId: currentUserId
-  });
-
-  // Subtask owner can invite any collaborator from the parent task
-  // No rank restrictions
-  return true;
 }
 
 // Check if current user
