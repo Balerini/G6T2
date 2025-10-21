@@ -445,16 +445,10 @@ def soft_delete_subtask(subtask_id):
         subtask_doc = subtask_ref.get()
         
         if not subtask_doc.exists:
-            print(f"❌ Subtask {subtask_id} not found")
+            print(f"Subtask {subtask_id} not found")
             return jsonify({'error': 'Subtask not found'}), 404
         
         subtask_data = subtask_doc.to_dict()
-
-        # Verify user has permission to update this subtask
-        # Only subtask owner can modify collaborators 
-        if 'assigned_to' in data: 
-            if str(subtask_data.get('owner')) != str(current_user_id): 
-                return jsonify({'error': 'Only the subtask owner can modify collaborators'}), 403
         
         # Get user ID from request body
         request_data = request.get_json()
@@ -475,7 +469,7 @@ def soft_delete_subtask(subtask_id):
         }
         
         subtask_ref.update(update_data)
-        print(f"✅ Subtask {subtask_id} soft deleted successfully")
+        print(f"Subtask {subtask_id} soft deleted successfully")
         
         return jsonify({
             "message": "Subtask moved to deleted items successfully",
@@ -485,7 +479,7 @@ def soft_delete_subtask(subtask_id):
         }), 200
         
     except Exception as e:
-        print(f"❌ Error soft deleting subtask {subtask_id}: {str(e)}")
+        print(f"Error soft deleting subtask {subtask_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @subtask_bp.route('/subtasks/test-debug', methods=['GET'])
@@ -495,7 +489,7 @@ def test_debug():
         db = get_firestore_client()
         user_id = request.args.get('userId', 'test')
         
-        print(f"🔍 TEST DEBUG: Looking for user {user_id}")
+        print(f"TEST DEBUG: Looking for user {user_id}")
         
         # Get ALL subtasks (no filtering)
         all_subtasks = db.collection('subtasks').get()
@@ -562,7 +556,7 @@ def test_route_works():
 def get_deleted_subtasks_NEW():
     """Get deleted subtasks for a user (only subtasks they directly own)"""
     try:
-        print("🔥 DELETED SUBTASKS ROUTE HIT (OWNERSHIP RESTRICTED)!")
+        print("DELETED SUBTASKS ROUTE HIT (OWNERSHIP RESTRICTED)!")
         
         db = get_firestore_client()
         user_id = request.args.get("userId")
@@ -570,7 +564,7 @@ def get_deleted_subtasks_NEW():
         if not user_id:
             return jsonify({"error": "userId parameter is required"}), 400
         
-        print(f"🔍 Looking for deleted subtasks OWNED BY user: {user_id}")
+        print(f"Looking for deleted subtasks OWNED BY user: {user_id}")
         
         # Query ALL deleted subtasks
         all_deleted_query = db.collection("subtasks").where("is_deleted", "==", True)
@@ -582,8 +576,8 @@ def get_deleted_subtasks_NEW():
             subtask = doc.to_dict()
             subtask["id"] = doc.id
             
-            # ✅ ONLY include subtasks that the user directly owns
-            # ⛔ EXCLUDE cascade deleted subtasks owned by other users
+            # ONLY include subtasks that the user directly owns
+            # EXCLUDE cascade deleted subtasks owned by other users
             if subtask.get('owner') == user_id:
                 # Convert timestamps to ISO format
                 for field in ['deleted_at', 'start_date', 'end_date']:
@@ -597,23 +591,23 @@ def get_deleted_subtasks_NEW():
                 
                 # Debug: Show what type of deletion this was
                 if subtask.get('deleted_by_cascade', False):
-                    print(f"✅ INCLUDED CASCADE (user owns subtask): {subtask.get('name', 'Unknown')}")
+                    print(f"INCLUDED CASCADE (user owns subtask): {subtask.get('name', 'Unknown')}")
                 else:
-                    print(f"✅ INCLUDED DIRECT DELETE: {subtask.get('name', 'Unknown')}")
+                    print(f"INCLUDED DIRECT DELETE: {subtask.get('name', 'Unknown')}")
             
             else:
                 # Debug: Show what we're excluding
                 if subtask.get('deleted_by_cascade', False):
                     cascade_parent_id = subtask.get('cascade_parent_id')
-                    print(f"⛔ EXCLUDED CASCADE (not subtask owner): {subtask.get('name', 'Unknown')} (subtask owner: {subtask.get('owner')}, task: {cascade_parent_id})")
+                    print(f"EXCLUDED CASCADE (not subtask owner): {subtask.get('name', 'Unknown')} (subtask owner: {subtask.get('owner')}, task: {cascade_parent_id})")
                 else:
-                    print(f"⛔ EXCLUDED (not owner): {subtask.get('name', 'Unknown')} (owner: {subtask.get('owner')})")
+                    print(f"EXCLUDED (not owner): {subtask.get('name', 'Unknown')} (owner: {subtask.get('owner')})")
         
         print(f"📊 TOTAL FOUND: {len(subtasks)} deleted subtasks owned by user")
         return jsonify(subtasks), 200
 
     except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
+        print(f"ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -622,7 +616,7 @@ def get_deleted_subtasks_NEW():
 @subtask_bp.route('/api/subtasks/<subtask_id>/restore-new', methods=['PUT'])
 def restore_subtask_NEW(subtask_id):
     try:
-        print(f"🔄 Restoring subtask: {subtask_id}")
+        print(f"Restoring subtask: {subtask_id}")
         
         db = get_firestore_client()
         subtask_ref = db.collection('subtasks').document(subtask_id)
@@ -647,7 +641,7 @@ def restore_subtask_NEW(subtask_id):
 @subtask_bp.route('/api/subtasks/<subtask_id>/permanent-new', methods=['DELETE'])
 def permanently_delete_subtask_NEW(subtask_id):
     try:
-        print(f"💥 Permanently deleting subtask: {subtask_id}")
+        print(f"Permanently deleting subtask: {subtask_id}")
         
         db = get_firestore_client()
         subtask_ref = db.collection('subtasks').document(subtask_id)
@@ -668,7 +662,7 @@ def permanently_delete_subtask_NEW(subtask_id):
 def get_subtasks_by_task(task_id):
     """Get all active subtasks for a specific task"""
     try:
-        print(f"📋 Getting subtasks for task: {task_id}")
+        print(f"Getting subtasks for task: {task_id}")
         
         db = get_firestore_client()
         
@@ -696,7 +690,7 @@ def get_subtasks_by_task(task_id):
         return jsonify(subtask_list), 200
         
     except Exception as e:
-        print(f"❌ Error fetching subtasks: {str(e)}")
+        print(f"Error fetching subtasks: {str(e)}")
         return jsonify({'error': str(e)}), 500
     
 
@@ -705,7 +699,7 @@ def get_subtasks_by_task(task_id):
 def get_team_subtasks(manager_id):
     """Get all subtasks owned by team members under this manager"""
     try:
-        print(f"📊 Getting team subtasks for manager: {manager_id}")
+        print(f"Getting team subtasks for manager: {manager_id}")
         
         db = get_firestore_client()
         
@@ -748,7 +742,7 @@ def get_team_subtasks(manager_id):
         print(f"Found {len(staff_ids)} staff members in {manager_division} division")
         
         if not staff_ids:
-            print(f"ℹ️ No staff members found in division")
+            print(f"No staff members found in division")
             return jsonify([]), 200
         
         # Step 3: Get all subtasks owned by these staff members
@@ -758,7 +752,7 @@ def get_team_subtasks(manager_id):
         # Process in batches of 10
         for i in range(0, len(staff_ids), 10):
             batch_ids = staff_ids[i:i+10]
-            print(f"🔍 Querying subtasks for batch {i//10 + 1} ({len(batch_ids)} staff)")
+            print(f"Querying subtasks for batch {i//10 + 1} ({len(batch_ids)} staff)")
             
             subtasks_query = db.collection('subtasks').where('owner', 'in', batch_ids).where('is_deleted', '==', False)
             subtasks_docs = subtasks_query.get()
