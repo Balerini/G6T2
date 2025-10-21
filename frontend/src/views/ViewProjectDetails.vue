@@ -169,6 +169,7 @@
           :existingProject="projectData"
           @close="closeEditModal"
           @project-updated="handleProjectUpdated"
+          @error="handleProjectUpdateError"
         />
 
         <!-- Notification Toast -->
@@ -408,24 +409,28 @@ export default {
 
         async handleProjectUpdated(updatedProject) {
             try {
+                console.log('Project updated:', updatedProject);
+
                 this.closeEditModal()
 
-                // Update project data 
-                this.projectData = {
-                    ...this.projectData,
-                    ...updatedProject
-                }
+                // Reload fresh data from database
+                await this.loadProjectData();
 
-                // If collaborators changed, might need to reload users to ensure proper display
-                if (updatedProject.collaborators) {
-                    await this.loadProjectData() // Or create a lighter refresh method
-                }
+                // Show success notification
+                this.showNotification('Project updated successfully!', 'success');
 
-                this.showNotification('Project updated successfully!', 'success')
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            
             } catch (error) {
-                console.error('Error handling project update:', error)
-                this.showNotification('Failed to update project', 'error')
+                console.error('Error refreshing project:', error);
+                this.showNotification('Failed to refresh project data', 'error');
             }
+        },
+
+        handleProjectUpdateError(errorMessage) {
+            console.error('Project update error:', errorMessage);
+            this.showNotification(`${errorMessage}`, 'error');
         },
 
         showNotification(message, type = 'success') {

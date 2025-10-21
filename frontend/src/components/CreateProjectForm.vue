@@ -149,7 +149,7 @@
 
           <!-- Form Actions -->
           <div class="form-actions">
-            <button type="button" class="btn btn-cancel" @click="$emit('close')" :disabled="loading">
+            <button type="button" class="btn btn-cancel" @click="handleCancel" :disabled="loading">
               Cancel
             </button>
             <button type="submit" class="btn btn-primary" :disabled="loading">
@@ -178,7 +178,7 @@ export default {
       default: null
     }
   },
-  emits: ['close', 'project-created', 'project-updated'],
+  emits: ['close', 'project-created', 'project-updated', 'error'],
   data() {
     return {
       loading: false,
@@ -287,8 +287,8 @@ export default {
       // If edit mode, populate form with existing data
       if (this.editMode && this.existingProject) {
         await this.populateFormData()
-      } else {
-        // Only auto-add current user as collaborator for create mode
+      } else if (!this.editMode) {
+        // Only auto-add current user as collaborator for CREATE mode
         this.formData.assignedto.push({
           id: this.currentUser.id || this.currentUser.user_ID,
           name: this.currentUser.name || this.currentUser.email || 'Current User',
@@ -644,10 +644,34 @@ export default {
         }
 
       } catch (error) {
-        console.error('Error creating project:', error)
+        console.error('Error saving project:', error);
+        this.$emit('error', error.error || error.message || 'Failed to save project');
         throw error
       } finally {
         this.loading = false
+      }
+    },
+
+    handleCancel() {
+      // Check if form has been modified in edit mode
+      if (this.editMode && this.existingProject) {
+        const isFormDirty = 
+          this.formData.proj_name !== (this.existingProject.proj_name || '') ||
+          this.formData.proj_desc !== (this.existingProject.proj_desc || '') ||
+          this.formData.start_date !== (this.existingProject.start_date?.split('T')[0] || '') ||
+          this.formData.end_date !== (this.existingProject.end_date?.split('T')[0] || '');
+        
+        if (isFormDirty) {
+          if (confirm('You have unsaved changes. Are you sure you want to cancel?')) {
+            this.$emit('close');
+          }
+          // If user clicks "Cancel" on confirm dialog, do nothing (stay on form)
+        } else {
+          this.$emit('close');
+        }
+      } else {
+        // Create mode - just close without warning
+        this.$emit('close');
       }
     }
   }
