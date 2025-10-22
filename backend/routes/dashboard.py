@@ -1,8 +1,224 @@
 from flask import Blueprint, jsonify, request
 from firebase_utils import get_firestore_client
 from firebase_admin import firestore
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import calendar
 import traceback
+
+WEEKDAY_MAP = {
+    'mon': 0,
+    'tue': 1,
+    'wed': 2,
+    'thu': 3,
+    'fri': 4,
+    'sat': 5,
+    'sun': 6
+}
+
+MAX_RECURRENCE_ITERATIONS = 500
+
+
+def _safe_int(value, default=None):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_date(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value).date()
+        except ValueError:
+            try:
+                return datetime.strptime(value, '%Y-%m-%d').date()
+            except ValueError:
+                return None
+    return None
+
+
+def _add_months(base_date, months):
+    month_index = base_date.month - 1 + months
+    year = base_date.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(base_date.day, calendar.monthrange(year, month)[1])
+    return base_date.replace(year=year, month=month, day=day)
+
+
+def _get_weekly_days(recurrence, fallback_weekday):
+    raw_days = recurrence.get('weeklyDays') or recurrence.get('weekly_days') or []
+    days = []
+    for entry in raw_days:
+        if isinstance(entry, int):
+            if 0 <= entry <= 6:
+                days.append(entry)
+        elif isinstance(entry, str):
+            key = entry.strip().lower()[:3]
+            if key in WEEKDAY_MAP:
+                days.append(WEEKDAY_MAP[key])
+    if not days:
+        days = [fallback_weekday]
+    return sorted(set(days))
+
+
+def _align_weekly(start_date, weekly_days, interval):
+    interval = max(1, interval)
+    weekly_days = sorted(set(weekly_days))
+    current_weekday = start_date.weekday()
+    for day in weekly_days:
+        if day >= current_weekday:
+            return start_date + timedelta(days=day - current_weekday)
+    days_until_next = (interval * 7) - (current_weekday - weekly_days[0])
+    return start_date + timedelta(days=days_until_next)
+
+
+def _advance_weekly(current_date, weekly_days, interval):
+    interval = max(1, interval)
+    weekly_days = sorted(set(weekly_days))
+    current_weekday = current_date.weekday()
+    for day in weekly_days:
+        if day > current_weekday:
+            return current_date + timedelta(days=day - current_weekday)
+    days_until_next = (interval * 7) - (current_weekday - weekly_days[0])
+    return current_date + timedelta(days=days_until_next)
+
+
+def _align_monthly(start_date, interval, monthly_day):
+    interval = max(1, interval)
+    if not monthly_day:
+        monthly_day = start_date.day
+    monthly_day = max(1, min(31, monthly_day))
+    days_in_month = calendar.monthrange(start_date.year, start_date.month)[1]
+    candidate_day = min(monthly_day, days_in_month)
+    candidate = start_date.replace(day=candidate_day)
+    if candidate < start_date:
+        candidate = _add_months(candidate, interval)
+        days_in_month = calendar.monthrange(candidate.year, candidate.month)[1]
+        candidate = candidate.replace(day=min(monthly_day, days_in_month))
+    return candidate
+
+
+def _advance_monthly(current_date, interval, monthly_day):
+    interval = max(1, interval)
+    if not monthly_day:
+        monthly_day = current_date.day
+    monthly_day = max(1, min(31, monthly_day))
+    next_date = _add_months(current_date, interval)
+    days_in_month = calendar.monthrange(next_date.year, next_date.month)[1]
+    return next_date.replace(day=min(monthly_day, days_in_month))
+
+
+def _align_first_occurrence(base_date, freq, recurrence, interval, anchor_date):
+    if freq == 'weekly':
+        weekly_days = _get_weekly_days(recurrence, base_date.weekday())
+        return _align_weekly(anchor_date or base_date, weekly_days, interval)
+    if freq == 'monthly':
+        monthly_day = _safe_int(recurrence.get('monthlyDay') or recurrence.get('monthly_day'), None)
+        return _align_monthly(anchor_date or base_date, interval, monthly_day)
+    if freq == 'custom':
+        unit = (recurrence.get('customUnit') or recurrence.get('custom_unit') or 'days').lower()
+        if unit == 'weeks':
+            weekly_days = [_to_date(anchor_date or base_date).weekday() if isinstance(anchor_date or base_date, date) else base_date.weekday()]
+            return _align_weekly(anchor_date or base_date, weekly_days, interval)
+        if unit == 'months':
+            return _align_monthly(anchor_date or base_date, interval, (anchor_date or base_date).day)
+        return base_date
+    return base_date
+
+
+def _advance_occurrence(current_date, freq, recurrence, interval, anchor_date):
+    if freq == 'weekly':
+        weekly_days = _get_weekly_days(recurrence, (anchor_date or current_date).weekday())
+        return _advance_weekly(current_date, weekly_days, interval)
+    if freq == 'monthly':
+        monthly_day = _safe_int(recurrence.get('monthlyDay') or recurrence.get('monthly_day'), None)
+        return _advance_monthly(current_date, interval, monthly_day)
+    if freq == 'custom':
+        unit = (recurrence.get('customUnit') or recurrence.get('custom_unit') or 'days').lower()
+        if unit == 'weeks':
+            weekly_days = [(anchor_date or current_date).weekday()]
+            return _advance_weekly(current_date, weekly_days, interval)
+        if unit == 'months':
+            return _advance_monthly(current_date, interval, (anchor_date or current_date).day)
+        return current_date + timedelta(days=max(1, interval))
+    if freq == 'daily':
+        return current_date + timedelta(days=max(1, interval))
+    return current_date + timedelta(days=max(1, interval))
+
+
+def compute_effective_due_date(task_data, current_date):
+    """
+    Determine the relevant due date for a task, considering recurrence rules.
+    Returns a tuple of (due_date: date, is_recurring: bool).
+    """
+    end_value = task_data.get('end_date')
+    start_value = task_data.get('start_date')
+
+    base_due_date = _to_date(end_value) or _to_date(start_value)
+    base_start_date = _to_date(start_value) or base_due_date
+
+    recurrence = task_data.get('recurrence') or {}
+    if not recurrence or not recurrence.get('enabled'):
+        return base_due_date, False
+
+    if not base_due_date:
+        return None, True
+
+    freq = (recurrence.get('frequency') or '').lower()
+    interval = _safe_int(recurrence.get('interval'), 1) or 1
+    end_condition = (recurrence.get('endCondition') or recurrence.get('end_condition') or 'never').lower()
+
+    max_occurrences = None
+    if end_condition == 'after':
+        max_occurrences = _safe_int(recurrence.get('endAfterOccurrences') or recurrence.get('end_after_occurrences'), None)
+        if max_occurrences is not None and max_occurrences < 1:
+            max_occurrences = None
+
+    end_limit = None
+    if end_condition == 'ondate':
+        end_limit = _to_date(recurrence.get('endDate') or recurrence.get('end_date'))
+
+    anchor = base_start_date or base_due_date
+    first_occurrence = _align_first_occurrence(base_due_date, freq, recurrence, interval, anchor)
+    if first_occurrence is None:
+        return base_due_date, True
+
+    if end_limit and first_occurrence > end_limit:
+        return end_limit, True
+
+    occurrence_date = first_occurrence
+    previous_occurrence = None
+    occurrence_index = 1
+    iterations = 0
+
+    while True:
+        iterations += 1
+        if iterations > MAX_RECURRENCE_ITERATIONS:
+            return occurrence_date, True
+
+        if end_limit and occurrence_date > end_limit:
+            return previous_occurrence or end_limit, True
+
+        if max_occurrences and occurrence_index > max_occurrences:
+            return previous_occurrence or occurrence_date, True
+
+        if occurrence_date >= current_date:
+            return occurrence_date, True
+
+        next_occurrence = _advance_occurrence(occurrence_date, freq, recurrence, interval, anchor)
+        if not next_occurrence or next_occurrence == occurrence_date:
+            return occurrence_date, True
+
+        previous_occurrence = occurrence_date
+        occurrence_date = next_occurrence
+        occurrence_index += 1
+
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -492,15 +708,11 @@ def get_manager_pending_tasks_by_age(user_id):
                 task_data = task.to_dict()
                 status = task_data.get('task_status', '')
                 
-                end_date = task_data.get('end_date')
-                if not end_date:
+                effective_due_date, is_recurring = compute_effective_due_date(task_data, current_date.date())
+                if not effective_due_date:
                     continue
-                
-                # Normalize end_date to midnight for comparison
-                end_date_normalized = end_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
-                
-                # Calculate days difference (positive = future, negative = past)
-                days_diff = (end_date_normalized - current_date).days
+                end_date_normalized = datetime.combine(effective_due_date, datetime.min.time())
+                days_diff = (effective_due_date - current_date.date()).days
                 
                 # If task already exists, just add this assignee
                 if task_id in unique_tasks:
@@ -513,6 +725,12 @@ def get_manager_pending_tasks_by_age(user_id):
                     # Check if this assignee is already in the list
                     if not any(a['id'] == staff_id for a in unique_tasks[task_id]['assigned_to']):
                         unique_tasks[task_id]['assigned_to'].append(assignee_info)
+                        # Update shared due date info if needed
+                        existing = unique_tasks[task_id]
+                        if days_diff < existing.get('days_until_due', days_diff):
+                            existing['days_until_due'] = days_diff
+                            existing['end_date'] = end_date_normalized.isoformat()
+                        existing['is_recurring'] = existing.get('is_recurring') or is_recurring
                 else:
                     # Create new task entry with assignees as a list
                     unique_tasks[task_id] = {
@@ -527,8 +745,9 @@ def get_manager_pending_tasks_by_age(user_id):
                         }],
                         'proj_name': task_data.get('proj_name', ''),
                         'proj_id': task_data.get('proj_ID'),
-                        'end_date': end_date.isoformat() if end_date else None,
-                        'days_until_due': days_diff
+                        'end_date': end_date_normalized.isoformat(),
+                        'days_until_due': days_diff,
+                        'is_recurring': is_recurring
                     }
         
         # Categories for task age
@@ -876,12 +1095,11 @@ def get_staff_pending_tasks_by_age(user_id):
         
         for task in tasks:
             task_data = task.to_dict()
-            end_date = task_data.get('end_date')
-            if not end_date:
+            effective_due_date, is_recurring = compute_effective_due_date(task_data, current_date.date())
+            if not effective_due_date:
                 continue
-            
-            end_date_normalized = end_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
-            days_diff = (end_date_normalized - current_date).days
+            end_date_normalized = datetime.combine(effective_due_date, datetime.min.time())
+            days_diff = (effective_due_date - current_date.date()).days
             
             # Get assigned user names
             assigned_to_names = []
@@ -900,8 +1118,9 @@ def get_staff_pending_tasks_by_age(user_id):
                 'proj_id': task_data.get('proj_ID'),  # Backend uses proj_ID
                 'assigned_to_name': ', '.join(assigned_to_names) if assigned_to_names else 'Unassigned',
                 'assigned_to_id': user_id,  # The user this task is assigned to (current user for staff endpoint)
-                'end_date': end_date.isoformat() if end_date else None,
-                'days_until_due': days_diff
+                'end_date': end_date_normalized.isoformat(),
+                'days_until_due': days_diff,
+                'is_recurring': is_recurring
             }
             
             if days_diff < 0:

@@ -1,6 +1,7 @@
 // frontend/src/services/taskService.js
 import axios from 'axios';
 import notificationService from './notificationService';
+import taskEventService from './taskEventService';
 
 const API_BASE_URL = process.env.VUE_APP_API_URL || 'http://localhost:8000';
 
@@ -20,6 +21,7 @@ export const taskService = {
       const response = await api.post('/api/tasks', taskData);
       // Trigger notification refresh after task creation
       notificationService.triggerRefresh();
+      taskEventService.triggerTaskCreated(response.data);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.error || 'Failed to create task');
@@ -86,6 +88,7 @@ export const taskService = {
       );
       // Trigger notification refresh after task update
       notificationService.triggerRefresh();
+      taskEventService.triggerTasksRefresh(response.data);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.error || 'Failed to update task');

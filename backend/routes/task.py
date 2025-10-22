@@ -61,6 +61,24 @@ def create_task():
             end_date = sg_tz.localize(end_date.replace(hour=0, minute=0, second=0))
 
         # TITLE: Set end time to start of day (12:00 AM) in Singapore timezone
+        # Helper for parsing project/task end dates
+        def parse_date_value(value):
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value.date()
+            if isinstance(value, str):
+                try:
+                    return datetime.fromisoformat(value).date()
+                except ValueError:
+                    try:
+                        return datetime.strptime(value, '%Y-%m-%d').date()
+                    except ValueError:
+                        return None
+            return None
+
+        project_end_limit = None
+
         # Get project ID from project name if provided
         proj_id = None
         if task_data.get('proj_name'):
@@ -72,6 +90,16 @@ def create_task():
             if project_docs:
                 proj_id = project_docs[0].id
                 print(f"Found project ID: {proj_id} for project name: {task_data.get('proj_name')}")
+                try:
+                    project_doc_data = project_docs[0].to_dict() or {}
+                except Exception:
+                    project_doc_data = {}
+                raw_project_end = (
+                    project_doc_data.get('end_date')
+                    or project_doc_data.get('proj_end_date')
+                    or project_doc_data.get('project_end_date')
+                )
+                project_end_limit = parse_date_value(raw_project_end)
             else:
                 print(f"Warning: Project not found for name: {task_data.get('proj_name')}")
                 # TITLE: Find the project by name to get its ID
@@ -83,6 +111,105 @@ def create_task():
         else:
             print("No project name provided in task data")
             # TITLE: List all available projects for debugging
+
+        if project_end_limit is None:
+            fallback_project_end = (
+                task_data.get('proj_end_date')
+                or task_data.get('project_end_date')
+                or task_data.get('proj_endDate')
+                or task_data.get('project_endDate')
+            )
+            project_end_limit = parse_date_value(fallback_project_end)
+
+        recurrence_payload = task_data.get('recurrence')
+        recurrence_data = {'enabled': False}
+
+        if recurrence_payload is not None:
+            if not isinstance(recurrence_payload, dict):
+                return jsonify({"error": "Invalid recurrence payload"}), 400
+
+            normalized_recurrence = dict(recurrence_payload)
+            normalized_recurrence['enabled'] = bool(normalized_recurrence.get('enabled'))
+
+            if normalized_recurrence['enabled']:
+                if 'end_condition' in normalized_recurrence:
+                    normalized_recurrence['endCondition'] = normalized_recurrence.pop('end_condition')
+                if 'end_date' in normalized_recurrence:
+                    normalized_recurrence['endDate'] = normalized_recurrence.pop('end_date')
+                if 'weekly_days' in normalized_recurrence and 'weeklyDays' not in normalized_recurrence:
+                    normalized_recurrence['weeklyDays'] = normalized_recurrence.pop('weekly_days')
+                if 'monthly_day' in normalized_recurrence and 'monthlyDay' not in normalized_recurrence:
+                    normalized_recurrence['monthlyDay'] = normalized_recurrence.pop('monthly_day')
+                if 'custom_unit' in normalized_recurrence and 'customUnit' not in normalized_recurrence:
+                    normalized_recurrence['customUnit'] = normalized_recurrence.pop('custom_unit')
+                if 'end_after_occurrences' in normalized_recurrence and 'endAfterOccurrences' not in normalized_recurrence:
+                    normalized_recurrence['endAfterOccurrences'] = normalized_recurrence.pop('end_after_occurrences')
+
+                frequency_value = normalized_recurrence.get('frequency')
+                normalized_recurrence['frequency'] = str(frequency_value).lower() if frequency_value else ''
+
+                try:
+                    normalized_recurrence['interval'] = max(1, int(normalized_recurrence.get('interval') or 1))
+                except (ValueError, TypeError):
+                    normalized_recurrence['interval'] = 1
+
+                if normalized_recurrence['frequency'] == 'weekly':
+                    weekly_days = normalized_recurrence.get('weeklyDays') or []
+                    if isinstance(weekly_days, list):
+                        normalized_recurrence['weeklyDays'] = [str(day) for day in weekly_days if day]
+                    else:
+                        normalized_recurrence['weeklyDays'] = []
+                else:
+                    normalized_recurrence.pop('weeklyDays', None)
+
+                if normalized_recurrence['frequency'] == 'monthly':
+                    monthly_day = normalized_recurrence.get('monthlyDay')
+                    if monthly_day in (None, '', 0):
+                        normalized_recurrence['monthlyDay'] = None
+                    else:
+                        try:
+                            normalized_recurrence['monthlyDay'] = int(monthly_day)
+                        except (ValueError, TypeError):
+                            return jsonify({"error": "Invalid monthly recurrence configuration"}), 400
+                else:
+                    normalized_recurrence.pop('monthlyDay', None)
+
+                if normalized_recurrence['frequency'] == 'custom':
+                    normalized_recurrence['customUnit'] = normalized_recurrence.get('customUnit', 'days')
+                else:
+                    normalized_recurrence.pop('customUnit', None)
+
+                end_condition_value = normalized_recurrence.get('endCondition') or 'never'
+                end_condition_value = str(end_condition_value)
+                if end_condition_value not in {'never', 'after', 'onDate'}:
+                    end_condition_value = 'never'
+                normalized_recurrence['endCondition'] = end_condition_value
+
+                if end_condition_value == 'after':
+                    try:
+                        occurrences = int(normalized_recurrence.get('endAfterOccurrences') or 0)
+                        if occurrences < 1:
+                            raise ValueError
+                        normalized_recurrence['endAfterOccurrences'] = occurrences
+                    except (ValueError, TypeError):
+                        return jsonify({"error": "Recurrence endAfterOccurrences must be a positive number"}), 400
+                    normalized_recurrence.pop('endDate', None)
+                elif end_condition_value == 'onDate':
+                    end_date_value = normalized_recurrence.get('endDate')
+                    parsed_end_date = parse_date_value(end_date_value)
+                    if parsed_end_date is None:
+                        return jsonify({"error": "Invalid recurrence endDate"}), 400
+                    if project_end_limit and parsed_end_date > project_end_limit:
+                        parsed_end_date = project_end_limit
+                    normalized_recurrence['endDate'] = parsed_end_date.isoformat()
+                    normalized_recurrence.pop('endAfterOccurrences', None)
+                else:
+                    normalized_recurrence.pop('endAfterOccurrences', None)
+                    normalized_recurrence.pop('endDate', None)
+
+                recurrence_data = normalized_recurrence
+            else:
+                recurrence_data = {'enabled': False}
 
         # TITLE: Prepare task data for Firestore
         firestore_task_data = {
@@ -99,6 +226,7 @@ def create_task():
             'priority_level': priority_level,
             'hasSubtasks': task_data.get('hasSubtasks', False),
             'is_deleted': task_data.get('is_deleted', False),  # ADD THIS LINE
+            'recurrence': recurrence_data,
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
         }
@@ -120,6 +248,7 @@ def create_task():
         response_data['createdAt'] = datetime.now(sg_tz).isoformat()
         response_data['updatedAt'] = datetime.now(sg_tz).isoformat()
         response_data['proj_ID'] = proj_id
+        response_data['recurrence'] = recurrence_data
 
         # ================== SEND EMAILS TO ASSIGNED USERS ==================
         try:
@@ -479,28 +608,88 @@ def update_task(task_id):
             if not isinstance(recurrence_payload, dict):
                 return jsonify({'error': 'Invalid recurrence payload'}), 400
 
-            if project_end_limit and recurrence_payload.get('enabled'):
-                allowed_end_str = project_end_limit.isoformat()
-                end_condition = recurrence_payload.get('endCondition') or recurrence_payload.get('end_condition')
+            normalized_recurrence = dict(recurrence_payload)
+            normalized_recurrence['enabled'] = bool(normalized_recurrence.get('enabled'))
 
-                if end_condition != 'onDate':
-                    recurrence_payload['endCondition'] = 'onDate'
-                    recurrence_payload['endDate'] = allowed_end_str
-                    recurrence_payload.pop('endAfterOccurrences', None)
+            if normalized_recurrence['enabled']:
+                if 'end_condition' in normalized_recurrence:
+                    normalized_recurrence['endCondition'] = normalized_recurrence.pop('end_condition')
+                if 'end_date' in normalized_recurrence:
+                    normalized_recurrence['endDate'] = normalized_recurrence.pop('end_date')
+                if 'weekly_days' in normalized_recurrence and 'weeklyDays' not in normalized_recurrence:
+                    normalized_recurrence['weeklyDays'] = normalized_recurrence.pop('weekly_days')
+                if 'monthly_day' in normalized_recurrence and 'monthlyDay' not in normalized_recurrence:
+                    normalized_recurrence['monthlyDay'] = normalized_recurrence.pop('monthly_day')
+                if 'custom_unit' in normalized_recurrence and 'customUnit' not in normalized_recurrence:
+                    normalized_recurrence['customUnit'] = normalized_recurrence.pop('custom_unit')
+                if 'end_after_occurrences' in normalized_recurrence and 'endAfterOccurrences' not in normalized_recurrence:
+                    normalized_recurrence['endAfterOccurrences'] = normalized_recurrence.pop('end_after_occurrences')
+
+                frequency_value = normalized_recurrence.get('frequency')
+                normalized_recurrence['frequency'] = str(frequency_value).lower() if frequency_value else ''
+
+                try:
+                    normalized_recurrence['interval'] = max(1, int(normalized_recurrence.get('interval') or 1))
+                except (ValueError, TypeError):
+                    normalized_recurrence['interval'] = 1
+
+                if normalized_recurrence['frequency'] == 'weekly':
+                    weekly_days = normalized_recurrence.get('weeklyDays') or []
+                    if isinstance(weekly_days, list):
+                        normalized_recurrence['weeklyDays'] = [str(day) for day in weekly_days if day]
+                    else:
+                        normalized_recurrence['weeklyDays'] = []
                 else:
-                    end_date_value = recurrence_payload.get('endDate') or recurrence_payload.get('end_date')
+                    normalized_recurrence.pop('weeklyDays', None)
+
+                if normalized_recurrence['frequency'] == 'monthly':
+                    monthly_day = normalized_recurrence.get('monthlyDay')
+                    if monthly_day in (None, '', 0):
+                        normalized_recurrence['monthlyDay'] = None
+                    else:
+                        try:
+                            normalized_recurrence['monthlyDay'] = int(monthly_day)
+                        except (ValueError, TypeError):
+                            return jsonify({'error': 'Invalid monthly recurrence configuration'}), 400
+                else:
+                    normalized_recurrence.pop('monthlyDay', None)
+
+                if normalized_recurrence['frequency'] == 'custom':
+                    normalized_recurrence['customUnit'] = normalized_recurrence.get('customUnit', 'days')
+                else:
+                    normalized_recurrence.pop('customUnit', None)
+
+                end_condition_value = normalized_recurrence.get('endCondition') or 'never'
+                end_condition_value = str(end_condition_value)
+                if end_condition_value not in {'never', 'after', 'onDate'}:
+                    end_condition_value = 'never'
+                normalized_recurrence['endCondition'] = end_condition_value
+
+                if end_condition_value == 'after':
+                    try:
+                        occurrences = int(normalized_recurrence.get('endAfterOccurrences') or 0)
+                        if occurrences < 1:
+                            raise ValueError
+                        normalized_recurrence['endAfterOccurrences'] = occurrences
+                    except (ValueError, TypeError):
+                        return jsonify({'error': 'Recurrence endAfterOccurrences must be a positive number'}), 400
+                    normalized_recurrence.pop('endDate', None)
+                elif end_condition_value == 'onDate':
+                    end_date_value = normalized_recurrence.get('endDate')
                     parsed_end = parse_date_value(end_date_value)
                     if parsed_end is None:
-                        recurrence_payload['endDate'] = allowed_end_str
-                    elif parsed_end > project_end_limit:
-                        recurrence_payload['endDate'] = allowed_end_str
+                        return jsonify({'error': 'Invalid recurrence endDate'}), 400
+                    if project_end_limit and parsed_end > project_end_limit:
+                        parsed_end = project_end_limit
+                    normalized_recurrence['endDate'] = parsed_end.isoformat()
+                    normalized_recurrence.pop('endAfterOccurrences', None)
+                else:
+                    normalized_recurrence.pop('endDate', None)
+                    normalized_recurrence.pop('endAfterOccurrences', None)
 
-                if 'end_condition' in recurrence_payload:
-                    recurrence_payload.pop('end_condition', None)
-                if 'end_date' in recurrence_payload:
-                    recurrence_payload['endDate'] = recurrence_payload.pop('end_date')
-
-                permitted_update['recurrence'] = recurrence_payload
+                permitted_update['recurrence'] = normalized_recurrence
+            else:
+                permitted_update['recurrence'] = {'enabled': False}
 
         # Determine status change
         def normalize_status(value):

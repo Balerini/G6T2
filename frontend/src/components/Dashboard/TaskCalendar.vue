@@ -73,6 +73,7 @@
 
 <script>
 import { dashboardService } from '@/services/dashboardService';
+import taskEventService from '@/services/taskEventService';
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -88,6 +89,8 @@ export default {
             data: {},
             loading: true,
             error: null,
+            isRefreshing: false,
+            pendingRefresh: false,
             activeTab: this.getDefaultTab(),
             allEvents: [],
             myEvents: [],
@@ -144,20 +147,16 @@ export default {
             this.currentUserId = user.id;
             console.log('TaskCalendar - User ID:', this.currentUserId);
 
-            this.data = await dashboardService.getPendingTasksByAgeAndStaffName(this.currentUserId);
-            console.log('TaskCalendar - Response:', this.data);
-
-            if (this.data.pending_tasks_by_age) {
-                this.processCalendarEvents();
-                this.updateCalendarEvents(this.activeTab);
-            }
-
-            this.loading = false;
+            taskEventService.on('tasks-refresh', this.handleTasksRefresh);
+            await this.fetchCalendarData({ showLoading: true });
         } catch (err) {
             console.error('TaskCalendar - Error:', err);
             this.error = err.message;
             this.loading = false;
         }
+    },
+    beforeUnmount() {
+        taskEventService.off('tasks-refresh', this.handleTasksRefresh);
     },
     methods: {
         getDefaultTab() {
@@ -174,6 +173,46 @@ export default {
                 console.error('Error getting user for default tab:', error);
             }
             return 'team'; // Default fallback
+        },
+        async fetchCalendarData({ showLoading = false } = {}) {
+            if (!this.currentUserId) {
+                return;
+            }
+            if (this.isRefreshing) {
+                this.pendingRefresh = true;
+                return;
+            }
+
+            this.pendingRefresh = false;
+            this.isRefreshing = true;
+            if (showLoading) {
+                this.loading = true;
+                this.error = null;
+            }
+
+            try {
+                const response = await dashboardService.getPendingTasksByAgeAndStaffName(this.currentUserId);
+                this.data = response || {};
+                console.log('TaskCalendar - Response:', this.data);
+                this.processCalendarEvents();
+                this.updateCalendarEvents(this.activeTab);
+                this.error = null;
+            } catch (err) {
+                console.error('TaskCalendar - Error fetching calendar data:', err);
+                this.error = err.message;
+            } finally {
+                if (showLoading) {
+                    this.loading = false;
+                }
+                this.isRefreshing = false;
+                if (this.pendingRefresh) {
+                    this.pendingRefresh = false;
+                    this.fetchCalendarData();
+                }
+            }
+        },
+        async handleTasksRefresh() {
+            await this.fetchCalendarData();
         },
         processCalendarEvents() {
             const allEvents = [];
