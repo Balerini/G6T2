@@ -46,17 +46,22 @@
 
         <!-- Subtask Name -->
         <div class="form-group">
-          <label class="form-label" for="taskName">Subtask Name *</label>
+          <label class="form-label" for="taskName">
+            Subtask Name *
+            <span v-if="!isSubtaskOwner" class="label-note">(Only subtask owner can modify)</span>
+          </label>
           <input
             id="taskName"
             name="name"
             v-model="formData.name"
             type="text"
             class="form-input"
-            :class="{ 'error': errors.name }"
+            :class="{ 'error': errors.name, 'readonly-input': !isSubtaskOwner}"
             placeholder="Enter subtask name"
             @input="clearError('name')"
             @blur="validateField('name')"
+            :disabled="!isSubtaskOwner"
+            :readonly="!isSubtaskOwner"
           />
           <span v-if="errors.name" class="error-message">
             {{ errors.name }}
@@ -85,17 +90,22 @@
 
         <!-- Start Date -->
         <div class="form-group">
-          <label class="form-label" for="startDate">Start Date *</label>
+          <label class="form-label" for="startDate">
+            Start Date *
+            <span v-if="!isSubtaskOwner" class="label-note">(Only subtask owner can modify)</span>
+          </label>
           <input
             id="startDate"
             name="startDate"
             v-model="formData.startDate"
             type="date"
             class="form-input"
-            :class="{ 'error': errors.startDate }"
+            :class="{ 'error': errors.startDate, 'readonly-input': !isSubtaskOwner  }"
             @change="validateDates()"
             @input="clearError('startDate')"
             @blur="validateField('startDate')"
+            :disabled="!isSubtaskOwner"
+            :readonly="!isSubtaskOwner"
           />
           <span v-if="errors.startDate" class="error-message">
             {{ errors.startDate }}
@@ -104,18 +114,23 @@
 
         <!-- End Date -->
         <div class="form-group">
-          <label class="form-label" for="endDate">End Date *</label>
+          <label class="form-label" for="endDate">
+            End Date *
+            <span v-if="!isSubtaskOwner" class="label-note">(Only subtask owner can modify)</span>
+          </label>
           <input
             id="endDate"
             name="endDate"
             v-model="formData.endDate"
             type="date"
             class="form-input"
-            :class="{ 'error': errors.endDate }"
+            :class="{ 'error': errors.endDate, 'readonly-input': !isSubtaskOwner }"
             :min="formData.startDate"
             @change="validateDates()"
             @input="clearError('endDate')"
             @blur="validateField('endDate')"
+            :disabled="!isSubtaskOwner"
+            :readonly="!isSubtaskOwner"
           />
           <span v-if="errors.endDate" class="error-message">
             {{ errors.endDate }}
@@ -305,6 +320,7 @@
             :class="{ 'error': errors.status }"
             @change="clearError('status')"
             @blur="validateField('status')"
+            :disabled="!canEditStatus"
           >
             <option value="" disabled>Select status</option>
             <option value="Unassigned">Unassigned</option>
@@ -321,7 +337,7 @@
         <div class="form-group">
           <label class="form-label" for="priority">
             Priority (1-10) *
-            <span class="helper-text-inline">1=Lowest, 10=Highest</span>
+            <span v-if="!isSubtaskOwner" class="label-note">(Only subtask owner can modify)</span>
           </label>
           <input
             id="priority"
@@ -331,10 +347,12 @@
             min="1"
             max="10"
             class="form-input priority-input"
-            :class="{ 'error': errors.priority }"
+            :class="{ 'error': errors.priority, 'readonly-input': !isSubtaskOwner }"
             placeholder="Enter priority (1-10)"
             @input="clearError('priority')"
             @blur="validateField('priority')"
+            :disabled="!isSubtaskOwner"
+            :readonly="!isSubtaskOwner"
           />
           <span v-if="errors.priority" class="error-message">
             {{ errors.priority }}
@@ -437,6 +455,7 @@ const successMessage = ref('')
 const errorMessage = ref('')
 const uploadProgressMessage = ref('')
 const originalStatus = ref('')
+const originalData = ref({})
 const ownerDisplayName = ref('')
 const parentTaskName = ref('');
 
@@ -568,8 +587,8 @@ const canTransferOwnership = computed(() => {
       // Rule 1: Must be the owner of the subtask
       const isOwner = String(props.subtask.owner) === String(userId)
 
-      // Rule 2: Must be a manager or director (role_num 2 or 3)
-      const canTransfer = userRole === 2 || userRole === 3
+      // Rule 2: Must be a manager (role_num 3)
+      const canTransfer = userRole === 3
 
       // Both conditions must be true 
       return isOwner && canTransfer
@@ -579,6 +598,36 @@ const canTransferOwnership = computed(() => {
     }
   }
   return false
+})
+
+const canEditStatus = computed(() => {
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
+      const userId = currentUser.id
+      
+      // User can edit status if they are the owner OR a collaborator
+      const isCollaborator = selectedCollaborators.value.some(c => String(c.id) === String(userId))
+      return isSubtaskOwner.value || isCollaborator
+    } catch (error) {
+      console.error('Error checking edit status permission:', error)
+      return false
+    }
+  }
+  return false
+})
+
+const currentUserId = computed(() => {
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
+      return currentUser.id
+    } catch (error) {
+      console.error('Error getting current user ID:', error)
+      return null
+    }
+  }
+  return null
 })
 
 // Initialize form with subtask data
@@ -596,6 +645,8 @@ const initializeForm = () => {
   }
   
   originalStatus.value = props.subtask.status || ''
+
+  originalData.value = JSON.parse(JSON.stringify(formData.value))
 
   loadParentTaskData();
   
@@ -699,6 +750,64 @@ const clearError = (fieldName) => {
   if (errors.value[fieldName]) {
     delete errors.value[fieldName]
   }
+}
+
+const getModifiedFields = () => {
+  const modified = []
+  
+  // Compare each field with original data
+  if (formData.value.name !== originalData.value.name) {
+    modified.push('name')
+  }
+  if (formData.value.description !== originalData.value.description) {
+    modified.push('description')
+  }
+  if (formData.value.status !== originalData.value.status) {
+    modified.push('status')
+  }
+  if (formData.value.startDate !== originalData.value.startDate) {
+    modified.push('startDate')
+  }
+  if (formData.value.endDate !== originalData.value.endDate) {
+    modified.push('endDate')
+  }
+  if (formData.value.priority !== originalData.value.priority) {
+    modified.push('priority')
+  }
+  
+  // Compare collaborators (assigned_to)
+  const originalCollabIds = (originalData.value.assigned_to || []).sort()
+  const currentCollabIds = selectedCollaborators.value.map(c => c.id).sort()
+  if (JSON.stringify(originalCollabIds) !== JSON.stringify(currentCollabIds)) {
+    modified.push('collaborators')
+  }
+  
+  return modified
+}
+
+const validateFieldPermission = (fieldName) => {
+  // Check if user is not the owner
+  if (!isSubtaskOwner.value) {
+    // List of fields only owner can edit
+    const ownerOnlyFields = ['name', 'startDate', 'endDate', 'priority', 'collaborators']
+    
+    // If trying to edit an owner-only field
+    if (ownerOnlyFields.includes(fieldName)) {
+      // Set error message
+      errors.value[fieldName] = 'You do not have permission to edit this field. Only the subtask owner can modify it.'
+      
+      // Show toast notification
+      errorMessage.value = 'You do not have permission to edit this field. Only the subtask owner can modify it.'
+      
+      // Clear message after 3 seconds
+      setTimeout(() => {
+        errorMessage.value = ''
+      }, 3000)
+      
+      return false
+    }
+  }
+  return true
 }
 
 // Validate form
@@ -938,6 +1047,53 @@ const handleSubmit = async () => {
   console.log('Errors before validation:', errors.value)
 
   errorMessage.value = ''
+
+  // Get current user ID
+  const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
+  const currentUserId = currentUser.id
+  
+  // Check if user is a collaborator
+  const isCollaborator = !isSubtaskOwner.value && selectedCollaborators.value.some(c => c.id === currentUserId)
+  
+  // Check if user has ANY permission to edit
+  if (!isSubtaskOwner.value && !isCollaborator) {
+    errorMessage.value = 'You do not have permission to update this subtask.'
+    
+    emit('validation-error', {
+      message: 'You do not have permission to update this subtask.',
+      field: null
+    })
+    
+    setTimeout(() => {
+      errorMessage.value = ''
+    }, 3000)
+    
+    return
+  }
+  
+  // If user is a collaborator (not owner), only allow status and description changes
+  if (!isSubtaskOwner.value && isCollaborator) {
+    const modifiedFields = getModifiedFields()
+    const allowedFields = ['status', 'description']
+    
+    // Check if any unauthorized fields were modified
+    const unauthorizedFields = modifiedFields.filter(field => !allowedFields.includes(field))
+    
+    if (unauthorizedFields.length > 0) {
+      errorMessage.value = 'You can only edit status and description. Other fields are restricted to the subtask owner.'
+      
+      emit('validation-error', {
+        message: 'You can only edit status and description. Other fields are restricted to the subtask owner.',
+        field: null
+      })
+      
+      setTimeout(() => {
+        errorMessage.value = ''
+      }, 3000)
+      
+      return
+    }
+  }
   
   if (!validateForm()) {
     console.log('Validation failed, errors:', errors.value)

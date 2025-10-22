@@ -405,6 +405,7 @@
           :availableCollaborators="getTaskCollaborators"
           @subtask-updated="handleSubtaskUpdated"
           @cancel="closeEditSubtaskModal"
+          @validation-error="handleValidationError"
         />
       </div>
     </div>  
@@ -1312,6 +1313,15 @@ export default {
       this.closeEditSubtaskModal();
       this.successMessage = "Subtask updated successfully!";
       setTimeout(() => { this.successMessage = ""; }, 3000);
+    },
+
+    handleValidationError(errorData) {
+      if (errorData && errorData.message) {
+        this.errorMessage = errorData.message;
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 5000);
+      }
     },
 
     async confirmDeleteTask() {
