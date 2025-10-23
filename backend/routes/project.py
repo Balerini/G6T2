@@ -1033,7 +1033,7 @@ def export_project_tasks(project_id):
             return send_file(
                 buffer,
                 as_attachment=True,
-                download_name=f"{project_name.replace(' ', '_')}_Tasks.pdf",
+                download_name=f"Project_{project_name.replace(' ', '_')}_Tasks_Report.pdf",
                 mimetype="application/pdf"
             )
 
@@ -1688,7 +1688,7 @@ def export_project_tasks_xlsx(project_id):
         project_name = "Unnamed Project"
         if project_doc.exists:
             project_data = project_doc.to_dict()
-            project_name = project_data.get("project_name", project_name)
+            project_name = project_data.get("proj_name", project_name)
 
         # --- Fetch tasks ---
         tasks_ref = db.collection("Tasks").where("proj_ID", "==", project_id)
@@ -1849,7 +1849,7 @@ def export_project_tasks_xlsx(project_id):
         return send_file(
             output,
             as_attachment=True,
-            download_name=f"{project_name.replace(' ', '_')}_Tasks_Report.xlsx",
+            download_name=f"Project_{project_name.replace(' ', '_')}_Tasks_Report.xlsx",
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 

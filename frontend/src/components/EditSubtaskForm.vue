@@ -617,18 +617,18 @@ const canEditStatus = computed(() => {
   return false
 })
 
-const currentUserId = computed(() => {
-  if (typeof window !== 'undefined' && window.sessionStorage) {
-    try {
-      const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
-      return currentUser.id
-    } catch (error) {
-      console.error('Error getting current user ID:', error)
-      return null
-    }
-  }
-  return null
-})
+// const currentUserId = computed(() => {
+//   if (typeof window !== 'undefined' && window.sessionStorage) {
+//     try {
+//       const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
+//       return currentUser.id
+//     } catch (error) {
+//       console.error('Error getting current user ID:', error)
+//       return null
+//     }
+//   }
+//   return null
+// })
 
 // Initialize form with subtask data
 const initializeForm = () => {
@@ -785,30 +785,30 @@ const getModifiedFields = () => {
   return modified
 }
 
-const validateFieldPermission = (fieldName) => {
-  // Check if user is not the owner
-  if (!isSubtaskOwner.value) {
-    // List of fields only owner can edit
-    const ownerOnlyFields = ['name', 'startDate', 'endDate', 'priority', 'collaborators']
+// const validateFieldPermission = (fieldName) => {
+//   // Check if user is not the owner
+//   if (!isSubtaskOwner.value) {
+//     // List of fields only owner can edit
+//     const ownerOnlyFields = ['name', 'startDate', 'endDate', 'priority', 'collaborators']
     
-    // If trying to edit an owner-only field
-    if (ownerOnlyFields.includes(fieldName)) {
-      // Set error message
-      errors.value[fieldName] = 'You do not have permission to edit this field. Only the subtask owner can modify it.'
+//     // If trying to edit an owner-only field
+//     if (ownerOnlyFields.includes(fieldName)) {
+//       // Set error message
+//       errors.value[fieldName] = 'You do not have permission to edit this field. Only the subtask owner can modify it.'
       
-      // Show toast notification
-      errorMessage.value = 'You do not have permission to edit this field. Only the subtask owner can modify it.'
+//       // Show toast notification
+//       errorMessage.value = 'You do not have permission to edit this field. Only the subtask owner can modify it.'
       
-      // Clear message after 3 seconds
-      setTimeout(() => {
-        errorMessage.value = ''
-      }, 3000)
+//       // Clear message after 3 seconds
+//       setTimeout(() => {
+//         errorMessage.value = ''
+//       }, 3000)
       
-      return false
-    }
-  }
-  return true
-}
+//       return false
+//     }
+//   }
+//   return true
+// }
 
 // Validate form
 const validateForm = () => {  

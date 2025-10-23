@@ -47,7 +47,7 @@
 
                 <div class="export-dropdown">
                     <button @click="toggleDropdown" class="export-btn">
-                    📤 Export Report ▾
+                    Export ▾
                     </button>
 
                     <transition name="fade">
@@ -383,6 +383,7 @@ export default {
         async exportProjectPDF() {
             try {
                 const projectId = this.projectId;
+                const projectName = this.projectData.proj_name;
                 const response = await fetch(`http://localhost:8000/api/projects/${projectId}/export`);
                 if (!response.ok) throw new Error("Failed to export tasks");
 
@@ -390,7 +391,7 @@ export default {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `Project_${projectId}_Tasks.pdf`;
+                a.download = `Project_${projectName}_Tasks_Report.pdf`;
                 a.click();
                 window.URL.revokeObjectURL(url);
             } catch (error) {
@@ -464,7 +465,7 @@ export default {
                 // Filename: <projectName>_Tasks_Report.xlsx
                 const safeName = (projectName || "Project_Report").replace(/\s+/g, "_");
                 link.href = url;
-                link.setAttribute("download", `${safeName}_Tasks_Report.xlsx`);
+                link.setAttribute("download", `Project_${safeName}_Tasks_Report.xlsx`);
 
                 document.body.appendChild(link);
                 link.click();
@@ -908,17 +909,16 @@ export default {
 
 /* Main button */
 .export-btn {
-  background: #111827; /* matches your theme */
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.6rem 1.2rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+    background: #111827;
+    color: white;
+    border: none;
+    padding: 8px 16px; 
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px; 
+    font-weight: 500;
+    transition: all 0.2s;
+    margin-bottom: 0;
 }
 
 .export-btn:hover {

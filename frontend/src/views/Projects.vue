@@ -223,7 +223,7 @@
                 <div class="card">
                   <div class="no-tasks-message">
                     <div class="no-tasks-icon">📋</div>
-                    <div class="no-tasks-text">No standalone tasks found with this filter or status</div>
+                    <div class="no-tasks-text">No standalone tasks of this status found.</div>
                   </div>
                 </div>
               </div>
