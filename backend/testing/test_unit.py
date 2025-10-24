@@ -37,6 +37,9 @@ from testing.test_registration_api import *
 # Import the reset password tests
 from testing.auth.test_reset_password_unit import *
 
+# Import the task reminder tests
+from testing.test_task_reminders_unit import *
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
