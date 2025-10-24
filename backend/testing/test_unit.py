@@ -2,7 +2,7 @@ import unittest
 import sys
 import os
 
-# Add the parent directory to the path so we can import app
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import *
@@ -30,6 +30,9 @@ class TestBasicFunctionality(unittest.TestCase):
 
 # Import the comprehensive password tests
 from testing.auth.test_password_unit import *
+
+# Import the registration API tests
+from testing.test_registration_api import *
 
 
 if __name__ == "__main__":  # pragma: no cover
