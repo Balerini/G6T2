@@ -78,7 +78,6 @@ def create_task():
             return None
 
         project_end_limit = None
-
         # Get project ID from project name if provided
         proj_id = None
         if task_data.get('proj_name'):
