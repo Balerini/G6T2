@@ -215,8 +215,8 @@ export default {
         return 'Password must be at least 8 characters long'
       }
       
-      if (password.length > 128) {
-        return 'Password must be less than 128 characters'
+      if (password.length > 12) {
+        return 'Password must be no more than 12 characters long'
       }
       
       // Check for at least one uppercase letter
