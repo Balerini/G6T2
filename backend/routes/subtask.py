@@ -113,7 +113,7 @@ def create_subtask():
         return jsonify({'error': str(e)}), 500
 
 # ==================== GET ALL SUBTASKS WITHIN TASK ====================
-@subtask_bp.route('/tasks/<task_id>/subtasks', methods=['GET'])
+@subtask_bp.route('/api/tasks/<task_id>/subtasks', methods=['GET'])
 def get_task_subtasks(task_id):
     try:
         print(f"Fetching subtasks for task_id: {task_id}")
@@ -229,7 +229,6 @@ def update_subtask(subtask_id):
                 return jsonify({'error': 'New owner must be assigned to the subtask'}), 400
             
             # Verify new owner is a collaborator of parent task 
-            new_owner_id = data['owner']
             parent_task_id = subtask_data.get('parent_task_id')
             
             if parent_task_id:
@@ -482,7 +481,7 @@ def soft_delete_subtask(subtask_id):
         print(f"Error soft deleting subtask {subtask_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@subtask_bp.route('/subtasks/test-debug', methods=['GET'])
+@subtask_bp.route('/api/subtasks/test-debug', methods=['GET'])
 def test_debug():
     """Simple test to see if subtask routes work"""
     try:
@@ -510,7 +509,7 @@ def test_debug():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@subtask_bp.route('/subtasks/debug-everything', methods=['GET'])
+@subtask_bp.route('/api/subtasks/debug-everything', methods=['GET'])
 def debug_everything():
     """Ultimate debug - show EVERYTHING"""
     try:
@@ -657,42 +656,7 @@ def permanently_delete_subtask_NEW(subtask_id):
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
-@subtask_bp.route('/api/tasks/<task_id>/subtasks', methods=['GET'])
-def get_subtasks_by_task(task_id):
-    """Get all active subtasks for a specific task"""
-    try:
-        print(f"Getting subtasks for task: {task_id}")
-        
-        db = get_firestore_client()
-        
-        # Query subtasks by parent_task_id and not deleted
-        subtasks_ref = db.collection('subtasks')
-        query = subtasks_ref.where('parent_task_id', '==', task_id).where('is_deleted', '==', False)
-        subtasks = query.get()
-        
-        subtask_list = []
-        for doc in subtasks:
-            subtask_data = doc.to_dict()
-            subtask_data['id'] = doc.id
-            
-            # Convert Firestore timestamps to ISO format
-            for field in ['createdAt', 'updatedAt', 'start_date', 'end_date']:
-                if field in subtask_data and subtask_data[field]:
-                    try:
-                        subtask_data[field] = subtask_data[field].isoformat()
-                    except:
-                        pass
-            
-            subtask_list.append(subtask_data)
-        
-        print(f"✅ Found {len(subtask_list)} subtasks for task {task_id}")
-        return jsonify(subtask_list), 200
-        
-    except Exception as e:
-        print(f"Error fetching subtasks: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-    
+
 
 # ==================== GET TEAM SUBTASKS FOR MANAGER ====================
 @subtask_bp.route('/api/subtasks/team/<manager_id>', methods=['GET'])

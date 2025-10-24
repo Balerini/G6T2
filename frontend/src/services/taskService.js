@@ -205,6 +205,13 @@ async permanentlyDeleteSubtask(subtaskId) {
   },
 
   async createSubtask(subtaskData) {
+    if (!subtaskData || typeof subtaskData !== 'object') {
+        throw new Error('Invalid subtask data');
+    }
+    if (!subtaskData.name || !subtaskData.parent_task_id) {
+        throw new Error('Subtask name and parent task ID are required');
+    }
+    
     try {
       const response = await api.post('/api/subtasks', subtaskData);
       return response.data;
