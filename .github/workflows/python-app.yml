@@ -39,7 +39,7 @@ jobs:
         flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Run unit tests 
       run: | 
-        cd backend && python testing/test_unit.py 
+        cd backend && python testing/test_unit.py
     - name: Run integration tests 
       run: | 
         cd backend && python testing/test_integration.py
