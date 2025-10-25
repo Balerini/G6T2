@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 REAL Integration tests for viewing deleted tasks functionality.
-FIXED to include proper JSON payloads for delete operations.
+Include proper JSON payloads for delete operations.
 """
 
 import unittest
@@ -149,14 +149,14 @@ class TestViewDeletedTasksIntegration(unittest.TestCase):
         task_id_1 = self.test_task_ids[0]
         task_id_2 = self.test_task_ids[1]
         
-        # FIXED: Delete first task with proper JSON payload
+        # Delete first task with proper JSON payload
         delete_payload_123 = {"userId": "view_task_owner_123"}
         delete_response_1 = self.client.put(f'/api/tasks/{task_id_1}/delete',
                                           data=json.dumps(delete_payload_123),
                                           content_type='application/json')
         self.assertEqual(delete_response_1.status_code, 200)
         
-        # FIXED: Delete second task with proper JSON payload  
+        # Delete second task with proper JSON payload  
         delete_payload_456 = {"userId": "view_task_user_456"}
         delete_response_2 = self.client.put(f'/api/tasks/{task_id_2}/delete',
                                           data=json.dumps(delete_payload_456),
@@ -177,7 +177,7 @@ class TestViewDeletedTasksIntegration(unittest.TestCase):
 
     def test_user_specific_deleted_tasks_integration_real(self):
         """Test user authorization → data filtering integration"""
-        # FIXED: Delete tasks by different users with proper payloads
+        # Delete tasks by different users with proper payloads
         delete_payload_123 = {"userId": "view_task_owner_123"}
         self.client.put(f'/api/tasks/{self.test_task_ids[0]}/delete',
                        data=json.dumps(delete_payload_123),
@@ -226,7 +226,7 @@ class TestViewDeletedTasksIntegration(unittest.TestCase):
         initial_data = json.loads(initial_response.data)
         initial_count = len(initial_data)
         
-        # FIXED: Delete a task with proper JSON payload
+        # Delete a task with proper JSON payload
         task_id = self.test_task_ids[0]
         delete_payload = {"userId": "view_task_owner_123"}
         delete_response = self.client.put(f'/api/tasks/{task_id}/delete',
@@ -249,7 +249,7 @@ class TestViewDeletedTasksIntegration(unittest.TestCase):
         """Test data consistency across Delete API and View API"""
         task_id = self.test_task_ids[0]
         
-        # FIXED: Delete via API with proper JSON payload
+        # Delete via API with proper JSON payload
         delete_payload = {"userId": "view_task_owner_123"}
         delete_response = self.client.put(f'/api/tasks/{task_id}/delete',
                                         data=json.dumps(delete_payload),
@@ -273,7 +273,7 @@ class TestViewDeletedTasksIntegration(unittest.TestCase):
 
     def test_database_query_filtering_integration(self):
         """Test API → Database query → Filtering logic integration"""
-        # FIXED: Create mixed state: some deleted, some active
+        # Create mixed state: some deleted, some active
         delete_payload = {"userId": "view_task_owner_123"}
         self.client.put(f'/api/tasks/{self.test_task_ids[0]}/delete',
                        data=json.dumps(delete_payload),
@@ -304,7 +304,7 @@ class TestViewDeletedTasksIntegration(unittest.TestCase):
         """Test viewing deleted tasks with different assignment scenarios"""
         task_id = self.test_task_ids[1]  # Multi-assigned task
         
-        # FIXED: Delete the task with proper JSON payload
+        # Delete the task with proper JSON payload
         delete_payload = {"userId": "view_task_user_456"}
         delete_response = self.client.put(f'/api/tasks/{task_id}/delete',
                                         data=json.dumps(delete_payload),
