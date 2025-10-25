@@ -223,7 +223,7 @@ async permanentlyDeleteSubtask(subtaskId) {
   async getSubtasksByTask(taskId) {
     try {
         const response = await api.get(`/api/tasks/${taskId}/subtasks`);
-        return response.data;
+        return response.data.subtasks || response.data; 
     } catch (error) {
         console.error('Get subtasks by task error:', error);
         throw new Error(error.response?.data?.error || 'Failed to fetch subtasks');

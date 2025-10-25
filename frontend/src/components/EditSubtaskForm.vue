@@ -340,21 +340,28 @@
             Priority (1-10) *
             <span v-if="!isSubtaskOwner" class="label-note">(Only subtask owner can modify)</span>
           </label>
-          <input
+          <select 
             id="priority"
             name="priority"
-            v-model.number="formData.priority"
-            type="number"
-            min="1"
-            max="10"
-            class="form-input priority-input"
+            v-model="formData.priority"
+            class="form-select"
             :class="{ 'error': errors.priority, 'readonly-input': !isSubtaskOwner }"
-            placeholder="Enter priority (1-10)"
-            @input="clearError('priority')"
+            @change="validateField('priority')"
             @blur="validateField('priority')"
             :disabled="!isSubtaskOwner"
-            :readonly="!isSubtaskOwner"
-          />
+          >
+            <option value="" disabled>Select priority (1-10)</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
           <span v-if="errors.priority" class="error-message">
             {{ errors.priority }}
           </span>
@@ -447,7 +454,7 @@ const formData = ref({
   assigned_to: [],
   attachments: [],
   owner: '',
-  priority: 5,
+  priority: '',
 })
 
 const errors = ref({})
@@ -629,7 +636,7 @@ const initializeForm = () => {
     assigned_to: props.subtask.assigned_to ? [...props.subtask.assigned_to] : [],
     attachments: props.subtask.attachments ? [...props.subtask.attachments] : [],
     owner: props.subtask.owner || '',
-    priority: props.subtask.priority || 5
+    priority: props.subtask.priority || ''
   }
   
   originalStatus.value = props.subtask.status || ''
@@ -1139,6 +1146,7 @@ const handleSubmit = async () => {
       start_date: updateData.start_date,
       end_date: updateData.end_date,
       status: updateData.status,
+      priority: updateData.priority,
       assigned_to: updateData.assigned_to,
       attachments: updateData.attachments,
       status_history: updateData.status_history || props.subtask.status_history

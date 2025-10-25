@@ -276,6 +276,15 @@
                       <span class="preview-icon">👥</span>
                       No collaborators
                     </span>
+                    <!-- After collaborators section, around line 278 -->
+                    <span class="preview-item" v-if="subtask.priority" :class="getPriorityClass(subtask.priority)">
+                      <span class="preview-icon">🎯</span>
+                      {{ formatPriority(subtask.priority) }}
+                    </span>
+                    <span class="preview-item empty" v-else>
+                      <span class="preview-icon">🎯</span>
+                      No priority
+                    </span>
                   </div>
                 </div>
 
@@ -321,6 +330,17 @@
                     </p>
                     <p class="detail-value empty" v-else>
                       No description provided
+                    </p>
+                  </div>
+
+                  <!-- Priority -->
+                  <div class="detail-section">
+                    <h5 class="detail-label">Priority Level</h5>
+                    <p class="detail-value" v-if="subtask.priority">
+                      {{ formatPriority(subtask.priority) }}
+                    </p>
+                    <p class="detail-value empty" v-else>
+                      No priority set
                     </p>
                   </div>
 
@@ -376,6 +396,17 @@
                     <div class="subtask-status-badge-large" :class="getSubtaskStatusClass(subtask.status)">
                       {{ subtask.status || 'Unassigned' }}
                     </div>
+                  </div>
+
+                  <!-- Priority added to Expanded Details -->
+                  <div class="detail-section">
+                    <h5 class="detail-label">Priority Level</h5>
+                    <p class="detail-value" v-if="subtask.priority">
+                      {{ formatPriority(subtask.priority) }}
+                    </p>
+                    <p class="detail-value empty" v-else>
+                      No priority set
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1305,14 +1336,16 @@ export default {
       this.selectedSubtask = null;
     },
 
-    handleSubtaskUpdated(updatedSubtask) {
-      const idx = this.subtasks.findIndex(s => s.id === updatedSubtask.id);
-      if (idx !== -1) {
-        this.subtasks[idx] = updatedSubtask;
-      }
+    async handleSubtaskUpdated() {
       this.closeEditSubtaskModal();
       this.successMessage = "Subtask updated successfully!";
       setTimeout(() => { this.successMessage = ""; }, 3000);
+
+      // Force clear the array first to ensure reactivity
+      this.subtasks = [];
+      
+      // Reload subtasks to show changes (same as creation flow)
+      await this.loadSubtasks();
     },
 
     handleValidationError(errorData) {

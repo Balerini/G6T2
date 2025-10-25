@@ -331,20 +331,27 @@
       <div class="form-group">
         <label class="form-label" for="priority">
           Priority (1-10) *
-          <span class="helper-text-inline">1=Lowest, 10=Highest</span>
         </label>
-        <input
+        <select 
           id="priority"
-          v-model.number="form.priority"
-          type="number"
-          min="1"
-          max="10"
-          class="form-input priority-input"
+          v-model="form.priority"
+          class="form-select"
           :class="{ 'error': errors.priority }"
-          placeholder="Enter priority (1-10)"
-          @input="clearError('priority')"
+          @change="validateField('priority')"
           @blur="validateField('priority')"
-        />
+        >
+          <option value="" disabled>Select priority (1-10)</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+        </select>
         <span v-if="errors.priority" class="error-message">
           {{ errors.priority }}
         </span>
@@ -410,7 +417,7 @@ const form = ref({
   endDate: '',
   status: '',
   owner: '',
-  priority: 5, // default medium priority
+  priority: '',
 })
 
 const errors = ref({})
