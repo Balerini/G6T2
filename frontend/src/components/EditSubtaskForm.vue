@@ -692,7 +692,7 @@ const validateDates = () => {
     const startDate = new Date(formData.value.startDate)
     const endDate = new Date(formData.value.endDate)
     
-    if (endDate <= startDate) {
+    if (endDate < startDate) {
       errors.value.endDate = 'End date must be after start date'
     }
   }
