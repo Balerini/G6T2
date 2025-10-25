@@ -7,7 +7,7 @@ import pytz
 import sys
 import os
 
-# Add parent directory to path for imports
+# Add parent directory to path for importsx 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.notification_service import notification_service
 
@@ -23,14 +23,12 @@ def create_task():
         print(f"Received task data: {task_data}")
         print(f"Priority level received: {task_data.get('priority_level')}")  # Changed to priority_level
 
-        # TITLE: CREATE TASK
         # Validate required fields
         required_fields = ['task_name', 'start_date', 'priority_level']  # Changed to priority_level
         for field in required_fields:
             if not task_data.get(field):
                 return jsonify({"error": f"Required field missing: {field}"}), 400
 
-        # TITLE: Validate required fields
         # Validate priority level range
         try:
             priority_level = int(task_data.get('priority_level'))  # Changed variable name
@@ -40,14 +38,11 @@ def create_task():
             return jsonify({"error": "Priority level must be a valid number between 1 and 10"}), 400
 
         # TITLE: Validate priority level range
-        # Get Firestore client
         db = get_firestore_client()
 
-        # TITLE: Get Firestore client
         # Get creator ID early so we can use it throughout
         owner_id = task_data.get('owner', '')
 
-        # TITLE: Get creator ID early so we can use it throughout
         # Convert date strings to datetime objects with Singapore timezone
         sg_tz = pytz.timezone('Asia/Singapore')
         start_date = datetime.strptime(task_data['start_date'], '%Y-%m-%d')
@@ -56,11 +51,9 @@ def create_task():
         end_date = None
         if task_data.get('end_date'):
             end_date = datetime.strptime(task_data['end_date'], '%Y-%m-%d')
-            # TITLE: Convert date strings to datetime objects with Singapore timezone
             # Set to start of day (12:00 AM) instead of end of day (11:59 PM)
             end_date = sg_tz.localize(end_date.replace(hour=0, minute=0, second=0))
 
-        # TITLE: Set end time to start of day (12:00 AM) in Singapore timezone
         # Helper for parsing project/task end dates
         def parse_date_value(value):
             if value is None:
@@ -81,7 +74,6 @@ def create_task():
         # Get project ID from project name if provided
         proj_id = None
         if task_data.get('proj_name'):
-            # TITLE: Get project ID from project name if provided
             projects_ref = db.collection('Projects')
             projects_query = projects_ref.where('proj_name', '==', task_data.get('proj_name')).limit(1)
             project_docs = list(projects_query.stream())
@@ -101,7 +93,6 @@ def create_task():
                 project_end_limit = parse_date_value(raw_project_end)
             else:
                 print(f"Warning: Project not found for name: {task_data.get('proj_name')}")
-                # TITLE: Find the project by name to get its ID
                 all_projects = projects_ref.stream()
                 print("Available projects:")
                 for proj in all_projects:
@@ -109,7 +100,6 @@ def create_task():
                     print(f" - ID: {proj.id}, Name: {proj_data.get('proj_name', 'No name')}")
         else:
             print("No project name provided in task data")
-            # TITLE: List all available projects for debugging
 
         if project_end_limit is None:
             fallback_project_end = (
@@ -210,7 +200,7 @@ def create_task():
             else:
                 recurrence_data = {'enabled': False}
 
-        # TITLE: Prepare task data for Firestore
+        # Prepare task data for Firestore
         firestore_task_data = {
             'proj_name': task_data.get('proj_name', ''),
             'proj_ID': proj_id,
@@ -224,21 +214,21 @@ def create_task():
             'task_status': task_data.get('task_status'),
             'priority_level': priority_level,
             'hasSubtasks': task_data.get('hasSubtasks', False),
-            'is_deleted': task_data.get('is_deleted', False),  # ADD THIS LINE
+            'is_deleted': task_data.get('is_deleted', False), 
             'recurrence': recurrence_data,
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
         }
 
         print(f"Adding task to Firestore: {firestore_task_data}")
-        print(f"Creating task '{firestore_task_data['task_name']}' with assigned_to: {task_data.get('assigned_to', [])}")  # FIXED THIS LINE
+        print(f"Creating task '{firestore_task_data['task_name']}' with assigned_to: {task_data.get('assigned_to', [])}")
 
-        # TITLE: Add document to Firestore
+        # Add document to Firestore
         doc_ref = db.collection('Tasks').add(firestore_task_data)
         task_id = doc_ref[1].id
         print(f"Task created successfully with ID: {task_id}")
 
-        # TITLE: Prepare response data
+        # Prepare response data
         response_data = firestore_task_data.copy()
         response_data['id'] = task_id
         response_data['start_date'] = start_date.isoformat()
@@ -260,8 +250,8 @@ def create_task():
                 creator_name = creator_doc.to_dict().get('name', 'Unknown User') if creator_doc.exists else 'Unknown User'
 
             # Send emails to each assigned user (except creator)
-            assigned_users = task_data.get('assigned_to', [])  # FIXED THIS LINE
-            for user_id in assigned_users:  # FIXED THIS LINE
+            assigned_users = task_data.get('assigned_to', []) 
+            for user_id in assigned_users:
                 if user_id == owner_id:
                     continue
 
@@ -405,7 +395,6 @@ def get_tasks():
                 task = doc.to_dict()
                 task["id"] = doc.id
                 
-                # ADD THIS: Filter out deleted tasks
                 if not task.get('is_deleted', False):
                     if include_task(task):
                         tasks.append(task)
