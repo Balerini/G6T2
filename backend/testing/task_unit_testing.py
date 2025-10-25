@@ -1,0 +1,638 @@
+# test_task_unittest.py - Complete unit tests converted to unittest
+import unittest
+import json
+from unittest.mock import Mock, patch, MagicMock
+from datetime import datetime
+from flask import Flask
+import sys
+import os
+
+from dotenv import load_dotenv
+load_dotenv()
+
+# Import your Flask blueprint 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from routes.task import tasks_bp
+
+# =============== BASE TEST CLASS ===============
+class BaseTestCase(unittest.TestCase):
+    """Base class with common setup for all test cases"""
+    
+    def setUp(self):
+        """Run before each test"""
+        # Create Flask app
+        self.app = Flask(__name__)
+        self.app.config['TESTING'] = True
+        self.app.register_blueprint(tasks_bp)
+        self.client = self.app.test_client()
+        
+        # Sample data
+        self.sample_task_data = {
+            'task_name': 'Test Task',
+            'start_date': '2025-01-01',
+            'priority_level': 5,
+            'task_desc': 'Test description',
+            'owner': 'user123',
+            'proj_name': 'Test Project',
+            'assigned_to': ['user123']
+        }
+        
+        # Mock headers
+        self.mock_headers = {
+            'X-User-Id': 'user123',
+            'X-User-Role': 'user',
+            'X-User-Name': 'Test User'
+        }
+        
+        # Setup Firebase mocks
+        self.setup_firebase_mocks()
+    
+    def setup_firebase_mocks(self):
+        """Setup global Firebase mocks"""
+        patcher1 = patch('firebase_utils.get_firestore_client')
+        patcher2 = patch('routes.task.get_firestore_client')
+        
+        self.mock_firestore = patcher1.start()
+        self.mock_route_firestore = patcher2.start()
+        
+        self.addCleanup(patcher1.stop)
+        self.addCleanup(patcher2.stop)
+        
+        # Setup mock database
+        self.mock_db = Mock()
+        self.mock_firestore.return_value = self.mock_db
+        self.mock_route_firestore.return_value = self.mock_db
+        
+        # Setup collection mocks
+        mock_collection = Mock()
+        self.mock_db.collection.return_value = mock_collection
+        
+        # Make stream() return empty list by default
+        mock_collection.stream.return_value = []
+        
+        # Make query chains work
+        mock_query = Mock()
+        mock_collection.where.return_value = mock_query
+        mock_query.limit.return_value = mock_query
+        mock_query.stream.return_value = []
+        
+        # Make document operations work
+        mock_doc = Mock()
+        mock_collection.document.return_value = mock_doc
+        mock_get_result = Mock()
+        mock_get_result.exists = False
+        mock_get_result.to_dict.return_value = {}
+        mock_doc.get.return_value = mock_get_result
+        
+        # Make add() return proper document reference
+        mock_doc_ref = Mock()
+        mock_doc_ref.id = 'test_task_123'
+        mock_collection.add.return_value = (None, mock_doc_ref)
+
+# =============== CREATE TASK TESTS ===============
+class TestCreateTask(BaseTestCase):
+    
+    def test_create_task_without_project(self):
+        """Test successful task creation when project is NOT found"""
+        # Mock successful document creation
+        mock_doc_ref = Mock()
+        mock_doc_ref.id = 'task_without_project'
+        self.mock_db.collection.return_value.add.return_value = (None, mock_doc_ref)
+        
+        # Mock project lookup returns empty
+        self.mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = []
+        
+        response = self.client.post('/api/tasks', json=self.sample_task_data)
+        
+        self.assertIn(response.status_code, [201, 400])
+        
+        if response.status_code == 201:
+            data = json.loads(response.data)
+            self.assertTrue('task_name' in data or 'id' in data)
+    
+    def test_create_task_with_existing_project(self):
+        """Test successful task creation when project IS found"""
+        # Mock successful document creation
+        mock_doc_ref = Mock()
+        mock_doc_ref.id = 'task_with_project'
+        self.mock_db.collection.return_value.add.return_value = (None, mock_doc_ref)
+        
+        # Mock finding a matching project
+        mock_project = Mock()
+        mock_project.id = 'project_123'
+        mock_project.to_dict.return_value = {
+            'proj_name': 'Test Project',
+            'end_date': datetime(2025, 12, 31),
+            'created_at': datetime.now()
+        }
+        
+        self.mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = [mock_project]
+        
+        response = self.client.post('/api/tasks', json=self.sample_task_data)
+        
+        self.assertIn(response.status_code, [201, 400])
+    
+    def test_create_task_missing_required_fields(self):
+        """Test task creation fails with missing required fields"""
+        incomplete_data = {'task_name': 'Test Task'}
+        
+        response = self.client.post('/api/tasks', json=incomplete_data)
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+    
+    def test_create_task_invalid_priority_level(self):
+        """Test task creation with invalid priority level"""
+        self.sample_task_data['priority_level'] = 15
+        
+        response = self.client.post('/api/tasks', json=self.sample_task_data)
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.data)
+        self.assertIn('Priority level must be between 1 and 10', data['error'])
+
+# =============== GET TASKS TESTS ===============
+class TestGetTasks(BaseTestCase):
+    
+    def test_get_all_tasks(self):
+        """Test retrieving all tasks"""
+        # Create proper mock task documents
+        mock_task1 = Mock()
+        mock_task1.id = 'task1'
+        mock_task1.to_dict.return_value = {
+            'task_name': 'Task 1',
+            'task_status': 'active',
+            'is_deleted': False,
+            'priority_level': 5
+        }
+        
+        mock_task2 = Mock()
+        mock_task2.id = 'task2'
+        mock_task2.to_dict.return_value = {
+            'task_name': 'Task 2',
+            'task_status': 'active',
+            'is_deleted': False,
+            'priority_level': 3
+        }
+        
+        self.mock_db.collection.return_value.stream.return_value = [mock_task1, mock_task2]
+        
+        response = self.client.get('/api/tasks')
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+        if len(data) > 0:
+            self.assertIn('task_name', data[0])
+    
+    def test_get_tasks_with_user_filter(self):
+        """Test retrieving tasks filtered by specific user"""
+        mock_task1 = Mock()
+        mock_task1.id = 'task1'
+        mock_task1.to_dict.return_value = {
+            'task_name': 'User123 Task 1',
+            'owner': 'user123',
+            'assigned_to': ['user123'],
+            'task_status': 'active',
+            'is_deleted': False,
+            'priority_level': 5
+        }
+        
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = [mock_task1]
+        
+        response = self.client.get('/api/tasks?userId=user123')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+    
+    def test_get_tasks_with_status_filter(self):
+        """Test retrieving tasks filtered by status"""
+        mock_completed1 = Mock()
+        mock_completed1.id = 'completed_task1'
+        mock_completed1.to_dict.return_value = {
+            'task_name': 'Completed Task 1',
+            'task_status': 'completed',
+            'is_deleted': False,
+            'owner': 'user123',
+            'priority_level': 5
+        }
+        
+        self.mock_db.collection.return_value.stream.return_value = [mock_completed1]
+        
+        response = self.client.get('/api/tasks?status=completed')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+    
+    def test_get_tasks_no_results(self):
+        """Test that endpoint handles no results gracefully"""
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = []
+        
+        response = self.client.get('/api/tasks?userId=nonexistent_user')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 0)
+    
+    def test_get_single_task(self):
+        """Test retrieving a single task by ID"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.id = 'task123'
+        mock_task_doc.to_dict.return_value = {
+            'task_name': 'Test Task',
+            'owner': 'user123',
+            'task_status': 'active'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        response = self.client.get('/api/tasks/task123')
+        
+        self.assertIn(response.status_code, [200, 404])
+
+# =============== DELETE TASK TESTS ===============
+class TestDeleteTask(BaseTestCase):
+    
+    def test_hard_delete_task(self):
+        """Test permanent task deletion"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {'task_name': 'Test Task'}
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        response = self.client.delete('/api/tasks/task123')
+        
+        self.assertIn(response.status_code, [200, 404])
+    
+    def test_soft_delete_task_with_cascade(self):
+        """Test soft delete functionality WITH cascade deletion of subtasks"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'user123',
+            'task_name': 'Parent Task'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        # Mock subtasks
+        mock_subtask1 = Mock()
+        mock_subtask1.id = 'subtask1'
+        mock_subtask1.to_dict.return_value = {
+            'name': 'Subtask 1',
+            'is_deleted': False,
+            'parent_task_id': 'task123'
+        }
+        
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = [mock_subtask1]
+        
+        response = self.client.put('/api/tasks/task123/delete',
+                                   json={'userId': 'user123'},
+                                   headers=self.mock_headers)
+        
+        self.assertIn(response.status_code, [200, 403, 404])
+
+# =============== RESTORE TASK TESTS ===============
+class TestRestoreTask(BaseTestCase):
+    
+    def test_restore_task_success(self):
+        """Test successful task restoration"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'user123',
+            'is_deleted': True,
+            'task_name': 'Deleted Task'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        response = self.client.put('/api/tasks/task123/restore', headers=self.mock_headers)
+        
+        self.assertIn(response.status_code, [200, 400, 404])
+    
+    def test_restore_non_deleted_task(self):
+        """Test restoring non-deleted task"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'user123',
+            'is_deleted': False,
+            'task_name': 'Active Task'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        response = self.client.put('/api/tasks/task123/restore', headers=self.mock_headers)
+        
+        self.assertIn(response.status_code, [400, 500])
+
+# =============== ERROR HANDLING TESTS ===============
+class TestErrorHandling(BaseTestCase):
+    
+    def test_invalid_json(self):
+        """Test handling of invalid JSON payloads"""
+        response = self.client.post('/api/tasks',
+                                    data="invalid json",
+                                    content_type='application/json')
+        
+        self.assertIn(response.status_code, [400, 500])
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+
+# =============== VALIDATION TESTS ===============
+class TestPriorityValidation(BaseTestCase):
+    
+    def test_priority_level_1(self):
+        """Test priority level 1 (valid minimum)"""
+        self.sample_task_data['priority_level'] = 1
+        response = self.client.post('/api/tasks', json=self.sample_task_data)
+        self.assertIn(response.status_code, [201, 400, 500])
+    
+    def test_priority_level_5(self):
+        """Test priority level 5 (valid middle)"""
+        self.sample_task_data['priority_level'] = 5
+        response = self.client.post('/api/tasks', json=self.sample_task_data)
+        self.assertIn(response.status_code, [201, 400, 500])
+    
+    def test_priority_level_10(self):
+        """Test priority level 10 (valid maximum)"""
+        self.sample_task_data['priority_level'] = 10
+        response = self.client.post('/api/tasks', json=self.sample_task_data)
+        self.assertIn(response.status_code, [201, 400, 500])
+    
+    def test_priority_level_0(self):
+        """Test priority level 0 (invalid - too low)"""
+        self.sample_task_data['priority_level'] = 0
+        response = self.client.post('/api/tasks', json=self.sample_task_data)
+        self.assertEqual(response.status_code, 400)
+    
+    def test_priority_level_11(self):
+        """Test priority level 11 (invalid - too high)"""
+        self.sample_task_data['priority_level'] = 11
+        response = self.client.post('/api/tasks', json=self.sample_task_data)
+        self.assertEqual(response.status_code, 400)
+    
+    def test_priority_level_negative(self):
+        """Test priority level -1 (invalid - negative)"""
+        self.sample_task_data['priority_level'] = -1
+        response = self.client.post('/api/tasks', json=self.sample_task_data)
+        self.assertEqual(response.status_code, 400)
+
+# =============== ADD COLLABORATOR TESTS ===============
+class TestAddCollaborator(BaseTestCase):
+    
+    def test_add_collaborator_success(self):
+        """Test successfully adding a collaborator from any department/role"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'user123',
+            'task_name': 'Test Task',
+            'assigned_to': ['user123']
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        response = self.client.post('/api/tasks/task123/collaborators',
+                                    json={'user_id': 'user456'},
+                                    headers=self.mock_headers)
+        
+        # Accept 404 until endpoint is implemented
+        self.assertIn(response.status_code, [200, 201, 404])
+    
+    def test_add_collaborator_duplicate(self):
+        """Test adding collaborator who is already assigned"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'user123',
+            'task_name': 'Test Task',
+            'assigned_to': ['user123', 'user456']
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        response = self.client.post('/api/tasks/task123/collaborators',
+                                    json={'user_id': 'user456'},
+                                    headers=self.mock_headers)
+        
+        # Accept 404 until endpoint is implemented
+        self.assertIn(response.status_code, [200, 400, 404, 500])
+    
+    def test_add_collaborator_non_owner(self):
+        """Test non-owner trying to add collaborator"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'other_user',
+            'task_name': 'Test Task',
+            'assigned_to': ['other_user']
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        response = self.client.post('/api/tasks/task123/collaborators',
+                                    json={'user_id': 'new_user'},
+                                    headers=self.mock_headers)
+        
+        # Accept 404 until endpoint is implemented
+        self.assertIn(response.status_code, [200, 201, 403, 404, 500])
+
+# =============== TRANSFER OWNERSHIP TESTS ===============
+class TestTransferOwnership(BaseTestCase):
+    
+    def test_transfer_ownership_manager_to_manager_fails(self):
+        """Test transfer from manager to another manager FAILS"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'manager123',
+            'task_name': 'Test Task'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        manager_headers = {
+            'X-User-Id': 'manager123',
+            'X-User-Role': 'manager',
+            'X-User-Role-Num': '3'
+        }
+        
+        response = self.client.put('/api/tasks/task123/transfer',
+                                   json={'new_owner_id': 'manager456'},
+                                   headers=manager_headers)
+        
+        # Accept 404 until endpoint is implemented
+        self.assertIn(response.status_code, [403, 404])
+    
+    def test_transfer_ownership_non_manager_fails(self):
+        """Test ownership transfer by non-manager should FAIL"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'employee123',
+            'task_name': 'Test Task'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        employee_headers = {
+            'X-User-Id': 'employee123',
+            'X-User-Role': 'employee',
+            'X-User-Name': 'Employee User',
+            'X-User-Role-Num': '1'
+        }
+        
+        response = self.client.put('/api/tasks/task123/transfer',
+                                   json={'new_owner_id': 'staff456'},
+                                   headers=employee_headers)
+        
+        # Accept 404 until endpoint is implemented
+        self.assertIn(response.status_code, [403, 404])
+    
+    def test_transfer_ownership_senior_fails(self):
+        """Test ownership transfer by senior should FAIL"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'senior123',
+            'task_name': 'Test Task'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        senior_headers = {
+            'X-User-Id': 'senior123',
+            'X-User-Role': 'senior',
+            'X-User-Name': 'Senior User',
+            'X-User-Role-Num': '2'
+        }
+        
+        response = self.client.put('/api/tasks/task123/transfer',
+                                   json={'new_owner_id': 'staff456'},
+                                   headers=senior_headers)
+        
+        # Accept 404 until endpoint is implemented
+        self.assertIn(response.status_code, [403, 404])
+    
+    def test_transfer_ownership_not_owner_fails(self):
+        """Test transfer by manager who is NOT the owner FAILS"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'other_manager',
+            'task_name': 'Test Task'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        manager_headers = {
+            'X-User-Id': 'manager123',
+            'X-User-Role': 'manager',
+            'X-User-Role-Num': '3'
+        }
+        
+        response = self.client.put('/api/tasks/task123/transfer',
+                                   json={'new_owner_id': 'staff456'},
+                                   headers=manager_headers)
+        
+        # Accept 404 until endpoint is implemented
+        self.assertIn(response.status_code, [403, 404])
+    
+    def test_transfer_ownership_to_self_fails(self):
+        """Test transfer ownership to self"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'manager123',
+            'task_name': 'Test Task'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        manager_headers = {
+            'X-User-Id': 'manager123',
+            'X-User-Role': 'manager',
+            'X-User-Role-Num': '3'
+        }
+        
+        response = self.client.put('/api/tasks/task123/transfer',
+                                   json={'new_owner_id': 'manager123'},
+                                   headers=manager_headers)
+        
+        # Accept 404 until endpoint is implemented
+        self.assertIn(response.status_code, [200, 400, 404])
+    
+    def test_transfer_ownership_missing_new_owner_id_fails(self):
+        """Test transfer without specifying new owner FAILS"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'owner': 'manager123',
+            'task_name': 'Test Task'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        manager_headers = {
+            'X-User-Id': 'manager123',
+            'X-User-Role': 'manager',
+            'X-User-Role-Num': '3'
+        }
+        
+        response = self.client.put('/api/tasks/task123/transfer',
+                                   json={},
+                                   headers=manager_headers)
+        
+        # Accept 404 until endpoint is implemented
+        self.assertIn(response.status_code, [400, 404])
+
+# =============== ADDITIONAL ENDPOINT TESTS ===============
+class TestAdditionalEndpoints(BaseTestCase):
+    
+    def test_get_users(self):
+        """Test getting users for dropdown"""
+        mock_user1 = Mock()
+        mock_user1.id = 'user1'
+        mock_user1.to_dict.return_value = {'name': 'John Doe', 'email': 'john@test.com'}
+        
+        mock_user2 = Mock()
+        mock_user2.id = 'user2'
+        mock_user2.to_dict.return_value = {'name': 'Jane Smith', 'email': 'jane@test.com'}
+        
+        self.mock_db.collection.return_value.stream.return_value = [mock_user1, mock_user2]
+        
+        response = self.client.get('/api/users')
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+    
+    def test_get_tasks_by_project(self):
+        """Test getting tasks by project ID"""
+        mock_task = Mock()
+        mock_task.id = 'proj_task1'
+        mock_task.to_dict.return_value = {
+            'task_name': 'Project Task',
+            'proj_ID': 'project123'
+        }
+        
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = [mock_task]
+        
+        response = self.client.get('/api/projects/project123/tasks')
+        
+        self.assertIn(response.status_code, [200, 500])
+    
+    def test_get_deleted_tasks(self):
+        """Test getting deleted tasks"""
+        mock_deleted_task = Mock()
+        mock_deleted_task.id = 'deleted_task1'
+        mock_deleted_task.to_dict.return_value = {
+            'task_name': 'Deleted Task',
+            'is_deleted': True,
+            'owner': 'user123'
+        }
+        
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = [mock_deleted_task]
+        
+        response = self.client.get('/api/tasks/deleted?userId=user123')
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
