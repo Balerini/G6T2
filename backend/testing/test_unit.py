@@ -52,6 +52,12 @@ try:
 except ImportError:
     from test_task_reminder_unit import *
 
+# Import the email service tests
+try:
+    from testing.test_email_service import *
+except ImportError:
+    from test_email_service import *
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
