@@ -39,13 +39,13 @@ jobs:
         flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Run C1 unit tests 
       run: | 
-        cd backend && python3 -m unittest testing.unit.test_app_functions_unit testing.unit.test_dashboard_utils_c1 testing.unit.test_project_completion_c1
+        cd backend && python3 -m unittest testing.unit.test_app_functions_unit testing.unit.test_dashboard_utils testing.unit.test_project_completion
     - name: Run integration tests 
       run: | 
         cd backend && python3 -m unittest testing.integration.test_api_registration testing.integration.test_api_subtask
     - name: Run C1 unit tests with coverage
       run: |
-        cd backend && coverage run --source=. -m unittest testing.unit.test_app_functions_unit testing.unit.test_dashboard_utils_c1 testing.unit.test_project_completion_c1
+        cd backend && coverage run --source=. -m unittest testing.unit.test_app_functions_unit testing.unit.test_dashboard_utils testing.unit.test_project_completion testing.unit.test_notification_unit testing.unit.test_register_validation testing.unit.test_reset_password_validation
         coverage report
         coverage html -d htmlcov
     - name: Upload coverage reports

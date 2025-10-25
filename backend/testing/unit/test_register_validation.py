@@ -244,7 +244,7 @@ class TestRegisterValidationUnit(unittest.TestCase):
             'name': 'John Doe',
             'email': 'john@example.com',
             'password': 'Password1!',
-            'division_name': 'Engineering'
+            'division_name': 'Engineering Operation'
         }
         errors = validate_register_data(valid_data)
         self.assertEqual(len(errors), 0)

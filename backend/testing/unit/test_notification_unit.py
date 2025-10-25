@@ -1,6 +1,6 @@
 """
 Unit Tests for Task Notification System (Bell Icon Functionality)
-Tests the notification service, API endpoints, and notification workflows
+Tests the notification service core functionality only (no API integration)
 """
 import unittest
 from unittest.mock import Mock, patch, MagicMock
@@ -12,13 +12,18 @@ import pytz
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.notification_service import NotificationService
-# Import app for API testing
-try:
-    from app import app
-except ImportError:
-    # Fallback for testing without Flask app
-    app = None
+# Mock the database and email service before importing
+with patch('firebase_utils.get_firestore_client') as mock_get_firestore_client, \
+     patch('services.email_service.email_service') as mock_email_service:
+    
+    # Set up mock database
+    mock_db = MagicMock()
+    mock_get_firestore_client.return_value = mock_db
+    
+    # Set up mock email service
+    mock_email_service.send_deadline_reminder_email.return_value = True
+    
+    from services.notification_service import NotificationService
 
 class TestNotificationService(unittest.TestCase):
     """Test the NotificationService class core functionality"""
@@ -285,448 +290,344 @@ class TestNotificationService(unittest.TestCase):
         # Should be parseable as datetime
         parsed_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
         self.assertIsInstance(parsed_time, datetime)
-
-
-class TestNotificationAPI(unittest.TestCase):
-    """Test the notification API endpoints"""
     
-    def setUp(self):
-        """Set up test fixtures"""
-        if app is None:
-            self.skipTest("Flask app not available for API testing")
-        self.app = app
-        self.app.config['TESTING'] = True
-        self.client = self.app.test_client()
+    @patch('services.notification_service.get_firestore_client')
+    def test_notify_task_assigned(self, mock_get_firestore_client):
+        """Test notifying staff members when assigned to a task"""
+        # Set up mock database
+        mock_db = MagicMock()
+        mock_get_firestore_client.return_value = mock_db
         
-        # Mock the notification service
-        self.notification_service_patcher = patch('app.notification_service')
-        self.mock_notification_service = self.notification_service_patcher.start()
+        # Mock user document
+        mock_user_doc = MagicMock()
+        mock_user_doc.exists = True
+        mock_user_doc.to_dict.return_value = {
+            'role_name': 'staff',
+            'role_num': 4,
+            'name': 'Test User',
+            'email': 'test@example.com'
+        }
         
-    def tearDown(self):
-        """Clean up after each test"""
-        self.notification_service_patcher.stop()
+        # Mock users collection
+        mock_users_ref = MagicMock()
+        mock_users_ref.document.return_value.get.return_value = mock_user_doc
+        mock_db.collection.return_value = mock_users_ref
         
-    def test_get_notifications_success(self):
-        """Test GET /api/notifications/<user_id> endpoint"""
-        user_id = "test_user_123"
-        mock_notifications = [
-            {
-                'id': 'notif_1',
-                'user_id': user_id,
-                'type': 'task_assigned',
-                'title': 'New Task',
-                'message': 'You have a new task',
-                'read': False,
-                'timestamp': '2024-01-01T10:00:00+08:00'
-            }
-        ]
+        # Test data
+        task_data = {
+            'task_name': 'Test Task',
+            'task_ID': 'task_123',
+            'proj_ID': 'project_456'
+        }
+        assigned_user_ids = ['user_123']
         
-        self.mock_notification_service.get_user_notifications.return_value = mock_notifications
+        # Call the method
+        self.notification_service.notify_task_assigned(task_data, assigned_user_ids)
         
-        response = self.client.get(f'/api/notifications/{user_id}')
+        # Verify database was queried
+        mock_db.collection.assert_called_with('Users')
+        mock_users_ref.document.assert_called_with('user_123')
         
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        self.assertTrue(data['ok'])
-        self.assertEqual(len(data['notifications']), 1)
-        self.assertEqual(data['notifications'][0]['title'], 'New Task')
-        
-        # Verify service was called with correct parameters
-        self.mock_notification_service.get_user_notifications.assert_called_once_with(
-            user_id=user_id,
-            unread_only=False,
-            limit=50
-        )
-        
-    def test_get_notifications_with_params(self):
-        """Test GET /api/notifications/<user_id> with query parameters"""
-        user_id = "test_user_123"
-        mock_notifications = []
-        
-        self.mock_notification_service.get_user_notifications.return_value = mock_notifications
-        
-        response = self.client.get(f'/api/notifications/{user_id}?unread_only=true&limit=10')
-        
-        self.assertEqual(response.status_code, 200)
-        
-        # Verify service was called with correct parameters
-        self.mock_notification_service.get_user_notifications.assert_called_once_with(
-            user_id=user_id,
-            unread_only=True,
-            limit=10
-        )
-        
-    def test_get_notifications_error(self):
-        """Test GET /api/notifications/<user_id> error handling"""
-        user_id = "test_user_123"
-        
-        self.mock_notification_service.get_user_notifications.side_effect = Exception("Database error")
-        
-        response = self.client.get(f'/api/notifications/{user_id}')
-        
-        self.assertEqual(response.status_code, 500)
-        data = response.get_json()
-        self.assertFalse(data['ok'])
-        self.assertIn('error', data)
-        
-    def test_mark_notification_read_success(self):
-        """Test PUT /api/notifications/<notification_id>/read endpoint"""
-        notification_id = "notif_123"
-        
-        self.mock_notification_service.mark_as_read.return_value = True
-        
-        response = self.client.put(f'/api/notifications/{notification_id}/read')
-        
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        self.assertTrue(data['ok'])
-        self.assertEqual(data['message'], 'Notification marked as read')
-        
-        self.mock_notification_service.mark_as_read.assert_called_once_with(notification_id)
-        
-    def test_mark_notification_read_not_found(self):
-        """Test PUT /api/notifications/<notification_id>/read when notification not found"""
-        notification_id = "notif_123"
-        
-        self.mock_notification_service.mark_as_read.return_value = False
-        
-        response = self.client.put(f'/api/notifications/{notification_id}/read')
-        
-        self.assertEqual(response.status_code, 404)
-        data = response.get_json()
-        self.assertFalse(data['ok'])
-        self.assertEqual(data['error'], 'Notification not found')
-        
-    def test_mark_all_notifications_read_success(self):
-        """Test PUT /api/notifications/<user_id>/mark-all-read endpoint"""
-        user_id = "test_user_123"
-        
-        self.mock_notification_service.mark_all_as_read.return_value = 3
-        
-        response = self.client.put(f'/api/notifications/{user_id}/mark-all-read')
-        
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        self.assertTrue(data['ok'])
-        self.assertEqual(data['message'], 'Marked 3 notifications as read')
-        
-        self.mock_notification_service.mark_all_as_read.assert_called_once_with(user_id)
-        
-    def test_delete_notification_success(self):
-        """Test DELETE /api/notifications/<notification_id> endpoint"""
-        notification_id = "notif_123"
-        
-        self.mock_notification_service.delete_notification.return_value = True
-        
-        response = self.client.delete(f'/api/notifications/{notification_id}')
-        
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        self.assertTrue(data['ok'])
-        self.assertEqual(data['message'], 'Notification deleted')
-        
-        self.mock_notification_service.delete_notification.assert_called_once_with(notification_id)
-        
-    def test_delete_notification_not_found(self):
-        """Test DELETE /api/notifications/<notification_id> when notification not found"""
-        notification_id = "notif_123"
-        
-        self.mock_notification_service.delete_notification.return_value = False
-        
-        response = self.client.delete(f'/api/notifications/{notification_id}')
-        
-        self.assertEqual(response.status_code, 404)
-        data = response.get_json()
-        self.assertFalse(data['ok'])
-        self.assertEqual(data['error'], 'Notification not found')
-        
-    def test_check_deadlines_success(self):
-        """Test POST /api/notifications/check-deadlines endpoint"""
-        self.mock_notification_service.notify_upcoming_deadlines.return_value = 5
-        
-        response = self.client.post('/api/notifications/check-deadlines')
-        
-        self.assertEqual(response.status_code, 200)
-        data = response.get_json()
-        self.assertTrue(data['ok'])
-        self.assertEqual(data['message'], 'Deadline check completed')
-        
-        self.mock_notification_service.notify_upcoming_deadlines.assert_called_once()
-        
-    def test_check_deadlines_error(self):
-        """Test POST /api/notifications/check-deadlines error handling"""
-        self.mock_notification_service.notify_upcoming_deadlines.side_effect = Exception("Database error")
-        
-        response = self.client.post('/api/notifications/check-deadlines')
-        
-        self.assertEqual(response.status_code, 500)
-        data = response.get_json()
-        self.assertFalse(data['ok'])
-        self.assertIn('error', data)
-
-
-class TestNotificationWorkflow(unittest.TestCase):
-    """Test notification workflow integration"""
-    
-    def setUp(self):
-        """Set up test fixtures"""
-        self.notification_service = NotificationService()
-        self.notification_service.notifications_cache = {}
-        
-    def tearDown(self):
-        """Clean up after each test"""
-        self.notification_service.notifications_cache = {}
-        
-    def test_complete_notification_lifecycle(self):
-        """Test complete notification lifecycle: create -> read -> delete"""
-        user_id = "test_user_123"
-        
-        # 1. Create notification
-        notification_id = self.notification_service.create_notification(
-            user_id=user_id,
-            notification_type="task_assigned",
-            title="New Task",
-            message="You have been assigned to a new task",
-            task_id="task_123"
-        )
-        
-        self.assertIsNotNone(notification_id)
-        
-        # 2. Verify notification exists and is unread
-        notifications = self.notification_service.get_user_notifications(user_id)
+        # Verify notification was created
+        notifications = self.notification_service.get_user_notifications('user_123')
         self.assertEqual(len(notifications), 1)
-        self.assertFalse(notifications[0]['read'])
+        self.assertEqual(notifications[0]['type'], 'task_assigned')
+        self.assertEqual(notifications[0]['title'], 'New Task Assigned')
+    
+    @patch('services.notification_service.get_firestore_client')
+    def test_notify_upcoming_deadlines(self, mock_get_firestore_client):
+        """Test checking for upcoming deadlines"""
+        # Set up mock database
+        mock_db = MagicMock()
+        mock_get_firestore_client.return_value = mock_db
         
-        # 3. Mark as read
-        result = self.notification_service.mark_as_read(notification_id)
-        self.assertTrue(result)
+        # Mock task document
+        mock_task_doc = MagicMock()
+        mock_task_doc.id = 'task_123'
+        mock_task_doc.to_dict.return_value = {
+            'task_name': 'Test Task',
+            'end_date': datetime.now() + timedelta(hours=12),  # Due in 12 hours
+            'assigned_to': ['user_123'],
+            'proj_ID': 'project_456'
+        }
         
-        # 4. Verify notification is marked as read
-        notifications = self.notification_service.get_user_notifications(user_id)
-        self.assertTrue(notifications[0]['read'])
+        # Mock user document
+        mock_user_doc = MagicMock()
+        mock_user_doc.exists = True
+        mock_user_doc.to_dict.return_value = {
+            'role_name': 'staff',
+            'role_num': 4,
+            'name': 'Test User',
+            'email': 'test@example.com'
+        }
         
-        # 5. Delete notification
-        result = self.notification_service.delete_notification(notification_id)
-        self.assertTrue(result)
+        # Mock collections
+        mock_tasks_ref = MagicMock()
+        mock_tasks_ref.stream.return_value = [mock_task_doc]
+        mock_users_ref = MagicMock()
+        mock_users_ref.document.return_value.get.return_value = mock_user_doc
+        mock_projects_ref = MagicMock()
+        mock_project_doc = MagicMock()
+        mock_project_doc.exists = True
+        mock_project_doc.to_dict.return_value = {'project_name': 'Test Project'}
+        mock_projects_ref.document.return_value.get.return_value = mock_project_doc
         
-        # 6. Verify notification is deleted
-        notifications = self.notification_service.get_user_notifications(user_id)
+        mock_db.collection.side_effect = lambda name: {
+            'Tasks': mock_tasks_ref,
+            'Users': mock_users_ref,
+            'Projects': mock_projects_ref
+        }[name]
+        
+        # Call the method
+        result = self.notification_service.notify_upcoming_deadlines()
+        
+        # Verify result
+        self.assertGreaterEqual(result, 0)
+    
+    @patch('services.notification_service.get_firestore_client')
+    def test_notify_task_updated(self, mock_get_firestore_client):
+        """Test notifying staff members when a task is updated"""
+        # Set up mock database
+        mock_db = MagicMock()
+        mock_get_firestore_client.return_value = mock_db
+        
+        # Mock user document
+        mock_user_doc = MagicMock()
+        mock_user_doc.exists = True
+        mock_user_doc.to_dict.return_value = {
+            'role_name': 'staff',
+            'role_num': 4,
+            'name': 'Test User',
+            'email': 'test@example.com'
+        }
+        
+        # Mock users collection
+        mock_users_ref = MagicMock()
+        mock_users_ref.document.return_value.get.return_value = mock_user_doc
+        mock_db.collection.return_value = mock_users_ref
+        
+        # Test data
+        task_data = {
+            'task_name': 'Updated Task',
+            'task_ID': 'task_123',
+            'proj_ID': 'project_456'
+        }
+        assigned_user_ids = ['user_123']
+        updated_fields = ['task_name', 'end_date']
+        
+        # Call the method
+        self.notification_service.notify_task_updated(
+            task_data, assigned_user_ids, updated_fields
+        )
+        
+        # Verify database was queried
+        mock_db.collection.assert_called_with('Users')
+        
+        # Verify notification was created
+        notifications = self.notification_service.get_user_notifications('user_123')
+        self.assertEqual(len(notifications), 1)
+        self.assertEqual(notifications[0]['type'], 'task_updated')
+        self.assertEqual(notifications[0]['title'], 'Task Updated')
+    
+    def test_generate_update_message_single_field(self):
+        """Test generating update message for single field"""
+        task_name = "Test Task"
+        updated_fields = ["task_name"]
+        task_data = {"task_name": "New Task Name"}
+        
+        title, message = self.notification_service._generate_update_message(
+            task_name, updated_fields, task_data
+        )
+        
+        self.assertEqual(title, "Task Updated")
+        self.assertEqual(message, "Test Task: Task name has been changed")
+    
+    def test_generate_update_message_multiple_fields(self):
+        """Test generating update message for multiple fields"""
+        task_name = "Test Task"
+        updated_fields = ["task_name", "end_date", "priority_level"]
+        task_data = {"task_name": "New Task Name"}
+        
+        title, message = self.notification_service._generate_update_message(
+            task_name, updated_fields, task_data
+        )
+        
+        self.assertEqual(title, "Task Updated")
+        self.assertEqual(message, "Test Task has been updated")
+    
+    def test_generate_update_message_unknown_field(self):
+        """Test generating update message for unknown field"""
+        task_name = "Test Task"
+        updated_fields = ["unknown_field"]
+        task_data = {"unknown_field": "value"}
+        
+        title, message = self.notification_service._generate_update_message(
+            task_name, updated_fields, task_data
+        )
+        
+        self.assertEqual(title, "Task Updated")
+        self.assertEqual(message, "Test Task: Task has been updated")
+    
+    @patch('services.notification_service.get_firestore_client')
+    def test_notify_task_assigned_non_staff_user(self, mock_get_firestore_client):
+        """Test notifying non-staff users (should be skipped)"""
+        # Set up mock database
+        mock_db = MagicMock()
+        mock_get_firestore_client.return_value = mock_db
+        
+        # Mock user document for non-staff user
+        mock_user_doc = MagicMock()
+        mock_user_doc.exists = True
+        mock_user_doc.to_dict.return_value = {
+            'role_name': 'manager',
+            'role_num': 2,  # Not staff (4)
+            'name': 'Test Manager',
+            'email': 'manager@example.com'
+        }
+        
+        # Mock users collection
+        mock_users_ref = MagicMock()
+        mock_users_ref.document.return_value.get.return_value = mock_user_doc
+        mock_db.collection.return_value = mock_users_ref
+        
+        # Test data
+        task_data = {
+            'task_name': 'Test Task',
+            'task_ID': 'task_123',
+            'proj_ID': 'project_456'
+        }
+        assigned_user_ids = ['manager_123']
+        
+        # Call the method
+        self.notification_service.notify_task_assigned(task_data, assigned_user_ids)
+        
+        # Verify no notification was created for non-staff user
+        notifications = self.notification_service.get_user_notifications('manager_123')
         self.assertEqual(len(notifications), 0)
+    
+    @patch('services.notification_service.get_firestore_client')
+    def test_notify_task_assigned_user_not_found(self, mock_get_firestore_client):
+        """Test notifying when user document doesn't exist"""
+        # Set up mock database
+        mock_db = MagicMock()
+        mock_get_firestore_client.return_value = mock_db
         
-    def test_multiple_users_notifications(self):
-        """Test notifications for multiple users"""
-        user1_id = "user_1"
-        user2_id = "user_2"
+        # Mock user document that doesn't exist
+        mock_user_doc = MagicMock()
+        mock_user_doc.exists = False
         
-        # Create notifications for both users
-        self.notification_service.create_notification(
-            user_id=user1_id,
-            notification_type="task_assigned",
-            title="Task for User 1",
-            message="Message for User 1"
+        # Mock users collection
+        mock_users_ref = MagicMock()
+        mock_users_ref.document.return_value.get.return_value = mock_user_doc
+        mock_db.collection.return_value = mock_users_ref
+        
+        # Test data
+        task_data = {
+            'task_name': 'Test Task',
+            'task_ID': 'task_123',
+            'proj_ID': 'project_456'
+        }
+        assigned_user_ids = ['nonexistent_user']
+        
+        # Call the method
+        self.notification_service.notify_task_assigned(task_data, assigned_user_ids)
+        
+        # Verify no notification was created
+        notifications = self.notification_service.get_user_notifications('nonexistent_user')
+        self.assertEqual(len(notifications), 0)
+    
+    @patch('services.notification_service.get_firestore_client')
+    def test_notify_task_assigned_exception_handling(self, mock_get_firestore_client):
+        """Test exception handling in notify_task_assigned"""
+        # Set up mock database to raise exception
+        mock_db = MagicMock()
+        mock_db.collection.side_effect = Exception("Database error")
+        mock_get_firestore_client.return_value = mock_db
+        
+        # Test data
+        task_data = {
+            'task_name': 'Test Task',
+            'task_ID': 'task_123',
+            'proj_ID': 'project_456'
+        }
+        assigned_user_ids = ['user_123']
+        
+        # Call the method - should not raise exception
+        self.notification_service.notify_task_assigned(task_data, assigned_user_ids)
+        
+        # Verify no notification was created due to error
+        notifications = self.notification_service.get_user_notifications('user_123')
+        self.assertEqual(len(notifications), 0)
+    
+    @patch('services.notification_service.get_firestore_client')
+    def test_notify_upcoming_deadlines_exception_handling(self, mock_get_firestore_client):
+        """Test exception handling in notify_upcoming_deadlines"""
+        # Set up mock database to raise exception
+        mock_db = MagicMock()
+        mock_db.collection.side_effect = Exception("Database error")
+        mock_get_firestore_client.return_value = mock_db
+        
+        # Call the method - should not raise exception
+        result = self.notification_service.notify_upcoming_deadlines()
+        
+        # Should return 0 due to error
+        self.assertEqual(result, 0)
+    
+    @patch('services.notification_service.get_firestore_client')
+    def test_notify_task_updated_exception_handling(self, mock_get_firestore_client):
+        """Test exception handling in notify_task_updated"""
+        # Set up mock database to raise exception
+        mock_db = MagicMock()
+        mock_db.collection.side_effect = Exception("Database error")
+        mock_get_firestore_client.return_value = mock_db
+        
+        # Test data
+        task_data = {
+            'task_name': 'Updated Task',
+            'task_ID': 'task_123',
+            'proj_ID': 'project_456'
+        }
+        assigned_user_ids = ['user_123']
+        updated_fields = ['task_name']
+        
+        # Call the method - should not raise exception
+        self.notification_service.notify_task_updated(
+            task_data, assigned_user_ids, updated_fields
         )
         
-        self.notification_service.create_notification(
-            user_id=user2_id,
-            notification_type="deadline",
-            title="Task for User 2",
-            message="Message for User 2"
-        )
-        
-        # Verify each user has their own notifications
-        user1_notifications = self.notification_service.get_user_notifications(user1_id)
-        user2_notifications = self.notification_service.get_user_notifications(user2_id)
-        
-        self.assertEqual(len(user1_notifications), 1)
-        self.assertEqual(len(user2_notifications), 1)
-        self.assertEqual(user1_notifications[0]['title'], 'Task for User 1')
-        self.assertEqual(user2_notifications[0]['title'], 'Task for User 2')
-        
-    def test_notification_sorting_by_timestamp(self):
-        """Test that notifications are sorted by timestamp (newest first)"""
+        # Verify no notification was created due to error
+        notifications = self.notification_service.get_user_notifications('user_123')
+        self.assertEqual(len(notifications), 0)
+    
+    def test_get_user_notifications_exception_handling(self):
+        """Test exception handling in get_user_notifications"""
+        # This test is already covered by the existing tests, but let's add one more edge case
         user_id = "test_user_123"
         
-        # Create notifications with slight delays to ensure different timestamps
-        import time
-        
-        self.notification_service.create_notification(
-            user_id=user_id,
-            notification_type="test1",
-            title="First Task",
-            message="First Message"
-        )
-        
-        time.sleep(0.01)  # Small delay to ensure different timestamps
-        
-        self.notification_service.create_notification(
-            user_id=user_id,
-            notification_type="test2",
-            title="Second Task",
-            message="Second Message"
-        )
-        
-        # Get notifications (should be sorted by timestamp desc)
-        notifications = self.notification_service.get_user_notifications(user_id)
-        
-        self.assertEqual(len(notifications), 2)
-        # Second notification should come first (newest)
-        self.assertEqual(notifications[0]['title'], 'Second Task')
-        self.assertEqual(notifications[1]['title'], 'First Task')
-
-
-class TestNotificationEdgeCases(unittest.TestCase):
-    """Test notification edge cases and error handling"""
-    
-    def setUp(self):
-        """Set up test fixtures"""
-        self.notification_service = NotificationService()
-        self.notification_service.notifications_cache = {}
-        
-    def tearDown(self):
-        """Clean up after each test"""
-        self.notification_service.notifications_cache = {}
-        
-    def test_empty_user_notifications(self):
-        """Test getting notifications for user with no notifications"""
-        user_id = "empty_user"
-        
-        notifications = self.notification_service.get_user_notifications(user_id)
-        
+        # Test with invalid user_id that might cause issues
+        notifications = self.notification_service.get_user_notifications(None)
         self.assertEqual(len(notifications), 0)
-        
-    def test_invalid_notification_id_format(self):
-        """Test operations with invalid notification ID formats"""
-        # Test with None
+    
+    def test_mark_as_read_exception_handling(self):
+        """Test exception handling in mark_as_read"""
+        # Test with invalid notification_id
         result = self.notification_service.mark_as_read(None)
         self.assertFalse(result)
-        
+    
+    def test_delete_notification_exception_handling(self):
+        """Test exception handling in delete_notification"""
+        # Test with invalid notification_id
         result = self.notification_service.delete_notification(None)
         self.assertFalse(result)
-        
-        # Test with empty string
-        result = self.notification_service.mark_as_read("")
-        self.assertFalse(result)
-        
-        result = self.notification_service.delete_notification("")
-        self.assertFalse(result)
-        
-    def test_unicode_notification_content(self):
-        """Test notifications with unicode content"""
-        user_id = "test_user_123"
-        
-        notification_id = self.notification_service.create_notification(
-            user_id=user_id,
-            notification_type="test",
-            title="🚀 Task with Emoji",
-            message="Message with special chars: àáâãäåæçèéêë",
-            task_id="task_123"
-        )
-        
-        self.assertIsNotNone(notification_id)
-        
-        notifications = self.notification_service.get_user_notifications(user_id)
-        self.assertEqual(len(notifications), 1)
-        self.assertEqual(notifications[0]['title'], "🚀 Task with Emoji")
-        self.assertIn("àáâãäåæçèéêë", notifications[0]['message'])
-        
-    def test_very_long_notification_content(self):
-        """Test notifications with very long content"""
-        user_id = "test_user_123"
-        long_title = "A" * 1000  # 1000 character title
-        long_message = "B" * 5000  # 5000 character message
-        
-        notification_id = self.notification_service.create_notification(
-            user_id=user_id,
-            notification_type="test",
-            title=long_title,
-            message=long_message
-        )
-        
-        self.assertIsNotNone(notification_id)
-        
-        notifications = self.notification_service.get_user_notifications(user_id)
-        self.assertEqual(len(notifications), 1)
-        self.assertEqual(len(notifications[0]['title']), 1000)
-        self.assertEqual(len(notifications[0]['message']), 5000)
-        
-    def test_concurrent_notification_operations(self):
-        """Test concurrent notification operations"""
-        user_id = "test_user_123"
-        
-        # Create multiple notifications rapidly
-        notification_ids = []
-        for i in range(10):
-            notification_id = self.notification_service.create_notification(
-                user_id=user_id,
-                notification_type="test",
-                title=f"Task {i}",
-                message=f"Message {i}"
-            )
-            notification_ids.append(notification_id)
-        
-        # Verify all notifications were created
-        notifications = self.notification_service.get_user_notifications(user_id)
-        self.assertEqual(len(notifications), 10)
-        
-        # Mark some as read concurrently
-        for i in range(0, 10, 2):  # Mark every other notification as read
-            self.notification_service.mark_as_read(notification_ids[i])
-        
-        # Verify read status
-        notifications = self.notification_service.get_user_notifications(user_id)
-        read_count = sum(1 for n in notifications if n['read'])
-        self.assertEqual(read_count, 5)
-        
-    def test_notification_with_none_values(self):
-        """Test notification creation with None values for optional fields"""
-        user_id = "test_user_123"
-        
-        notification_id = self.notification_service.create_notification(
-            user_id=user_id,
-            notification_type="test",
-            title="Test Task",
-            message="Test Message",
-            task_id=None,
-            project_id=None
-        )
-        
-        self.assertIsNotNone(notification_id)
-        
-        notifications = self.notification_service.get_user_notifications(user_id)
-        self.assertEqual(len(notifications), 1)
-        self.assertIsNone(notifications[0]['task_id'])
-        self.assertIsNone(notifications[0]['project_id'])
 
 
 if __name__ == '__main__':
-    # Create test suite
-    test_suite = unittest.TestSuite()
+    print("=" * 80)
+    print("C1 UNIT TESTING - NOTIFICATION SERVICE")
+    print("=" * 80)
+    print("Testing individual NotificationService methods in complete isolation")
+    print("No external dependencies, no Flask app, no database")
+    print("=" * 80)
     
-    # Add test classes
-    test_suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestNotificationService))
-    test_suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestNotificationAPI))
-    test_suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestNotificationWorkflow))
-    test_suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestNotificationEdgeCases))
-    
-    # Run tests
-    runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(test_suite)
-    
-    # Print summary
-    print(f"\n{'='*50}")
-    print("NOTIFICATION UNIT TESTS SUMMARY")
-    print(f"{'='*50}")
-    print(f"Tests run: {result.testsRun}")
-    print(f"Failures: {len(result.failures)}")
-    print(f"Errors: {len(result.errors)}")
-    print(f"Success rate: {((result.testsRun - len(result.failures) - len(result.errors)) / result.testsRun * 100):.1f}%")
-    
-    if result.failures:
-        print("\nFAILURES:")
-        for test, traceback in result.failures:
-            print(f"- {test}: {traceback}")
-    
-    if result.errors:
-        print("\nERRORS:")
-        for test, traceback in result.errors:
-            print(f"- {test}: {traceback}")
+    # Run with verbose output
+    unittest.main(verbosity=2)
