@@ -29,16 +29,28 @@ class TestBasicFunctionality(unittest.TestCase):
 
 
 # Import the comprehensive password tests
-from .auth.test_password_unit import *
+try:
+    from testing.auth.test_password_unit import *
+except ImportError:
+    from auth.test_password_unit import *
 
 # Import the registration API tests
-from .test_registration_api import *
+try:
+    from testing.test_registration_api import *
+except ImportError:
+    from test_registration_api import *
 
 # Import the reset password tests
-from .auth.test_reset_password_unit import *
+try:
+    from testing.auth.test_reset_password_unit import *
+except ImportError:
+    from auth.test_reset_password_unit import *
 
 # Import the task reminder tests
-from .test_task_reminder_unit import *
+try:
+    from testing.test_task_reminder_unit import *
+except ImportError:
+    from test_task_reminder_unit import *
 
 
 if __name__ == "__main__":  # pragma: no cover

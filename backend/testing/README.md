@@ -1,136 +1,83 @@
-# Backend Testing Suite
+# Testing Directory - Single File Approach
 
-This directory contains all testing files organized by category for better project structure and maintainability.
+## 🎯 How to Run Tests
 
+All tests use the **single file approach** - each test file can be run directly without separate runners.
 
-
-## Test Categories
-
-### 1. **Unit Tests** (`test_unit.py`)
-- **Purpose**: Test individual functions and methods in isolation
-- **Scope**: Single functions, classes, or small components
-- **Dependencies**: Minimal external dependencies
-- **Speed**: Fast execution
-
-### 2. **Integration Tests** (`test_integration.py`)
-- **Purpose**: Test interaction between different components
-- **Scope**: Multiple modules working together
-- **Dependencies**: Database, external services
-- **Speed**: Slower than unit tests
-
-### 3. **Email Tests** (`test_email.py`)
-- **Purpose**: Test email service functionality
-- **Scope**: SMTP configuration, email templates, delivery
-- **Dependencies**: Email service configuration
-- **Speed**: Medium execution time
-
-### 4. **Authentication Tests** (`testing/auth/`)
-- **Purpose**: Test password validation, hashing, and verification
-- **Scope**: User authentication, security features
-- **Dependencies**: Password functions, hashing algorithms
-- **Speed**: Fast execution with comprehensive coverage
-
-## Running Tests
-
-### Run All Tests
+### 🔔 Bell Notification Tests (In-App Notifications)
 ```bash
-# From backend directory
-python3 -m pytest testing/ -v
-```
+# Run bell notification API tests
+python3 -m unittest testing.test_notification_api
 
-### Run Specific Test Categories
-```bash
-# Unit tests
-python3 testing/test_unit.py
-
-# Integration tests
-python3 testing/test_integration.py
-
-# Email tests
-python3 testing/test_email.py
-
-# Authentication tests
-cd testing/auth
-python3 simple_password_test.py
-```
-
-### Run with Coverage
-```bash
-# Install coverage if not already installed
-pip3 install coverage pytest-cov
-
-# Run with coverage
-python3 -m pytest testing/ --cov=. --cov-report=html --cov-report=term
-```
-
-## Coverage Analysis
-
-Each test category provides coverage analysis:
-
-- **Unit Tests**: Function-level coverage
-- **Integration Tests**: Component interaction coverage
-- **Email Tests**: Email service coverage
-- **Authentication Tests**: Password security coverage (100% function coverage)
-
-## Test Configuration
-
-### Dependencies
-- `pytest` - Test framework
-- `coverage` - Coverage analysis
-- `pytest-cov` - Coverage integration
-- `unittest` - Built-in testing framework
-
-### Environment Setup
-```bash
-# Install testing dependencies
-pip3 install -r testing/auth/requirements-test.txt
-
-# Or install individually
-pip3 install pytest coverage pytest-cov
-```
-
-## Best Practices
-
-1. **Test Organization**: Keep tests organized by functionality
-2. **Naming Convention**: Use descriptive test names
-3. **Coverage Goals**: Aim for >80% coverage on critical functions
-4. **Test Isolation**: Each test should be independent
-5. **Documentation**: Document test purpose and expected behavior
-
-## Debugging Tests
-
-### Common Issues
-1. **Import Errors**: Check Python path and module structure
-2. **Database Issues**: Ensure test database is properly configured
-3. **Environment Variables**: Verify all required env vars are set
-4. **Dependencies**: Ensure all required packages are installed
-
-### Debug Commands
-```bash
 # Run with verbose output
-python3 -m pytest testing/ -v -s
-
-# Run specific test with debugging
-python3 -m pytest testing/unit/test_unit.py::test_specific_function -v -s
-
-# Check test discovery
-python3 -m pytest --collect-only testing/
+python3 -m unittest testing.test_notification_api -v
 ```
 
-## Continuous Integration
+### 📧 Task Reminder Tests (Email Notifications)
+```bash
+# Run task reminder tests
+python3 -m unittest testing.test_task_reminder_unit
 
-Tests are designed to run in CI/CD pipelines:
-
-```yaml
-# Example GitHub Actions workflow
-- name: Run Tests
-  run: |
-    cd backend
-    python3 -m pytest testing/ --cov=. --cov-report=xml
-    
-- name: Upload Coverage
-  uses: codecov/codecov-action@v3
-  with:
-    file: backend/coverage.xml
+# Run with verbose output
+python3 -m unittest testing.test_task_reminder_unit -v
 ```
 
+### 🔐 Authentication Tests
+```bash
+# Run password tests
+python3 -m unittest testing.auth.test_password_unit
+
+# Run reset password tests
+python3 -m unittest testing.auth.test_reset_password_unit
+
+# Run registration API tests
+python3 -m unittest testing.test_registration_api
+```
+
+### 🧪 Integration Tests
+```bash
+# Run integration tests
+python3 -m unittest testing.test_integration
+
+# Run all tests
+python3 -m unittest testing
+```
+
+## 📋 Test Files Overview
+
+### 🔔 Bell Notifications (In-App)
+- `test_notification_api.py` - API endpoints with real data (14 tests)
+- `test_notification_unit.py` - Unit tests (32 tests) - **REDUNDANT**
+
+### 📧 Task Reminders (Email)
+- `test_task_reminder_unit.py` - Email notifications and scheduling (19 tests)
+- `test_task_reminder_edge_cases.py` - Edge cases (8 tests)
+
+### 🔐 Authentication
+- `testing/auth/test_password_unit.py` - Password validation/hashing (41 tests)
+- `testing/auth/test_reset_password_unit.py` - Reset password (15 tests)
+- `test_registration_api.py` - Registration API (14 tests)
+
+### 🧪 Integration
+- `test_integration.py` - Basic integration tests (4 tests)
+- `test_unit.py` - General unit tests (4 tests)
+
+## 🎯 Benefits of Single File Approach
+
+✅ **Simple** - One command to run each test
+✅ **Clean** - No separate runner files needed
+✅ **Direct** - Run exactly what you want
+✅ **Standard** - Uses Python's built-in unittest
+
+## 🚀 Quick Start
+
+```bash
+# Run all notification tests
+python3 -m unittest testing.test_notification_api testing.test_task_reminder_unit
+
+# Run all authentication tests
+python3 -m unittest testing.test_registration_api testing.auth.test_password_unit
+
+# Run everything
+python3 -m unittest testing
+```
