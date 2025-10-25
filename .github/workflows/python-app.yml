@@ -37,19 +37,19 @@ jobs:
         flake8 backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Run unit tests 
+    - name: Run C1 unit tests 
       run: | 
-        cd backend && python3 -m unittest testing.test_unit
+        cd backend && python3 -m unittest testing.unit.test_app_functions_unit testing.unit.test_dashboard_utils_c1 testing.unit.test_project_completion_c1
     - name: Run integration tests 
       run: | 
-        cd backend && python3 -m unittest testing.test_integration
-    - name: Run password tests with coverage
+        cd backend && python3 -m unittest testing.integration.test_api_registration testing.integration.test_api_subtask
+    - name: Run C1 unit tests with coverage
       run: |
-        cd backend && coverage run --source=. -m unittest testing.auth.test_password_unit
+        cd backend && coverage run --source=. -m unittest testing.unit.test_app_functions_unit testing.unit.test_dashboard_utils_c1 testing.unit.test_project_completion_c1
         coverage report
-        coverage html -d testing/auth/htmlcov
+        coverage html -d htmlcov
     - name: Upload coverage reports
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report
-        path: backend/testing/auth/htmlcov/
+        path: backend/htmlcov/
