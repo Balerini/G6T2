@@ -346,8 +346,8 @@
             v-model="formData.priority"
             class="form-select"
             :class="{ 'error': errors.priority, 'readonly-input': !isSubtaskOwner }"
-            @change="validateField('priority')"
-            @blur="validateField('priority')"
+            @change="isSubtaskOwner ? validateField('priority') : null"
+            @blur="isSubtaskOwner ? validateField('priority') : null" 
             :disabled="!isSubtaskOwner"
           >
             <option value="" disabled>Select priority (1-10)</option>
