@@ -62,6 +62,144 @@ def is_project_completed(project_id, db):
         return False
 
 # =============== CALENDAR GENERATION HELPER FUNCTIONS ===============
+def generate_team_calendar_pdf(tasks, project_name, project_data, users_ref):
+    """Generate team schedule PDF with tasks for each collaborator"""
+    users = {u.id: u.to_dict() for u in users_ref.stream()}
+    styles = getSampleStyleSheet()
+    
+    # Get project collaborators
+    project_collaborator_ids = set(project_data.get('collaborators', []))
+    
+    # Build task list for each collaborator
+    collaborator_tasks = {}
+    
+    for task in tasks:
+        assigned_to = task.get("assigned_to", [])
+        task_name = task.get("task_name", "Unknown Task")
+        priority = task.get("priority_level", 1)
+        
+        # Parse dates
+        start_date = task.get("start_date", "")
+        end_date = task.get("end_date", "")
+        
+        duration = "N/A"
+        start_str = "N/A"
+        end_str = "N/A"
+        
+        if start_date:
+            try:
+                if isinstance(start_date, str):
+                    if "T" in start_date:
+                        dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+                    else:
+                        dt = datetime.fromisoformat(start_date)
+                else:
+                    dt = start_date
+                start_str = dt.strftime("%Y-%m-%d")
+            except:
+                pass
+        
+        if end_date:
+            try:
+                if isinstance(end_date, str):
+                    if "T" in end_date:
+                        dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                    else:
+                        dt = datetime.fromisoformat(end_date)
+                else:
+                    dt = end_date
+                end_str = dt.strftime("%Y-%m-%d")
+                
+                # Calculate duration
+                if start_date and end_date:
+                    try:
+                        start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00")) if isinstance(start_date, str) else start_date
+                        end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00")) if isinstance(end_date, str) else end_date
+                        if hasattr(start_dt, 'date'):
+                            start_dt = start_dt.date()
+                        if hasattr(end_dt, 'date'):
+                            end_dt = end_dt.date()
+                        delta = end_dt - start_dt
+                        duration = f"{delta.days + 1} days"
+                    except:
+                        duration = "N/A"
+            except:
+                pass
+        
+        # Assign task to each collaborator
+        for user_id in assigned_to:
+            if user_id in project_collaborator_ids:
+                user_name = users.get(user_id, {}).get('name', f'User_{user_id}')
+                
+                if user_name not in collaborator_tasks:
+                    collaborator_tasks[user_name] = []
+                
+                collaborator_tasks[user_name].append({
+                    'name': task_name,
+                    'start': start_str,
+                    'end': end_str,
+                    'duration': duration,
+                    'priority': priority
+                })
+    
+    # Generate PDF elements
+    calendar_elements = []
+    
+    # Add all collaborators (even if they have no tasks)
+    all_collaborators = {}
+    for user_id in project_collaborator_ids:
+        user_name = users.get(user_id, {}).get('name', f'User_{user_id}')
+        all_collaborators[user_name] = collaborator_tasks.get(user_name, [])
+    
+    # Sort collaborators alphabetically
+    sorted_collaborators = sorted(all_collaborators.keys())
+    
+    # Create table for each collaborator
+    for collaborator_name in sorted_collaborators:
+        tasks_list = all_collaborators[collaborator_name]
+        
+        # Collaborator header
+        collaborator_header = Paragraph(f"<b>{collaborator_name}</b>", styles["h2"])
+        calendar_elements.append(collaborator_header)
+        calendar_elements.append(Spacer(1, 8))
+        
+        if not tasks_list:
+            no_tasks_text = Paragraph("<i>No tasks assigned</i>", styles["Normal"])
+            calendar_elements.append(no_tasks_text)
+            calendar_elements.append(Spacer(1, 16))
+            continue
+        
+        # Create table with task details
+        table_data = [["Task Name", "Start Date", "End Date", "Duration", "Priority"]]
+        
+        for task in tasks_list:
+            priority_str = "High" if task['priority'] >= 4 else "Medium" if task['priority'] >= 2 else "Low"
+            table_data.append([
+                task['name'],
+                task['start'],
+                task['end'],
+                task['duration'],
+                priority_str
+            ])
+        
+        task_table = Table(table_data, colWidths=[2.5*inch, 1*inch, 1*inch, 0.8*inch, 0.7*inch])
+        task_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
+            ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.beige, colors.white]),
+        ]))
+        
+        calendar_elements.append(task_table)
+        calendar_elements.append(Spacer(1, 20))
+    
+    return calendar_elements
+
+
 def generate_calendar_months(tasks, project_name):
     """Generate calendar months with tasks for PDF"""
     from collections import defaultdict
@@ -941,15 +1079,16 @@ def export_project_tasks(project_id):
         # --- Calendar Format ---
         if format_type == 'calendar':
             # Title
-            elements.append(Paragraph(f"<b>Project Calendar: {project_name}</b>", styles["h1"]))
-            elements.append(Paragraph(f"ID: {project_id}", styles["h3"]))
+            elements.append(Paragraph(f"<b>Project Team Calendar: {project_name}</b>", styles["h1"]))
             elements.append(Spacer(1, 24))
             
-            # Generate calendar for each month with tasks
-            calendar_months = generate_calendar_months(tasks, project_name)
-            for month_calendar in calendar_months:
-                elements.append(KeepTogether(month_calendar))
-                elements.append(Spacer(1, 20))
+            # Generate team calendar similar to Excel format
+            team_calendar = generate_team_calendar_pdf(tasks, project_name, project_data, users_ref)
+            for calendar_element in team_calendar:
+                if isinstance(calendar_element, Table):
+                    elements.append(KeepTogether(calendar_element))
+                else:
+                    elements.append(calendar_element)
         else:
             # --- Title ---
             elements.append(Paragraph(f"<b>Project Report: {project_name}</b>", styles["h1"]))

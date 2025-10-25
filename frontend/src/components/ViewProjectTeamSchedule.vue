@@ -6,13 +6,22 @@
           <h3 class="schedule-title">📅 Project Team Task Schedule</h3>
           <p class="schedule-subtitle">Project timeline and task assignments</p>
         </div>
-        <button @click="downloadSchedule" class="download-btn" title="Download Team Schedule">
-          <svg class="download-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
+        <div class="export-dropdown">
+          <button @click="toggleDropdown" class="export-btn">
+            Export ▾
+          </button>
+          
+          <transition name="fade">
+            <div v-if="showDropdown" class="dropdown-menu">
+              <button @click="downloadSchedule('pdf')" class="dropdown-item">
+                📄 Download as PDF
+              </button>
+              <button @click="downloadSchedule('excel')" class="dropdown-item">
+                📊 Download as Excel
+              </button>
+            </div>
+          </transition>
+        </div>
       </div>
     </div>
 
@@ -96,7 +105,7 @@
 </template>
 
 <script>
-import { onMounted, ref } from "vue";
+import { onMounted, ref, onUnmounted } from "vue";
 import { projectService } from "../services/projectService";
 
 export default {
@@ -273,7 +282,17 @@ export default {
       return `${bar.ganttBarConfig.label}\nStart: ${formatDate(bar.start)}\nEnd: ${formatDate(bar.end)}\nStatus: ${bar.status || 'N/A'}`;
     };
 
+    // Close dropdown when clicking outside
+    const handleClickOutside = (event) => {
+      if (showDropdown.value && !event.target.closest('.export-dropdown')) {
+        showDropdown.value = false;
+      }
+    };
+
     onMounted(async () => {
+      // Add event listener for clicking outside dropdown
+      document.addEventListener('click', handleClickOutside);
+      
       try {
         loading.value = true;
         error.value = null;
@@ -427,13 +446,25 @@ export default {
       return colors[status] || '#60a5fa';
     };
 
-    const downloadSchedule = async () => {
+    const showDropdown = ref(false);
+    
+    const toggleDropdown = () => {
+      showDropdown.value = !showDropdown.value;
+    };
+
+    const downloadSchedule = async (format = 'excel') => {
       try {
-        console.log('Downloading team schedule as Excel...');
+        console.log(`Downloading team schedule as ${format.toUpperCase()}...`);
         console.log('Project ID:', props.projectId);
         console.log('Project Name:', projectName.value);
         
-        const url = `http://localhost:8000/api/projects/${props.projectId}/export-excel`;
+        // Use different endpoints for Excel vs PDF
+        let url;
+        if (format === 'pdf') {
+          url = `http://localhost:8000/api/projects/${props.projectId}/export?format=calendar`;
+        } else {
+          url = `http://localhost:8000/api/projects/${props.projectId}/export-excel`;
+        }
         console.log('Request URL:', url);
         
         const response = await fetch(url);
@@ -453,18 +484,28 @@ export default {
         const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = downloadUrl;
-        a.download = `${projectName.value.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-')}_Team_Calendar.xlsx`;
+        
+        // Set appropriate file extension based on format
+        const fileExtension = format === 'excel' ? 'xlsx' : 'pdf';
+        a.download = `${projectName.value.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-')}_Team_Calendar.${fileExtension}`;
+        
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(downloadUrl);
         
-        console.log('✅ Team schedule downloaded successfully as Excel');
+        console.log(`✅ Team schedule downloaded successfully as ${format.toUpperCase()}`);
+        showDropdown.value = false; // Close dropdown after download
       } catch (error) {
         console.error('❌ Error downloading team schedule:', error);
         alert(`Failed to download team schedule: ${error.message}`);
+        showDropdown.value = false; // Close dropdown on error too
       }
     };
+
+    onUnmounted(() => {
+      document.removeEventListener('click', handleClickOutside);
+    });
 
     return {
       loading,
@@ -483,7 +524,9 @@ export default {
       previousMonth,
       nextMonth,
       getCurrentMonthDisplay,
-      downloadSchedule
+      downloadSchedule,
+      showDropdown,
+      toggleDropdown
     };
   },
 };
@@ -516,10 +559,11 @@ export default {
   flex: 1;
 }
 
-.download-btn {
+.export-dropdown {
   position: absolute;
   top: 0;
   right: 0;
+  display: inline-block;
 }
 
 .schedule-title {
@@ -529,44 +573,59 @@ export default {
   margin: 0 0 0.5rem 0;
 }
 
-.download-btn {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 0.5rem;
+.export-btn {
+  background: #111827;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.export-btn:hover {
+  background: #374151;
+}
+
+.dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: 110%;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 180px;
+  z-index: 20;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 40px;
-  height: 40px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  flex-direction: column;
 }
 
-.download-btn:hover {
-  background: #e5e7eb;
-  border-color: #9ca3af;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.dropdown-item {
+  padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  text-align: left;
+  color: #111827;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.download-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+.dropdown-item:hover {
+  background: #f3f4f6;
 }
 
-.download-icon {
-  width: 20px;
-  height: 20px;
-  stroke: currentColor;
-  stroke-width: 2;
-  transition: transform 0.2s ease;
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
 }
 
-.download-btn:hover .download-icon {
-  transform: translateY(2px);
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* Responsive design */
@@ -581,7 +640,7 @@ export default {
     text-align: center;
   }
   
-  .download-btn {
+  .export-dropdown {
     position: static;
     margin-top: 0.5rem;
   }
