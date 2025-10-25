@@ -1033,7 +1033,7 @@ export default {
           id: user.id,
           name: user.name,
           email: user.email || '',
-          department: user.department || 'Unknown',
+          department: user.division_name || user.department || 'Unknown',
           role_num: user.role_num || 4,  // Add this line
           rank: user.role_num || 4       // Add this line for compatibility
         } : null;
