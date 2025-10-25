@@ -38,7 +38,7 @@ from testing.test_registration_api import *
 from testing.auth.test_reset_password_unit import *
 
 # Import the task reminder tests
-from testing.test_task_reminders_unit import *
+from testing.test_task_reminder_unit import *
 
 
 if __name__ == "__main__":  # pragma: no cover
