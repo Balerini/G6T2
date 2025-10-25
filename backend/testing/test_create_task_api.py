@@ -143,8 +143,6 @@ class TestCreateTaskIntegration(unittest.TestCase):
         self.assertEqual(task_data['proj_name'], 'Integration Test Project')
         self.assertFalse(task_data.get('is_deleted', False))
 
-        # For integration tests, we can verify the service worked by checking the result
-        # rather than mocking it. The debug output shows notifications were created.
         print("✅ Integration test passed - notifications were created successfully")
 
     def test_create_task_with_subtasks_your_schema(self):
@@ -174,9 +172,6 @@ class TestCreateTaskIntegration(unittest.TestCase):
         task_data = task_doc.to_dict()
         self.assertTrue(task_data['hasSubtasks'])
         
-        # FIXED: Based on debug output, your code doesn't create subtasks in separate collection
-        # It might store them as part of the task document or not implement subtask creation yet
-        # Let's check if subtasks are stored in the task document itself
         if 'subtasks' in task_data:
             # Subtasks stored in task document
             self.assertGreater(len(task_data['subtasks']), 0)
@@ -233,9 +228,6 @@ class TestCreateTaskIntegration(unittest.TestCase):
         response_data = json.loads(response.data)
         self.test_task_ids.append(response_data['id'])
 
-        # For integration testing, verify the end result rather than mocking
-        # The debug output shows the notification service worked:
-        # "✅ In-memory notification created for user integration_test_user_123"
         print("✅ Notification service integration working - check debug output above")
 
     def test_create_task_with_multiple_collaborators_real(self):
