@@ -3,12 +3,15 @@
     <div class="reset-password-wrapper">
       <div class="brand">
         <h1 class="brand-title">Task Quest</h1>
-        <p class="brand-subtitle">Create your new password</p>
+        <p class="brand-subtitle">{{ resetSuccess ? 'Password reset complete' : 'Create your new password' }}</p>
       </div>
 
       <div class="card">
-        <h2 class="card-title">Reset Password</h2>
-        <p class="card-subtitle">Enter your new password below</p>
+        <!-- Only show headers when form is visible -->
+        <div v-if="!resetSuccess">
+          <h2 class="card-title">Reset Password</h2>
+          <p class="card-subtitle">Enter your new password below</p>
+        </div>
 
         <div v-if="!resetSuccess">
           <!-- Email field -->
