@@ -1,315 +1,261 @@
-#!/usr/bin/env python3
 """
-C1 Unit Tests - Subtask Utility Functions
-Tests individual subtask utility functions in complete isolation.
-No external dependencies, no Flask app, no database.
+Unit Tests for Subtask Utility Functions
+Tests subtask-related utility functions in complete isolation
 """
-
 import unittest
+from unittest.mock import MagicMock, patch
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 
-# Add the backend directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+# Mock the get_firestore_client to prevent actual database calls
+with patch('firebase_utils.get_firestore_client') as mock_get_firestore_client:
+    mock_db = MagicMock()
+    mock_get_firestore_client.return_value = mock_db
+
+    # Extracted utility functions for testing
+    def validate_subtask_collaborators(subtask_collaborators, parent_task_collaborators):
+        """Validate that subtask collaborators are from parent task"""
+        if not subtask_collaborators:
+            return True, []
+        
+        # Convert to strings for comparison
+        parent_collaborator_ids = [str(id) for id in parent_task_collaborators]
+        subtask_collaborator_ids = [str(id) for id in subtask_collaborators]
+        
+        invalid_collaborators = []
+        for collaborator_id in subtask_collaborator_ids:
+            if collaborator_id not in parent_collaborator_ids:
+                invalid_collaborators.append(collaborator_id)
+        
+        return len(invalid_collaborators) == 0, invalid_collaborators
+
+    def calculate_subtask_timeline(start_date, end_date):
+        """Calculate subtask timeline information"""
+        if not start_date or not end_date:
+            return None
+        
+        try:
+            start = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end = datetime.strptime(end_date, '%Y-%m-%d').date()
+            
+            duration = (end - start).days
+            is_overdue = end < date.today()
+            days_remaining = (end - date.today()).days if not is_overdue else 0
+            
+            return {
+                'duration_days': duration,
+                'is_overdue': is_overdue,
+                'days_remaining': days_remaining,
+                'start_date': start,
+                'end_date': end
+            }
+        except ValueError:
+            return None
+
+    def validate_subtask_status_transition(current_status, new_status):
+        """Validate subtask status transition"""
+        valid_transitions = {
+            'Not Started': ['In Progress', 'Cancelled'],
+            'In Progress': ['Completed', 'Cancelled', 'Not Started'],
+            'Completed': ['In Progress'],  # Allow reopening
+            'Cancelled': ['Not Started', 'In Progress']  # Allow reactivation
+        }
+        
+        return new_status in valid_transitions.get(current_status, [])
+
+    def calculate_subtask_priority(deadline_urgency, task_priority):
+        """Calculate subtask priority based on deadline and task priority"""
+        # Simple priority calculation
+        base_priority = task_priority or 5
+        
+        if deadline_urgency == 'urgent':
+            return min(base_priority + 2, 10)
+        elif deadline_urgency == 'normal':
+            return base_priority
+        elif deadline_urgency == 'low':
+            return max(base_priority - 1, 1)
+        else:
+            return base_priority
+
+    def format_subtask_summary(subtask_data):
+        """Format subtask data for summary display"""
+        name = subtask_data.get('name', 'Unnamed Subtask')
+        status = subtask_data.get('status', 'Unknown')
+        start_date = subtask_data.get('start_date', '')
+        end_date = subtask_data.get('end_date', '')
+        
+        summary = f"{name} - {status}"
+        if start_date and end_date:
+            summary += f" ({start_date} to {end_date})"
+        
+        return summary
+
+    def validate_subtask_deadline(start_date, end_date):
+        """Validate that subtask end date is after start date"""
+        if not start_date or not end_date:
+            return True, "No dates to validate"
+        
+        try:
+            start = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end = datetime.strptime(end_date, '%Y-%m-%d').date()
+            
+            if end < start:
+                return False, "End date must be after start date"
+            
+            return True, "Valid deadline"
+        except ValueError:
+            return False, "Invalid date format"
+
+    def calculate_subtask_completion_percentage(subtasks):
+        """Calculate completion percentage for a list of subtasks"""
+        if not subtasks:
+            return 0
+        
+        total_subtasks = len(subtasks)
+        completed_subtasks = sum(1 for subtask in subtasks if subtask.get('status') == 'Completed')
+        
+        return (completed_subtasks / total_subtasks) * 100
 
 class TestSubtaskUtilsUnit(unittest.TestCase):
     """C1 Unit tests for subtask utility functions"""
     
-    def test_validate_subtask_data(self):
-        """Test validation of subtask data"""
-        # Test valid subtask data
-        valid_data = {
-            'name': 'Implement feature',
-            'description': 'Add new functionality',
-            'status': 'In Progress',
-            'priority': 'High',
-            'start_date': '2025-01-01',
-            'end_date': '2025-01-15'
-        }
+    def test_validate_subtask_collaborators_valid(self):
+        """Test valid subtask collaborators"""
+        parent_collaborators = ['user1', 'user2', 'user3']
+        subtask_collaborators = ['user1', 'user2']
         
-        # Test required fields validation
-        required_fields = ['name', 'status', 'start_date', 'end_date']
-        for field in required_fields:
-            if field in valid_data:
-                self.assertIsNotNone(valid_data[field])
-                self.assertNotEqual(valid_data[field], '')
+        is_valid, invalid = validate_subtask_collaborators(subtask_collaborators, parent_collaborators)
+        self.assertTrue(is_valid)
+        self.assertEqual(len(invalid), 0)
     
-    def test_validate_subtask_status(self):
-        """Test subtask status validation"""
-        valid_statuses = ['Not Started', 'In Progress', 'Completed', 'On Hold', 'Cancelled']
+    def test_validate_subtask_collaborators_invalid(self):
+        """Test invalid subtask collaborators"""
+        parent_collaborators = ['user1', 'user2']
+        subtask_collaborators = ['user1', 'user3']  # user3 not in parent
         
-        for status in valid_statuses:
-            self.assertIsInstance(status, str)
-            self.assertGreater(len(status), 0)
-        
-        # Test status transition logic
-        status_transitions = {
-            'Not Started': ['In Progress', 'Cancelled'],
-            'In Progress': ['Completed', 'On Hold', 'Cancelled'],
-            'On Hold': ['In Progress', 'Cancelled'],
-            'Completed': [],  # Terminal state
-            'Cancelled': []   # Terminal state
-        }
-        
-        for status, allowed_transitions in status_transitions.items():
-            self.assertIsInstance(allowed_transitions, list)
+        is_valid, invalid = validate_subtask_collaborators(subtask_collaborators, parent_collaborators)
+        self.assertFalse(is_valid)
+        self.assertIn('user3', invalid)
     
-    def test_validate_subtask_priority(self):
-        """Test subtask priority validation"""
-        valid_priorities = ['Low', 'Medium', 'High', 'Critical']
+    def test_validate_subtask_collaborators_empty(self):
+        """Test empty subtask collaborators"""
+        parent_collaborators = ['user1', 'user2']
+        subtask_collaborators = []
         
-        for priority in valid_priorities:
-            self.assertIsInstance(priority, str)
-            self.assertGreater(len(priority), 0)
-        
-        # Test priority ordering
-        priority_order = {'Low': 1, 'Medium': 2, 'High': 3, 'Critical': 4}
-        for priority, level in priority_order.items():
-            self.assertGreater(level, 0)
+        is_valid, invalid = validate_subtask_collaborators(subtask_collaborators, parent_collaborators)
+        self.assertTrue(is_valid)
+        self.assertEqual(len(invalid), 0)
     
-    def test_subtask_date_validation(self):
-        """Test subtask date validation logic"""
-        def validate_dates(start_date, end_date):
-            """Mock date validation function"""
-            try:
-                start = datetime.fromisoformat(start_date)
-                end = datetime.fromisoformat(end_date)
-                return start <= end
-            except ValueError:
-                return False
+    def test_calculate_subtask_timeline_valid(self):
+        """Test valid subtask timeline calculation"""
+        start_date = '2030-01-01'
+        end_date = '2030-01-10'
         
-        # Test valid date range
-        self.assertTrue(validate_dates('2025-01-01', '2025-01-15'))
-        self.assertTrue(validate_dates('2025-01-01', '2025-01-01'))  # Same day
-        
-        # Test invalid date range
-        self.assertFalse(validate_dates('2025-01-15', '2025-01-01'))
-        
-        # Test invalid date format
-        self.assertFalse(validate_dates('invalid-date', '2025-01-15'))
+        timeline = calculate_subtask_timeline(start_date, end_date)
+        self.assertIsNotNone(timeline)
+        self.assertEqual(timeline['duration_days'], 9)
+        self.assertFalse(timeline['is_overdue'])
     
-    def test_subtask_data_serialization(self):
-        """Test subtask data serialization for JSON"""
+    def test_calculate_subtask_timeline_overdue(self):
+        """Test overdue subtask timeline calculation"""
+        start_date = '2023-01-01'
+        end_date = '2023-01-10'  # Past date
+        
+        timeline = calculate_subtask_timeline(start_date, end_date)
+        self.assertIsNotNone(timeline)
+        self.assertTrue(timeline['is_overdue'])
+    
+    def test_calculate_subtask_timeline_invalid_dates(self):
+        """Test invalid date format in timeline calculation"""
+        timeline = calculate_subtask_timeline('invalid', '2024-01-10')
+        self.assertIsNone(timeline)
+    
+    def test_validate_subtask_status_transition_valid(self):
+        """Test valid status transitions"""
+        self.assertTrue(validate_subtask_status_transition('Not Started', 'In Progress'))
+        self.assertTrue(validate_subtask_status_transition('In Progress', 'Completed'))
+        self.assertTrue(validate_subtask_status_transition('Completed', 'In Progress'))
+    
+    def test_validate_subtask_status_transition_invalid(self):
+        """Test invalid status transitions"""
+        self.assertFalse(validate_subtask_status_transition('Not Started', 'Completed'))
+        self.assertFalse(validate_subtask_status_transition('Unknown', 'In Progress'))
+    
+    def test_calculate_subtask_priority_urgent(self):
+        """Test priority calculation for urgent deadline"""
+        priority = calculate_subtask_priority('urgent', 5)
+        self.assertEqual(priority, 7)
+    
+    def test_calculate_subtask_priority_normal(self):
+        """Test priority calculation for normal deadline"""
+        priority = calculate_subtask_priority('normal', 5)
+        self.assertEqual(priority, 5)
+    
+    def test_calculate_subtask_priority_low(self):
+        """Test priority calculation for low deadline"""
+        priority = calculate_subtask_priority('low', 5)
+        self.assertEqual(priority, 4)
+    
+    def test_format_subtask_summary(self):
+        """Test subtask summary formatting"""
         subtask_data = {
-            'id': 'subtask123',
             'name': 'Test Subtask',
-            'description': 'Test Description',
             'status': 'In Progress',
-            'priority': 'High',
-            'start_date': datetime.now().isoformat(),
-            'end_date': (datetime.now() + timedelta(days=7)).isoformat(),
-            'is_deleted': False,
-            'created_at': datetime.now().isoformat()
+            'start_date': '2024-01-01',
+            'end_date': '2024-01-10'
         }
         
-        # Test that all values are JSON serializable
-        for key, value in subtask_data.items():
-            if isinstance(value, str):
-                self.assertIsInstance(value, str)
-            elif isinstance(value, bool):
-                self.assertIsInstance(value, bool)
+        summary = format_subtask_summary(subtask_data)
+        self.assertIn('Test Subtask', summary)
+        self.assertIn('In Progress', summary)
+        self.assertIn('2024-01-01', summary)
     
-    def test_subtask_filtering(self):
-        """Test subtask filtering logic"""
-        subtasks = [
-            {'id': '1', 'name': 'Task 1', 'status': 'Completed', 'priority': 'High'},
-            {'id': '2', 'name': 'Task 2', 'status': 'In Progress', 'priority': 'Medium'},
-            {'id': '3', 'name': 'Task 3', 'status': 'Not Started', 'priority': 'Low'},
-            {'id': '4', 'name': 'Task 4', 'status': 'In Progress', 'priority': 'High'}
-        ]
+    def test_validate_subtask_deadline_valid(self):
+        """Test valid subtask deadline"""
+        start_date = '2024-01-01'
+        end_date = '2024-01-10'
         
-        # Test filtering by status
-        in_progress = [t for t in subtasks if t['status'] == 'In Progress']
-        self.assertEqual(len(in_progress), 2)
-        
-        # Test filtering by priority
-        high_priority = [t for t in subtasks if t['priority'] == 'High']
-        self.assertEqual(len(high_priority), 2)
-        
-        # Test filtering by completion
-        completed = [t for t in subtasks if t['status'] == 'Completed']
-        self.assertEqual(len(completed), 1)
+        is_valid, message = validate_subtask_deadline(start_date, end_date)
+        self.assertTrue(is_valid)
+        self.assertEqual(message, "Valid deadline")
     
-    def test_subtask_sorting(self):
-        """Test subtask sorting logic"""
-        subtasks = [
-            {'name': 'Task C', 'priority': 'Low', 'status': 'Completed'},
-            {'name': 'Task A', 'priority': 'High', 'status': 'In Progress'},
-            {'name': 'Task B', 'priority': 'Medium', 'status': 'Not Started'}
-        ]
+    def test_validate_subtask_deadline_invalid_order(self):
+        """Test invalid subtask deadline (end before start)"""
+        start_date = '2024-01-10'
+        end_date = '2024-01-01'
         
-        # Test sorting by name
-        sorted_by_name = sorted(subtasks, key=lambda x: x['name'])
-        expected_names = ['Task A', 'Task B', 'Task C']
-        actual_names = [t['name'] for t in sorted_by_name]
-        self.assertEqual(actual_names, expected_names)
-        
-        # Test sorting by priority
-        priority_order = {'Low': 1, 'Medium': 2, 'High': 3}
-        sorted_by_priority = sorted(subtasks, key=lambda x: priority_order.get(x['priority'], 0))
-        expected_priorities = ['Low', 'Medium', 'High']
-        actual_priorities = [t['priority'] for t in sorted_by_priority]
-        self.assertEqual(actual_priorities, expected_priorities)
+        is_valid, message = validate_subtask_deadline(start_date, end_date)
+        self.assertFalse(is_valid)
+        self.assertIn("End date must be after start date", message)
     
-    def test_subtask_progress_calculation(self):
-        """Test subtask progress calculation logic"""
-        def calculate_progress(subtasks):
-            """Mock progress calculation function"""
-            if not subtasks:
-                return 0
-            
-            completed = len([t for t in subtasks if t['status'] == 'Completed'])
-            total = len(subtasks)
-            return (completed / total) * 100
-        
+    def test_validate_subtask_deadline_invalid_format(self):
+        """Test invalid date format in deadline validation"""
+        is_valid, message = validate_subtask_deadline('invalid', '2024-01-10')
+        self.assertFalse(is_valid)
+        self.assertIn("Invalid date format", message)
+    
+    def test_calculate_subtask_completion_percentage(self):
+        """Test subtask completion percentage calculation"""
         # Test with no subtasks
-        self.assertEqual(calculate_progress([]), 0)
+        self.assertEqual(calculate_subtask_completion_percentage([]), 0)
         
         # Test with all completed
-        all_completed = [
-            {'status': 'Completed'},
+        completed_subtasks = [
             {'status': 'Completed'},
             {'status': 'Completed'}
         ]
-        self.assertEqual(calculate_progress(all_completed), 100)
+        self.assertEqual(calculate_subtask_completion_percentage(completed_subtasks), 100)
         
         # Test with mixed statuses
-        mixed_statuses = [
+        mixed_subtasks = [
             {'status': 'Completed'},
             {'status': 'In Progress'},
             {'status': 'Not Started'}
         ]
-        self.assertAlmostEqual(calculate_progress(mixed_statuses), 33.333333333333336, places=10)
-    
-    def test_subtask_deadline_checking(self):
-        """Test subtask deadline checking logic"""
-        def is_overdue(subtask):
-            """Mock deadline checking function"""
-            if 'end_date' not in subtask or 'status' in subtask and subtask['status'] == 'Completed':
-                return False
-            
-            try:
-                end_date = datetime.fromisoformat(subtask['end_date'])
-                return datetime.now() > end_date
-            except ValueError:
-                return False
-        
-        # Test overdue subtask
-        overdue_subtask = {
-            'end_date': (datetime.now() - timedelta(days=1)).isoformat(),
-            'status': 'In Progress'
-        }
-        self.assertTrue(is_overdue(overdue_subtask))
-        
-        # Test not overdue subtask
-        not_overdue_subtask = {
-            'end_date': (datetime.now() + timedelta(days=1)).isoformat(),
-            'status': 'In Progress'
-        }
-        self.assertFalse(is_overdue(not_overdue_subtask))
-        
-        # Test completed subtask (not overdue regardless of date)
-        completed_subtask = {
-            'end_date': (datetime.now() - timedelta(days=1)).isoformat(),
-            'status': 'Completed'
-        }
-        self.assertFalse(is_overdue(completed_subtask))
-    
-    def test_subtask_data_transformation(self):
-        """Test subtask data transformation for API responses"""
-        raw_subtask = {
-            'id': 'subtask123',
-            'name': 'Test Subtask',
-            'description': 'Test Description',
-            'status': 'In Progress',
-            'priority': 'High',
-            'start_date': datetime.now(),
-            'end_date': datetime.now() + timedelta(days=7),
-            'is_deleted': False,
-            'created_at': datetime.now()
-        }
-        
-        # Transform for API response
-        api_response = {
-            'id': raw_subtask['id'],
-            'name': raw_subtask['name'],
-            'description': raw_subtask['description'],
-            'status': raw_subtask['status'],
-            'priority': raw_subtask['priority'],
-            'start_date': raw_subtask['start_date'].isoformat(),
-            'end_date': raw_subtask['end_date'].isoformat(),
-            'is_deleted': raw_subtask['is_deleted'],
-            'created_at': raw_subtask['created_at'].isoformat()
-        }
-        
-        # Test that transformation worked
-        self.assertEqual(api_response['id'], 'subtask123')
-        self.assertEqual(api_response['name'], 'Test Subtask')
-        self.assertIsInstance(api_response['start_date'], str)
-        self.assertIn('T', api_response['start_date'])  # ISO format
-    
-    def test_subtask_validation_comprehensive(self):
-        """Test comprehensive subtask validation"""
-        def validate_subtask(subtask):
-            """Mock comprehensive subtask validation function"""
-            errors = []
-            
-            # Check required fields
-            required_fields = ['name', 'status', 'start_date', 'end_date']
-            for field in required_fields:
-                if field not in subtask or not subtask[field]:
-                    errors.append(f"Missing required field: {field}")
-            
-            # Check status validity
-            valid_statuses = ['Not Started', 'In Progress', 'Completed', 'On Hold', 'Cancelled']
-            if 'status' in subtask and subtask['status'] not in valid_statuses:
-                errors.append("Invalid status")
-            
-            # Check priority validity
-            valid_priorities = ['Low', 'Medium', 'High', 'Critical']
-            if 'priority' in subtask and subtask['priority'] not in valid_priorities:
-                errors.append("Invalid priority")
-            
-            # Check date validity
-            if 'start_date' in subtask and 'end_date' in subtask:
-                try:
-                    start = datetime.fromisoformat(subtask['start_date'])
-                    end = datetime.fromisoformat(subtask['end_date'])
-                    if start > end:
-                        errors.append("Start date cannot be after end date")
-                except ValueError:
-                    errors.append("Invalid date format")
-            
-            return errors
-        
-        # Test valid subtask
-        valid_subtask = {
-            'name': 'Test Subtask',
-            'status': 'In Progress',
-            'priority': 'High',
-            'start_date': '2025-01-01',
-            'end_date': '2025-01-15'
-        }
-        errors = validate_subtask(valid_subtask)
-        self.assertEqual(len(errors), 0)
-        
-        # Test invalid subtask
-        invalid_subtask = {
-            'name': '',
-            'status': 'Invalid Status',
-            'priority': 'Invalid Priority',
-            'start_date': '2025-01-15',
-            'end_date': '2025-01-01'  # Start after end
-        }
-        errors = validate_subtask(invalid_subtask)
-        self.assertGreater(len(errors), 0)
-        self.assertIn("Missing required field: name", errors)
-        self.assertIn("Invalid status", errors)
-        self.assertIn("Invalid priority", errors)
-        self.assertIn("Start date cannot be after end date", errors)
-
+        self.assertAlmostEqual(calculate_subtask_completion_percentage(mixed_subtasks), 33.333333333333336, places=10)
 
 if __name__ == '__main__':
     print("=" * 80)
@@ -319,5 +265,4 @@ if __name__ == '__main__':
     print("No external dependencies, no Flask app, no database")
     print("=" * 80)
 
-    # Run with verbose output
     unittest.main(verbosity=2)

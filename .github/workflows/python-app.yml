@@ -26,11 +26,38 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pytest coverage
+        pip install flake8 pytest coverage==7.3.2
         pip install -r backend/requirements.txt
     - name: Verify openpyxl installation
       run: |
         python -c "import openpyxl; print('openpyxl version:', openpyxl.__version__)"
+    - name: Verify test files exist
+      run: |
+        cd backend && ls -la testing/unit/
+        echo "Checking if all test files exist..."
+        python3 -c "
+        import os
+        test_files = [
+            'testing.unit.test_app_functions_unit',
+            'testing.unit.test_dashboard_utils', 
+            'testing.unit.test_project_completion',
+            'testing.unit.test_email_service',
+            'testing.unit.test_notification_unit',
+            'testing.unit.test_collaborator_utils',
+            'testing.unit.test_subtask_utils',
+            'testing.unit.test_register_validation',
+            'testing.unit.test_reset_password_validation',
+            'testing.unit.test_task_utils',
+            'testing.unit.test_project_utils',
+            'testing.unit.test_routes_utils'
+        ]
+        for test_file in test_files:
+            file_path = test_file.replace('.', '/') + '.py'
+            if os.path.exists(file_path):
+                print(f'✓ {file_path}')
+            else:
+                print(f'✗ {file_path} - MISSING')
+        "
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -39,15 +66,22 @@ jobs:
         flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Run C1 unit tests 
       run: | 
-        cd backend && python3 -m unittest testing.unit.test_app_functions_unit testing.unit.test_dashboard_utils testing.unit.test_project_completion
+        cd backend && python3 -m unittest testing.unit.test_app_functions_unit testing.unit.test_dashboard_utils testing.unit.test_project_completion testing.unit.test_email_service testing.unit.test_notification_unit testing.unit.test_collaborator_utils testing.unit.test_subtask_utils testing.unit.test_register_validation testing.unit.test_reset_password_validation testing.unit.test_task_utils testing.unit.test_project_utils testing.unit.test_routes_utils
+      env:
+        GMAIL_USER: test@example.com
+        GMAIL_APP_PASSWORD: test_password
     - name: Run integration tests 
       run: | 
         cd backend && python3 -m unittest testing.integration.test_api_registration testing.integration.test_api_subtask
     - name: Run C1 unit tests with coverage
       run: |
-        cd backend && coverage run --source=. -m unittest testing.unit.test_app_functions_unit testing.unit.test_dashboard_utils testing.unit.test_project_completion testing.unit.test_notification_unit testing.unit.test_register_validation testing.unit.test_reset_password_validation
+        cd backend && coverage run --source=. -m unittest testing.unit.test_app_functions_unit testing.unit.test_dashboard_utils testing.unit.test_project_completion testing.unit.test_email_service testing.unit.test_notification_unit testing.unit.test_collaborator_utils testing.unit.test_subtask_utils testing.unit.test_register_validation testing.unit.test_reset_password_validation testing.unit.test_task_utils testing.unit.test_project_utils testing.unit.test_routes_utils
         coverage report
         coverage html -d htmlcov
+        echo "Coverage report generated successfully"
+      env:
+        GMAIL_USER: test@example.com
+        GMAIL_APP_PASSWORD: test_password
     - name: Upload coverage reports
       uses: actions/upload-artifact@v4
       with:
