@@ -1,14 +1,19 @@
 [run]
 source = .
-branch = True
 omit = 
     */venv/*
+    */testing/integration/*
+    */testing/__pycache__/*
     */__pycache__/*
-    */testing/*
-    */test_*.py
-    */conftest.py
+    */node_modules/*
     */htmlcov/*
     */coverage/*
+    */migrations/*
+    */tests/*
+    setup.py
+    */site-packages/*
+    run_unit_tests_with_coverage.py
+    run_c1_tests_with_coverage.py
 
 [report]
 exclude_lines =
@@ -22,3 +27,10 @@ exclude_lines =
     if __name__ == .__main__.:
     class .*\bProtocol\):
     @(abc\.)?abstractmethod
+    # Test files
+    def test_
+    class Test
+
+[html]
+directory = htmlcov
+title = Unit Test Coverage Report
