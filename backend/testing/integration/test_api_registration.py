@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-API endpoint tests for user registration functionality.
-Tests the POST /register endpoint with various scenarios.
+API Integration Tests - Registration Feature
+Tests API endpoints with mocked dependencies.
+Tests Flask app + business logic integration.
 """
 
 import unittest
@@ -11,13 +12,13 @@ import json
 from unittest.mock import patch, MagicMock
 
 # Add the backend directory to the Python path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from app import create_app
 
 
 class TestRegistrationAPI(unittest.TestCase):
-    """Test cases for registration API endpoint"""
+    """API Integration tests for registration API endpoint"""
     
     def setUp(self):
         """Set up test client and mock Firestore"""
@@ -31,7 +32,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.mock_db.collection.return_value = self.mock_users_ref
         
     def test_registration_success(self):
-        """Test successful user registration"""
+        """Test successful user registration via API"""
         # Mock data
         registration_data = {
             "name": "John Doe",
@@ -61,7 +62,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['user']['division_name'], 'Sales')
     
     def test_registration_missing_fields(self):
-        """Test registration with missing required fields"""
+        """Test registration with missing required fields via API"""
         # Test missing name
         data = {
             "email": "test@company.com",
@@ -79,7 +80,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['error'], 'All fields are required')
     
     def test_registration_short_name(self):
-        """Test registration with name too short"""
+        """Test registration with name too short via API"""
         data = {
             "name": "J",  # Too short
             "email": "test@company.com",
@@ -97,7 +98,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['error'], 'Name must be at least 2 characters')
     
     def test_registration_invalid_password(self):
-        """Test registration with invalid password"""
+        """Test registration with invalid password via API"""
         data = {
             "name": "John Doe",
             "email": "test@company.com",
@@ -115,7 +116,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertIn('Password must be at least 8 characters long', response_data['error'])
     
     def test_registration_invalid_department(self):
-        """Test registration with invalid department"""
+        """Test registration with invalid department via API"""
         data = {
             "name": "John Doe",
             "email": "test@company.com",
@@ -133,7 +134,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['error'], 'Invalid department selected')
     
     def test_registration_duplicate_email(self):
-        """Test registration with existing email"""
+        """Test registration with existing email via API"""
         data = {
             "name": "John Doe",
             "email": "existing@company.com",
@@ -156,7 +157,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['error'], 'Email already exists')
     
     def test_registration_role_assignment_director(self):
-        """Test role assignment for director email"""
+        """Test role assignment for director email via API"""
         data = {
             "name": "Director Name",
             "email": "director@company.com",
@@ -179,7 +180,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['user']['role_num'], 2)
     
     def test_registration_role_assignment_manager(self):
-        """Test role assignment for manager email"""
+        """Test role assignment for manager email via API"""
         data = {
             "name": "Manager Name",
             "email": "manager@company.com",
@@ -202,7 +203,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['user']['role_num'], 3)
     
     def test_registration_role_assignment_staff(self):
-        """Test role assignment for staff email"""
+        """Test role assignment for staff email via API"""
         data = {
             "name": "Staff Name",
             "email": "staff@company.com",
@@ -225,7 +226,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['user']['role_num'], 4)
     
     def test_registration_database_error(self):
-        """Test registration with database error"""
+        """Test registration with database error via API"""
         data = {
             "name": "John Doe",
             "email": "test@company.com",
@@ -247,7 +248,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertIn('Database error', response_data['error'])
     
     def test_registration_empty_request(self):
-        """Test registration with empty request body"""
+        """Test registration with empty request body via API"""
         response = self.client.post('/register',
                                   data=json.dumps({}),
                                   content_type='application/json')
@@ -258,7 +259,7 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['error'], 'All fields are required')
     
     def test_registration_invalid_json(self):
-        """Test registration with invalid JSON"""
+        """Test registration with invalid JSON via API"""
         response = self.client.post('/register',
                                   data="invalid json",
                                   content_type='application/json')
@@ -270,7 +271,7 @@ class TestRegistrationAPI(unittest.TestCase):
 
 
 class TestRegistrationIntegration(unittest.TestCase):
-    """Integration tests for registration with password functions"""
+    """API Integration tests for registration with password functions"""
     
     def setUp(self):
         """Set up test client"""
@@ -279,7 +280,7 @@ class TestRegistrationIntegration(unittest.TestCase):
         self.client = self.app.test_client()
     
     def test_registration_password_validation_integration(self):
-        """Test that password validation is properly integrated"""
+        """Test that password validation is properly integrated via API"""
         # Test various invalid passwords
         invalid_passwords = [
             "short", 
@@ -307,7 +308,7 @@ class TestRegistrationIntegration(unittest.TestCase):
             self.assertIn('Password', response_data['error'])
     
     def test_registration_password_hashing_integration(self):
-        """Test that password hashing is properly integrated"""
+        """Test that password hashing is properly integrated via API"""
         data = {
             "name": "John Doe",
             "email": "test@company.com",
@@ -333,8 +334,16 @@ class TestRegistrationIntegration(unittest.TestCase):
         self.assertIn('password', call_args)
         # Password should be hashed (hex string, not plain text)
         self.assertNotEqual(call_args['password'], 'TestPass123!')
-        self.assertTrue(len(call_args['password']) > 50)  
+        self.assertTrue(len(call_args['password']) > 50)
 
 
 if __name__ == '__main__':
-    unittest.main()
+    print("=" * 80)
+    print("API INTEGRATION TESTING - REGISTRATION FEATURE")
+    print("=" * 80)
+    print("Testing API endpoints with mocked dependencies")
+    print("Tests Flask app + business logic integration")
+    print("=" * 80)
+    
+    # Run with verbose output
+    unittest.main(verbosity=2)

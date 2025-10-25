@@ -714,7 +714,7 @@ if __name__ == '__main__':
     
     # Print summary
     print(f"\n{'='*50}")
-    print(f"NOTIFICATION UNIT TESTS SUMMARY")
+    print("NOTIFICATION UNIT TESTS SUMMARY")
     print(f"{'='*50}")
     print(f"Tests run: {result.testsRun}")
     print(f"Failures: {len(result.failures)}")
@@ -722,11 +722,11 @@ if __name__ == '__main__':
     print(f"Success rate: {((result.testsRun - len(result.failures) - len(result.errors)) / result.testsRun * 100):.1f}%")
     
     if result.failures:
-        print(f"\nFAILURES:")
+        print("\nFAILURES:")
         for test, traceback in result.failures:
             print(f"- {test}: {traceback}")
     
     if result.errors:
-        print(f"\nERRORS:")
+        print("\nERRORS:")
         for test, traceback in result.errors:
             print(f"- {test}: {traceback}")
