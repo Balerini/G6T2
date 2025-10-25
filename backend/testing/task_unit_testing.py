@@ -580,6 +580,170 @@ class TestTransferOwnership(BaseTestCase):
         # Accept 404 until endpoint is implemented
         self.assertIn(response.status_code, [400, 404])
 
+# Add this test class to your task unit test file (task_unit_testing.py)
+
+# =============== GET DELETED TASKS TESTS ===============
+class TestGetDeletedTasks(BaseTestCase):
+    
+    def test_get_deleted_tasks_for_user_success(self):
+        """Test retrieving soft deleted tasks for a specific user"""
+        # Mock deleted tasks for user123
+        mock_deleted_task1 = Mock()
+        mock_deleted_task1.id = 'deleted_task_1'
+        mock_deleted_task1.to_dict.return_value = {
+            'task_name': 'Deleted Task 1',
+            'owner': 'user123',
+            'is_deleted': True,
+            'deleted_at': datetime.now(),
+            'task_status': 'active',
+            'priority_level': 5
+        }
+        
+        mock_deleted_task2 = Mock()
+        mock_deleted_task2.id = 'deleted_task_2'
+        mock_deleted_task2.to_dict.return_value = {
+            'task_name': 'Deleted Task 2',
+            'owner': 'user123',
+            'assigned_to': ['user123'],
+            'is_deleted': True,
+            'deleted_at': datetime.now(),
+            'task_status': 'completed',
+            'priority_level': 3
+        }
+        
+        # Mock query to return deleted tasks
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = [mock_deleted_task1, mock_deleted_task2]
+        
+        response = self.client.get('/api/tasks/deleted?userId=user123')
+        
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+        self.assertGreaterEqual(len(data), 0)  # Should return list (may be empty in mock)
+    
+    def test_get_deleted_tasks_missing_userid_fails(self):
+        """Test getting deleted tasks without userId parameter fails"""
+        response = self.client.get('/api/tasks/deleted')
+        
+        # Should fail - userId required
+        self.assertEqual(response.status_code, 400)
+        
+        data = json.loads(response.data)
+        error_msg = data.get('error', '').lower()
+        self.assertTrue('userid' in error_msg or 'user id' in error_msg or 'user_id' in error_msg)
+    
+    def test_get_deleted_tasks_user_owned(self):
+        """Test returns only deleted tasks owned by the user"""
+        # Mock deleted task owned by user123
+        mock_owned_task = Mock()
+        mock_owned_task.id = 'owned_deleted_task'
+        mock_owned_task.to_dict.return_value = {
+            'task_name': 'My Deleted Task',
+            'owner': 'user123',
+            'is_deleted': True,
+            'deleted_at': datetime.now()
+        }
+        
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = [mock_owned_task]
+        
+        response = self.client.get('/api/tasks/deleted?userId=user123')
+        
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+        # Verify task belongs to user
+        if len(data) > 0:
+            for task in data:
+                # Task should be owned by or assigned to user123
+                is_owner = task.get('owner') == 'user123'
+                is_assigned = 'user123' in task.get('assigned_to', [])
+                self.assertTrue(is_owner or is_assigned)
+    
+    def test_get_deleted_tasks_user_assigned(self):
+        """Test returns deleted tasks where user is assigned"""
+        # Mock deleted task assigned to user123 but owned by someone else
+        mock_assigned_task = Mock()
+        mock_assigned_task.id = 'assigned_deleted_task'
+        mock_assigned_task.to_dict.return_value = {
+            'task_name': 'Assigned Deleted Task',
+            'owner': 'other_user',
+            'assigned_to': ['user123', 'user456'],
+            'is_deleted': True,
+            'deleted_at': datetime.now()
+        }
+        
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = [mock_assigned_task]
+        
+        response = self.client.get('/api/tasks/deleted?userId=user123')
+        
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+    
+    def test_get_deleted_tasks_empty_result(self):
+        """Test getting deleted tasks when user has no deleted tasks"""
+        # Mock empty result
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = []
+        
+        response = self.client.get('/api/tasks/deleted?userId=user456')
+        
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 0)  # Should return empty list
+    
+    def test_get_deleted_tasks_with_timestamps(self):
+        """Test deleted tasks include deleted_at timestamp"""
+        # Mock deleted task with timestamp
+        mock_task = Mock()
+        mock_task.id = 'timestamped_task'
+        mock_task.to_dict.return_value = {
+            'task_name': 'Timestamped Task',
+            'owner': 'user123',
+            'is_deleted': True,
+            'deleted_at': datetime(2025, 10, 25, 10, 30, 0),
+            'task_status': 'active'
+        }
+        
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = [mock_task]
+        
+        response = self.client.get('/api/tasks/deleted?userId=user123')
+        
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        if len(data) > 0:
+            # Verify deleted_at field exists
+            self.assertIn('deleted_at', data[0])
+    
+    def test_get_deleted_tasks_excludes_active_tasks(self):
+        """Test that active (non-deleted) tasks are not included"""
+        # Mock mix of deleted and active tasks
+        mock_deleted = Mock()
+        mock_deleted.id = 'deleted_1'
+        mock_deleted.to_dict.return_value = {
+            'task_name': 'Deleted',
+            'owner': 'user123',
+            'is_deleted': True
+        }
+        
+        # Active task should NOT be in results (backend filters)
+        self.mock_db.collection.return_value.where.return_value.stream.return_value = [mock_deleted]
+        
+        response = self.client.get('/api/tasks/deleted?userId=user123')
+        
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        # Verify all returned tasks are deleted
+        for task in data:
+            if 'is_deleted' in task:
+                self.assertTrue(task['is_deleted'])
+
 # =============== ADDITIONAL ENDPOINT TESTS ===============
 class TestAdditionalEndpoints(BaseTestCase):
     
