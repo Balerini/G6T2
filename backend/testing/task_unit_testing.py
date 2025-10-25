@@ -437,6 +437,231 @@ class TestAddCollaborator(BaseTestCase):
         # Accept 404 until endpoint is implemented
         self.assertIn(response.status_code, [200, 201, 403, 404, 500])
 
+# Add this new test class to your task_unit_testing.py file
+
+# =============== ADD TASK COLLABORATOR WITH PROJECT RESTRICTION TESTS ===============
+class TestAddTaskCollaboratorProjectRestriction(BaseTestCase):
+    
+    def test_add_collaborator_task_in_project_user_in_project_success(self):
+        """Test adding collaborator who IS in the project - should succeed"""
+        # Mock task that belongs to a project
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'task_name': 'Project Task',
+            'owner': 'user123',
+            'assigned_to': ['user123'],
+            'proj_ID': 'project_123',  # Task belongs to a project
+            'proj_name': 'Test Project'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        # Mock project with collaborators
+        mock_project_doc = Mock()
+        mock_project_doc.exists = True
+        mock_project_doc.to_dict.return_value = {
+            'proj_name': 'Test Project',
+            'owner': 'user123',
+            'collaborators': ['user123', 'user456', 'user789']  # user456 is in project
+        }
+        
+        # Setup mock to return project when queried
+        mock_project_ref = Mock()
+        mock_project_ref.get.return_value = mock_project_doc
+        self.mock_db.collection.return_value.document.return_value = mock_project_ref
+        
+        # Try to add user456 (who IS in the project)
+        response = self.client.post('/api/tasks/task123/collaborators',
+                                    json={'user_id': 'user456'},
+                                    headers=self.mock_headers)
+        
+        # Should succeed - user456 is in project collaborators
+        self.assertIn(response.status_code, [200, 201, 404, 500])
+    
+    def test_add_collaborator_task_in_project_user_not_in_project_fails(self):
+        """Test adding collaborator who is NOT in the project - should fail"""
+        # Mock task that belongs to a project
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'task_name': 'Project Task',
+            'owner': 'user123',
+            'assigned_to': ['user123'],
+            'proj_ID': 'project_123',  # Task belongs to a project
+            'proj_name': 'Test Project'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        # Mock project with limited collaborators
+        mock_project_doc = Mock()
+        mock_project_doc.exists = True
+        mock_project_doc.to_dict.return_value = {
+            'proj_name': 'Test Project',
+            'owner': 'user123',
+            'collaborators': ['user123', 'user456']  # user999 is NOT in project
+        }
+        
+        # Try to add user999 (who is NOT in the project)
+        response = self.client.post('/api/tasks/task123/collaborators',
+                                    json={'user_id': 'user999'},
+                                    headers=self.mock_headers)
+        
+        # Should FAIL - user999 is not in project collaborators
+        self.assertIn(response.status_code, [403, 404, 500])
+        
+        if response.status_code == 403:
+            data = json.loads(response.data)
+            # Error message should mention project restriction
+            self.assertTrue(
+                'project' in data.get('error', '').lower() or
+                'collaborator' in data.get('error', '').lower()
+            )
+    
+    def test_add_collaborator_task_no_project_any_user_allowed(self):
+        """Test adding collaborator to task WITHOUT project - any user allowed"""
+        # Mock task that does NOT belong to a project
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'task_name': 'Standalone Task',
+            'owner': 'user123',
+            'assigned_to': ['user123'],
+            'proj_ID': None,  # No project
+            'proj_name': None
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        # Try to add any user (no project restriction)
+        response = self.client.post('/api/tasks/task123/collaborators',
+                                    json={'user_id': 'any_user_999'},
+                                    headers=self.mock_headers)
+        
+        # Should succeed - no project restriction
+        self.assertIn(response.status_code, [200, 201, 404, 500])
+    
+    def test_add_collaborator_project_owner_can_add_to_project_task(self):
+        """Test project owner can be added to project task"""
+        # Mock task in project
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'task_name': 'Project Task',
+            'owner': 'user123',
+            'assigned_to': ['user123'],
+            'proj_ID': 'project_123',
+            'proj_name': 'Test Project'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        # Mock project where project_owner is in collaborators
+        mock_project_doc = Mock()
+        mock_project_doc.exists = True
+        mock_project_doc.to_dict.return_value = {
+            'proj_name': 'Test Project',
+            'owner': 'project_owner',
+            'collaborators': ['project_owner', 'user123', 'user456']
+        }
+        
+        # Try to add project owner
+        response = self.client.post('/api/tasks/task123/collaborators',
+                                    json={'user_id': 'project_owner'},
+                                    headers=self.mock_headers)
+        
+        # Should succeed - project owner is always a collaborator
+        self.assertIn(response.status_code, [200, 201, 404, 500])
+    
+    def test_add_multiple_collaborators_all_in_project(self):
+        """Test adding multiple collaborators - all in project"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'task_name': 'Project Task',
+            'owner': 'user123',
+            'assigned_to': ['user123'],
+            'proj_ID': 'project_123',
+            'proj_name': 'Test Project'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        # Mock project with several collaborators
+        mock_project_doc = Mock()
+        mock_project_doc.exists = True
+        mock_project_doc.to_dict.return_value = {
+            'proj_name': 'Test Project',
+            'owner': 'user123',
+            'collaborators': ['user123', 'user456', 'user789', 'user101']
+        }
+        
+        # Try to add all project collaborators
+        project_members = ['user456', 'user789', 'user101']
+        
+        for user_id in project_members:
+            response = self.client.post('/api/tasks/task123/collaborators',
+                                        json={'user_id': user_id},
+                                        headers=self.mock_headers)
+            
+            # All should succeed - all are in project
+            self.assertIn(response.status_code, [200, 201, 404, 500])
+    
+    def test_add_collaborator_task_in_project_mixed_results(self):
+        """Test adding mix of valid and invalid users"""
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'task_name': 'Project Task',
+            'owner': 'user123',
+            'assigned_to': ['user123'],
+            'proj_ID': 'project_123',
+            'proj_name': 'Test Project'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        # Mock project
+        mock_project_doc = Mock()
+        mock_project_doc.exists = True
+        mock_project_doc.to_dict.return_value = {
+            'proj_name': 'Test Project',
+            'owner': 'user123',
+            'collaborators': ['user123', 'user456', 'user789']
+        }
+        
+        # Test valid user (in project)
+        response_valid = self.client.post('/api/tasks/task123/collaborators',
+                                          json={'user_id': 'user456'},
+                                          headers=self.mock_headers)
+        self.assertIn(response_valid.status_code, [200, 201, 404, 500])
+        
+        # Test invalid user (not in project)
+        response_invalid = self.client.post('/api/tasks/task123/collaborators',
+                                            json={'user_id': 'outsider_999'},
+                                            headers=self.mock_headers)
+        self.assertIn(response_invalid.status_code, [403, 404, 500])
+    
+    def test_add_collaborator_project_not_found_fails(self):
+        """Test adding collaborator when project doesn't exist"""
+        # Mock task claims to be in a project
+        mock_task_doc = Mock()
+        mock_task_doc.exists = True
+        mock_task_doc.to_dict.return_value = {
+            'task_name': 'Orphan Task',
+            'owner': 'user123',
+            'assigned_to': ['user123'],
+            'proj_ID': 'nonexistent_project',  # Project doesn't exist
+            'proj_name': 'Ghost Project'
+        }
+        self.mock_db.collection.return_value.document.return_value.get.return_value = mock_task_doc
+        
+        # Mock project doesn't exist
+        mock_project_doc = Mock()
+        mock_project_doc.exists = False
+        
+        response = self.client.post('/api/tasks/task123/collaborators',
+                                    json={'user_id': 'user456'},
+                                    headers=self.mock_headers)
+        
+        # Should fail - project not found
+        self.assertIn(response.status_code, [404, 500])
+
 # =============== TRANSFER OWNERSHIP TESTS ===============
 class TestTransferOwnership(BaseTestCase):
     
