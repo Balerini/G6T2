@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 REAL Integration tests for viewing deleted subtasks functionality.
-FIXED to include proper JSON payloads for delete operations.
+Include proper JSON payloads for delete operations.
 """
 
 import unittest
@@ -184,14 +184,14 @@ class TestViewDeletedSubtasksIntegration(unittest.TestCase):
         subtask_id_1 = self.test_subtask_ids[0]
         subtask_id_2 = self.test_subtask_ids[1]
         
-        # FIXED: Delete first subtask with proper JSON payload
+        # Delete first subtask with proper JSON payload
         delete_payload_123 = {"userId": "view_subtask_owner_123"}
         delete_response_1 = self.client.put(f'/api/subtasks/{subtask_id_1}/delete',
                                           data=json.dumps(delete_payload_123),
                                           content_type='application/json')
         self.assertEqual(delete_response_1.status_code, 200)
         
-        # FIXED: Delete second subtask with proper JSON payload  
+        # Delete second subtask with proper JSON payload  
         delete_payload_456 = {"userId": "view_subtask_user_456"}
         delete_response_2 = self.client.put(f'/api/subtasks/{subtask_id_2}/delete',
                                           data=json.dumps(delete_payload_456),
@@ -212,7 +212,7 @@ class TestViewDeletedSubtasksIntegration(unittest.TestCase):
 
     def test_user_specific_deleted_subtasks_integration_real(self):
         """Test user authorization → data filtering integration"""
-        # FIXED: Delete subtasks by different users with proper payloads
+        # Delete subtasks by different users with proper payloads
         delete_payload_123 = {"userId": "view_subtask_owner_123"}
         self.client.put(f'/api/subtasks/{self.test_subtask_ids[0]}/delete',
                        data=json.dumps(delete_payload_123),
@@ -261,7 +261,7 @@ class TestViewDeletedSubtasksIntegration(unittest.TestCase):
         initial_data = json.loads(initial_response.data)
         initial_count = len(initial_data)
         
-        # FIXED: Delete a subtask with proper JSON payload
+        # Delete a subtask with proper JSON payload
         subtask_id = self.test_subtask_ids[0]
         delete_payload = {"userId": "view_subtask_owner_123"}
         delete_response = self.client.put(f'/api/subtasks/{subtask_id}/delete',
@@ -284,7 +284,7 @@ class TestViewDeletedSubtasksIntegration(unittest.TestCase):
         """Test data consistency across Delete API and View API"""
         subtask_id = self.test_subtask_ids[0]
         
-        # FIXED: Delete via API with proper JSON payload
+        # Delete via API with proper JSON payload
         delete_payload = {"userId": "view_subtask_owner_123"}
         delete_response = self.client.put(f'/api/subtasks/{subtask_id}/delete',
                                         data=json.dumps(delete_payload),
@@ -309,7 +309,7 @@ class TestViewDeletedSubtasksIntegration(unittest.TestCase):
 
     def test_database_query_filtering_integration(self):
         """Test API → Database query → Filtering logic integration"""
-        # FIXED: Create mixed state: some deleted, some active
+        # Create mixed state: some deleted, some active
         delete_payload = {"userId": "view_subtask_owner_123"}
         self.client.put(f'/api/subtasks/{self.test_subtask_ids[0]}/delete',
                        data=json.dumps(delete_payload),

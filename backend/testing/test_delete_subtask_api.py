@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 REAL Integration tests for subtask deletion functionality.
-FIXED to match your actual API response formats.
 """
 
 import unittest
@@ -209,7 +208,7 @@ class TestDeleteSubtaskIntegration(unittest.TestCase):
         # DEBUG: Print actual database content to see what fields exist
         print(f"DEBUG: Database content after delete: {subtask_data_after}")
         
-        # FIXED: Test the integration by checking if the subtask appears in deleted list
+        # Test the integration by checking if the subtask appears in deleted list
         # instead of checking database field directly (which might have a timing issue)
         deleted_response = self.client.get('/api/subtasks/deleted-new?userId=delete_subtask_owner_123')
         self.assertEqual(deleted_response.status_code, 200)

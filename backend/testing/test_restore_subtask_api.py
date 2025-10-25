@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 REAL Integration tests for subtask restoration functionality.
-FIXED to include proper JSON payloads for delete operations.
+Include proper JSON payloads for delete operations.
 """
 
 import unittest
@@ -167,7 +167,7 @@ class TestRestoreSubtaskIntegration(unittest.TestCase):
         """Test API → Database integration for subtask restoration"""
         subtask_id = self.test_subtask_ids[0]
         
-        # FIXED: First soft delete the subtask with proper JSON payload
+        # First soft delete the subtask with proper JSON payload
         delete_payload = {"userId": "restore_subtask_owner_123"}
         delete_response = self.client.put(f'/api/subtasks/{subtask_id}/delete',
                                         data=json.dumps(delete_payload),
@@ -197,7 +197,7 @@ class TestRestoreSubtaskIntegration(unittest.TestCase):
         original_data = subtask_doc.to_dict()
         self.assertFalse(original_data.get('isDeleted', False))
         
-        # Step 2: FIXED - Soft delete with proper JSON payload
+        # Step 2: Soft delete with proper JSON payload
         delete_payload = {"userId": "restore_subtask_owner_123"}
         delete_response = self.client.put(f'/api/subtasks/{subtask_id}/delete',
                                         data=json.dumps(delete_payload),
@@ -244,7 +244,7 @@ class TestRestoreSubtaskIntegration(unittest.TestCase):
         """Test restoring multiple subtasks workflow"""
         subtask_ids = self.test_subtask_ids  # Both subtasks
         
-        # FIXED: First delete both subtasks with proper JSON payload
+        # First delete both subtasks with proper JSON payload
         delete_payload = {"userId": "restore_subtask_owner_123"}
         for subtask_id in subtask_ids:
             delete_response = self.client.put(f'/api/subtasks/{subtask_id}/delete',
@@ -271,7 +271,7 @@ class TestRestoreSubtaskIntegration(unittest.TestCase):
         """Test restoration → notification service integration"""
         subtask_id = self.test_subtask_ids[1]  # Multi-assigned subtask
         
-        # FIXED: Delete then restore subtask with proper payload
+        # Delete then restore subtask with proper payload
         delete_payload = {"userId": "restore_subtask_owner_123"}
         self.client.put(f'/api/subtasks/{subtask_id}/delete',
                        data=json.dumps(delete_payload),
@@ -288,7 +288,7 @@ class TestRestoreSubtaskIntegration(unittest.TestCase):
         subtask_id = self.test_subtask_ids[0]
         task_id = self.test_task_ids[0]
         
-        # FIXED: Delete and restore subtask with proper payload
+        # Delete and restore subtask with proper payload
         delete_payload = {"userId": "restore_subtask_owner_123"}
         self.client.put(f'/api/subtasks/{subtask_id}/delete',
                        data=json.dumps(delete_payload),
