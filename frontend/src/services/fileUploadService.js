@@ -7,6 +7,12 @@ class FileUploadService {
     try {
       console.log('Starting file upload:', { fileName: file.name, taskId, userId });
       
+      // Validate file before upload
+      const validation = this.validateFile(file);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+      
       // Create a unique filename with timestamp and user info
       const timestamp = Date.now();
       const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -50,6 +56,12 @@ class FileUploadService {
   async uploadSubtaskFile(file, subtaskId, userId) {
     try {
       console.log('Starting subtask file upload:', { fileName: file.name, subtaskId, userId });
+      
+      // Validate file before upload
+      const validation = this.validateFile(file);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
       
       // Create a unique filename with timestamp and user info
       const timestamp = Date.now();
