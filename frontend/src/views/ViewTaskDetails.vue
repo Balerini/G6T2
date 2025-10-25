@@ -268,6 +268,15 @@
                       <span class="preview-icon">📅</span>
                       {{ formatDateShort(subtask.start_date) }} - {{ formatDateShort(subtask.end_date) }}
                     </span>
+
+                    <span class="preview-item" v-if="subtask.owner">
+                      <span class="preview-icon">👤</span>
+                      {{ getUserName(subtask.owner) }}
+                    </span>
+                    <span class="preview-item empty" v-else>
+                      <span class="preview-icon">👤</span>
+                      No owner
+                    </span>
                     <span class="preview-item" v-if="subtask.assigned_to && subtask.assigned_to.length > 0">
                       <span class="preview-icon">👥</span>
                       {{ subtask.assigned_to.length }} collaborator{{ subtask.assigned_to.length !== 1 ? 's' : '' }}
@@ -276,7 +285,6 @@
                       <span class="preview-icon">👥</span>
                       No collaborators
                     </span>
-                    <!-- After collaborators section, around line 278 -->
                     <span class="preview-item" v-if="subtask.priority" :class="getPriorityClass(subtask.priority)">
                       <span class="preview-icon">🎯</span>
                       {{ formatPriority(subtask.priority) }}
