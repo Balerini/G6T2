@@ -1059,6 +1059,21 @@ const handleFileUpload = (event) => {
     return
   }
   
+  // Validate each file (size and type)
+  for (let file of files) {
+    const validation = fileUploadService.validateFile(file);
+    if (!validation.valid) {
+      errors.value.attachments = validation.error;
+      
+      // Clear the error message after 3 seconds
+      setTimeout(() => {
+        errors.value.attachments = ''
+      }, 3000)
+      
+      return;
+    }
+  }
+  
   selectedFiles.value = [...selectedFiles.value, ...files].slice(0, 3)
   errors.value.attachments = ''
 }
