@@ -15,7 +15,7 @@
       <button 
         type="button" 
         class="close-btn" 
-        @click="$emit('cancel')"
+        @click="handleCancel"
         title="Close form"
       >
         ×
@@ -359,7 +359,7 @@
 
       <!-- SUBMIT BUTTON, DISABLE WHEN SUBMITTING, CHANGE TO CREATING WHEN SUBMITTING -->
       <div class="form-actions">
-        <button type="button" class="btn btn-cancel" @click="$emit('cancel')" :disabled="isSubmitting">
+        <button type="button" class="btn btn-cancel" @click="handleCancel" :disabled="isSubmitting">
           Cancel
         </button>
         <button
@@ -443,6 +443,7 @@ const userSearch = ref('')
 const showDropdown = ref(false)
 const highlightedIndex = ref(-1)
 const dropdownCloseTimeout = ref(null)
+const formTouched = ref(false)
 
 // Use prop instead of mock data    
 const availableStaff = computed(() => {
@@ -834,6 +835,19 @@ const fileInput = ref(null)
 // Add this near the top with other refs
 const ownerDisplayName = ref('');
 
+// Watch for form changes
+watch(form, () => {
+  formTouched.value = true
+}, { deep: true })
+
+watch(selectedCollaborators, () => {
+  formTouched.value = true
+}, { deep: true })
+
+watch(selectedFiles, () => {
+  formTouched.value = true
+}, { deep: true })
+
 // Add this helper function (copy from createtaskform)
 const getCurrentUser = () => {
   try {
@@ -873,6 +887,24 @@ const canAssignTo = (staff) => {
   // Subtask owner can invite any collaborators from the parent task 
   // No rank restrictions 
   return true;
+}
+
+const handleCancel = () => {
+  // Check if form has any changes
+  if (formTouched.value || form.value.name || form.value.description || 
+      selectedCollaborators.value.length > 0 || selectedFiles.value.length > 0) {
+    
+    // Show confirmation dialog
+    const confirmed = confirm('You have unsaved changes. Are you sure you want to cancel? All changes will be lost.');
+    
+    if (confirmed) {
+      emit('cancel');
+    }
+    // If not confirmed, do nothing (stay on form)
+  } else {
+    // No changes made, cancel directly
+    emit('cancel');
+  }
 }
 
 // Dropdown interaction methods
