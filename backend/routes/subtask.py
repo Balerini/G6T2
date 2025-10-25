@@ -17,7 +17,7 @@ def create_subtask():
     
     try:
         data = request.get_json()
-        print(f"BACKEND SUBTASK CREATION DEBUG")
+        print("BACKEND SUBTASK CREATION DEBUG")
         print(f"Received subtask data: {data}")
         
         # Validate required fields
@@ -53,10 +53,10 @@ def create_subtask():
                 if str(collab_id) not in parent_collaborator_ids:
                     print(f"Collaborator {collab_id} is not in parent task")
                     return jsonify({
-                        'error': f'All invited collaborators must be collaborators of the parent task'
+                        'error': 'All invited collaborators must be collaborators of the parent task'
                     }), 400
             
-            print(f"All invited collaborators are valid parent task collaborators")
+            print("All invited collaborators are valid parent task collaborators")
         
         # Create subtask document with proper structure
         subtask_data = {
@@ -155,7 +155,7 @@ def update_subtask(subtask_id):
     
     try:
         data = request.get_json()
-        print(f"=== BACKEND SUBTASK UPDATE DEBUG ===")
+        print("=== BACKEND SUBTASK UPDATE DEBUG ===")
         print(f"Updating subtask ID: {subtask_id}")
         print(f"Received update data: {data}")
 
@@ -211,7 +211,7 @@ def update_subtask(subtask_id):
                                 'error': f'Collaborator {collab_id} is not assigned to the parent task'
                             }), 400
                     
-                    print(f"All updated collaborators are valid")
+                    print("All updated collaborators are valid")
 
         # Validate ownership transfer
         if 'owner' in data:
@@ -389,7 +389,7 @@ def update_subtask(subtask_id):
                     if updated_subtask.get('end_date'):
                         end_date_str = updated_subtask['end_date']
                     
-                    print(f"📧 Preparing to send subtask ownership transfer email...")
+                    print("📧 Preparing to send subtask ownership transfer email...")
                     print(f"   To: {new_owner_email}")
                     print(f"   CC: {old_owner_email}")
                     print(f"   Subtask: {subtask_name}")
@@ -412,13 +412,13 @@ def update_subtask(subtask_id):
                         if success:
                             print(f"✅ SUBTASK OWNERSHIP TRANSFER EMAIL SENT to {new_owner_email} (CC: {old_owner_email})")
                         else:
-                            print(f"❌ FAILED to send subtask ownership transfer email")
+                            print("❌ FAILED to send subtask ownership transfer email")
                     else:
                         print(f"⚠️ No email found for new owner {new_owner_id}")
                 else:
                     print(f"⚠️ New owner document not found: {new_owner_id}")
             else:
-                print(f"⏭️  No owner change detected")
+                print("⏭️  No owner change detected")
                     
         except Exception as e:
             print(f"❌ Failed to send owner change email: {e}")
