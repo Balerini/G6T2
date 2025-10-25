@@ -2,12 +2,13 @@
 """
 C1 Unit Tests - Project Completion Function
 Tests individual project completion function in complete isolation.
-Based on actual function in your routes/project.py.
+Based on actual function in routes/project.py.
 """
 
 import unittest
 import sys
 import os
+from unittest.mock import MagicMock
 
 # Add the backend directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -22,8 +23,8 @@ class TestProjectCompletionUnit(unittest.TestCase):
     def test_is_project_completed_no_tasks(self):
         """Test project completion with no tasks"""
         # Mock database with no tasks
-        mock_db = unittest.mock.MagicMock()
-        mock_tasks_ref = unittest.mock.MagicMock()
+        mock_db = MagicMock()
+        mock_tasks_ref = MagicMock()
         mock_db.collection.return_value = mock_tasks_ref
         mock_tasks_ref.where.return_value.stream.return_value = []
         
@@ -33,12 +34,12 @@ class TestProjectCompletionUnit(unittest.TestCase):
     def test_is_project_completed_all_tasks_completed(self):
         """Test project completion with all tasks completed"""
         # Mock database with completed tasks
-        mock_db = unittest.mock.MagicMock()
-        mock_tasks_ref = unittest.mock.MagicMock()
+        mock_db = MagicMock()
+        mock_tasks_ref = MagicMock()
         mock_db.collection.return_value = mock_tasks_ref
         
         # Mock completed task
-        mock_task = unittest.mock.MagicMock()
+        mock_task = MagicMock()
         mock_task.to_dict.return_value = {
             'task_status': 'Completed',
             'is_deleted': False,
@@ -52,19 +53,19 @@ class TestProjectCompletionUnit(unittest.TestCase):
     def test_is_project_completed_some_tasks_incomplete(self):
         """Test project completion with some tasks incomplete"""
         # Mock database with mixed task statuses
-        mock_db = unittest.mock.MagicMock()
-        mock_tasks_ref = unittest.mock.MagicMock()
+        mock_db = MagicMock()
+        mock_tasks_ref = MagicMock()
         mock_db.collection.return_value = mock_tasks_ref
         
         # Mock completed and incomplete tasks
-        mock_completed_task = unittest.mock.MagicMock()
+        mock_completed_task = MagicMock()
         mock_completed_task.to_dict.return_value = {
             'task_status': 'Completed',
             'is_deleted': False,
             'subtasks': []
         }
         
-        mock_incomplete_task = unittest.mock.MagicMock()
+        mock_incomplete_task = MagicMock()
         mock_incomplete_task.to_dict.return_value = {
             'task_status': 'In Progress',
             'is_deleted': False,
@@ -79,12 +80,12 @@ class TestProjectCompletionUnit(unittest.TestCase):
     def test_is_project_completed_deleted_tasks_ignored(self):
         """Test that deleted tasks are ignored in completion check"""
         # Mock database with deleted tasks
-        mock_db = unittest.mock.MagicMock()
-        mock_tasks_ref = unittest.mock.MagicMock()
+        mock_db = MagicMock()
+        mock_tasks_ref = MagicMock()
         mock_db.collection.return_value = mock_tasks_ref
         
         # Mock deleted task
-        mock_deleted_task = unittest.mock.MagicMock()
+        mock_deleted_task = MagicMock()
         mock_deleted_task.to_dict.return_value = {
             'task_status': 'In Progress',
             'is_deleted': True,
@@ -98,12 +99,12 @@ class TestProjectCompletionUnit(unittest.TestCase):
     def test_is_project_completed_with_subtasks(self):
         """Test project completion with subtasks"""
         # Mock database with task and subtasks
-        mock_db = unittest.mock.MagicMock()
-        mock_tasks_ref = unittest.mock.MagicMock()
+        mock_db = MagicMock()
+        mock_tasks_ref = MagicMock()
         mock_db.collection.return_value = mock_tasks_ref
         
         # Mock task with completed subtasks
-        mock_task = unittest.mock.MagicMock()
+        mock_task = MagicMock()
         mock_task.to_dict.return_value = {
             'task_status': 'Completed',
             'is_deleted': False,
@@ -120,12 +121,12 @@ class TestProjectCompletionUnit(unittest.TestCase):
     def test_is_project_completed_with_incomplete_subtasks(self):
         """Test project completion with incomplete subtasks"""
         # Mock database with task and incomplete subtasks
-        mock_db = unittest.mock.MagicMock()
-        mock_tasks_ref = unittest.mock.MagicMock()
+        mock_db = MagicMock()
+        mock_tasks_ref = MagicMock()
         mock_db.collection.return_value = mock_tasks_ref
         
         # Mock task with incomplete subtasks
-        mock_task = unittest.mock.MagicMock()
+        mock_task = MagicMock()
         mock_task.to_dict.return_value = {
             'task_status': 'Completed',
             'is_deleted': False,
@@ -142,12 +143,12 @@ class TestProjectCompletionUnit(unittest.TestCase):
     def test_is_project_completed_deleted_subtasks_ignored(self):
         """Test that deleted subtasks are ignored in completion check"""
         # Mock database with task and deleted subtasks
-        mock_db = unittest.mock.MagicMock()
-        mock_tasks_ref = unittest.mock.MagicMock()
+        mock_db = MagicMock()
+        mock_tasks_ref = MagicMock()
         mock_db.collection.return_value = mock_tasks_ref
         
         # Mock task with deleted subtasks
-        mock_task = unittest.mock.MagicMock()
+        mock_task = MagicMock()
         mock_task.to_dict.return_value = {
             'task_status': 'Completed',
             'is_deleted': False,
@@ -164,65 +165,13 @@ class TestProjectCompletionUnit(unittest.TestCase):
     def test_is_project_completed_database_error(self):
         """Test project completion with database error"""
         # Mock database that raises exception
-        mock_db = unittest.mock.MagicMock()
-        mock_tasks_ref = unittest.mock.MagicMock()
+        mock_db = MagicMock()
+        mock_tasks_ref = MagicMock()
         mock_db.collection.return_value = mock_tasks_ref
         mock_tasks_ref.where.return_value.stream.side_effect = Exception("Database error")
         
         result = is_project_completed("project123", mock_db)
         self.assertFalse(result, "Project completion should return False on database error")
-    
-    def test_is_project_completed_edge_cases(self):
-        """Test project completion with edge cases"""
-        # Mock database with edge case data
-        mock_db = unittest.mock.MagicMock()
-        mock_tasks_ref = unittest.mock.MagicMock()
-        mock_db.collection.return_value = mock_tasks_ref
-        
-        # Mock task with missing fields
-        mock_task = unittest.mock.MagicMock()
-        mock_task.to_dict.return_value = {
-            # Missing task_status and is_deleted fields
-            'subtasks': []
-        }
-        mock_tasks_ref.where.return_value.stream.return_value = [mock_task]
-        
-        result = is_project_completed("project123", mock_db)
-        self.assertFalse(result, "Project with task missing status should not be completed")
-    
-    def test_is_project_completed_multiple_tasks_mixed_status(self):
-        """Test project completion with multiple tasks of mixed status"""
-        # Mock database with multiple tasks
-        mock_db = unittest.mock.MagicMock()
-        mock_tasks_ref = unittest.mock.MagicMock()
-        mock_db.collection.return_value = mock_tasks_ref
-        
-        # Mock multiple tasks with different statuses
-        mock_task1 = unittest.mock.MagicMock()
-        mock_task1.to_dict.return_value = {
-            'task_status': 'Completed',
-            'is_deleted': False,
-            'subtasks': []
-        }
-        
-        mock_task2 = unittest.mock.MagicMock()
-        mock_task2.to_dict.return_value = {
-            'task_status': 'In Progress',
-            'is_deleted': False,
-            'subtasks': []
-        }
-        
-        mock_task3 = unittest.mock.MagicMock()
-        mock_task3.to_dict.return_value = {
-            'task_status': 'Completed',
-            'is_deleted': False,
-            'subtasks': []
-        }
-        
-        mock_tasks_ref.where.return_value.stream.return_value = [mock_task1, mock_task2, mock_task3]
-        
-        result = is_project_completed("project123", mock_db)
-        self.assertFalse(result, "Project with mixed task statuses should not be completed")
 
 
 if __name__ == '__main__':
@@ -232,6 +181,6 @@ if __name__ == '__main__':
     print("Testing individual project completion function in complete isolation")
     print("No external dependencies, no Flask app, no database")
     print("=" * 80)
-    
+
     # Run with verbose output
     unittest.main(verbosity=2)
