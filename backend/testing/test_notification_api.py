@@ -350,6 +350,52 @@ class TestNotificationAPIComprehensive(unittest.TestCase):
         self.assertTrue(data['ok'])
         self.assertEqual(data['message'], 'Deadline check completed')
 
+    # ==================== EXCEPTION HANDLING TESTS ====================
+    
+    def test_mark_notification_read_exception(self):
+        """Test exception handling in mark_notification_read endpoint"""
+        # Mock notification_service.mark_as_read to raise an exception
+        with patch.object(notification_service, 'mark_as_read', side_effect=Exception("Database error")):
+            response = self.client.put('/api/notifications/test_id/read')
+            
+            self.assertEqual(response.status_code, 500)
+            data = response.get_json()
+            self.assertFalse(data['ok'])
+            self.assertIn('error', data)
+    
+    def test_mark_all_notifications_read_exception(self):
+        """Test exception handling in mark_all_notifications_read endpoint"""
+        # Mock notification_service.mark_all_as_read to raise an exception
+        with patch.object(notification_service, 'mark_all_as_read', side_effect=Exception("Database error")):
+            response = self.client.put('/api/notifications/test_user/mark-all-read')
+            
+            self.assertEqual(response.status_code, 500)
+            data = response.get_json()
+            self.assertFalse(data['ok'])
+            self.assertIn('error', data)
+    
+    def test_delete_notification_exception(self):
+        """Test exception handling in delete_notification endpoint"""
+        # Mock notification_service.delete_notification to raise an exception
+        with patch.object(notification_service, 'delete_notification', side_effect=Exception("Database error")):
+            response = self.client.delete('/api/notifications/test_id')
+            
+            self.assertEqual(response.status_code, 500)
+            data = response.get_json()
+            self.assertFalse(data['ok'])
+            self.assertIn('error', data)
+    
+    def test_check_deadlines_exception(self):
+        """Test exception handling in check_deadlines endpoint"""
+        # Mock notification_service.notify_upcoming_deadlines to raise an exception
+        with patch.object(notification_service, 'notify_upcoming_deadlines', side_effect=Exception("Database error")):
+            response = self.client.post('/api/notifications/check-deadlines')
+            
+            self.assertEqual(response.status_code, 500)
+            data = response.get_json()
+            self.assertFalse(data['ok'])
+            self.assertIn('error', data)
+
 
 if __name__ == '__main__':
     # Create test suite
