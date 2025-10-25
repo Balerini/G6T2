@@ -102,6 +102,8 @@
             type="date"
             class="form-input"
             :class="{ 'error': errors.startDate, 'readonly-input': !isSubtaskOwner  }"
+            :min="getParentTaskStartDate()"
+            :max="getParentTaskEndDate()"
             @change="validateDates()"
             @input="clearError('startDate')"
             @blur="validateField('startDate')"
@@ -126,7 +128,8 @@
             type="date"
             class="form-input"
             :class="{ 'error': errors.endDate, 'readonly-input': !isSubtaskOwner }"
-            :min="formData.startDate"
+            :min="formData.startDate || getParentTaskStartDate()"
+            :max="getParentTaskEndDate()"
             @change="validateDates()"
             @input="clearError('endDate')"
             @blur="validateField('endDate')"
@@ -466,6 +469,7 @@ const originalStatus = ref('')
 const originalData = ref({})
 const ownerDisplayName = ref('')
 const parentTaskName = ref('');
+const parentTask = ref(null);
 
 // Collaborators data
 const selectedCollaborators = ref([])
@@ -523,6 +527,9 @@ const loadParentTaskData = async () => {
       console.log('Loading parent task with ID:', parentTaskId);
       const taskData = await taskService.getTaskById(parentTaskId);
       console.log('Parent task data:', taskData);
+
+      // Store the full parent task data
+      parentTask.value = taskData;
       
       // Try different possible field names for the task name
       parentTaskName.value = taskData.name || 
@@ -532,6 +539,10 @@ const loadParentTaskData = async () => {
                            'Unknown Task';
       
       console.log('Final parent task name:', parentTaskName.value);
+      console.log('Parent task dates:', {
+        start: taskData.start_date,
+        end: taskData.end_date
+      });
     }
   } catch (error) {
     console.error('Error loading parent task data:', error);
@@ -683,20 +694,83 @@ const formatDateForInput = (date) => {
   return d.toISOString().split('T')[0]
 }
 
+// Get parent task start date for min constraint 
+const getParentTaskStartDate = () => {
+  if (parentTask.value?.start_date) {
+    return new Date(parentTask.value.start_date).toISOString().split('T')[0];
+  }
+  return null;
+}
+
+// Get parent task end date for max constraint
+const getParentTaskEndDate = () => {
+  if (parentTask.value?.end_date) {
+    return new Date(parentTask.value.end_date).toISOString().split('T')[0];
+  }
+  return null;
+}
+
 // Validate dates
 const validateDates = () => {
   if (errors.value.startDate) delete errors.value.startDate
   if (errors.value.endDate) delete errors.value.endDate
   
+  // Validate start date against parent task
+  if (formData.value.startDate && parentTask.value) {
+    const startDate = new Date(formData.value.startDate)
+    
+    if (parentTask.value.start_date) {
+      const parentStartDate = new Date(parentTask.value.start_date)
+      if (startDate < parentStartDate) {
+        const formattedDate = parentStartDate.toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.startDate = `Start date cannot be before parent task start date (${formattedDate})`
+        return
+      }
+    }
+    
+    if (parentTask.value.end_date) {
+      const parentEndDate = new Date(parentTask.value.end_date)
+      if (startDate > parentEndDate) {
+        const formattedDate = parentEndDate.toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.startDate = `Start date cannot be after parent task end date (${formattedDate})`
+        return
+      }
+    }
+  }
+  
+  // Validate end date
   if (formData.value.startDate && formData.value.endDate) {
     const startDate = new Date(formData.value.startDate)
     const endDate = new Date(formData.value.endDate)
     
     if (endDate < startDate) {
-      errors.value.endDate = 'End date must be after start date'
+      errors.value.endDate = 'End date cannot be before start date'
+      return
+    }
+    
+    // Validate end date against parent task
+    if (parentTask.value?.end_date) {
+      const parentEndDate = new Date(parentTask.value.end_date)
+      if (endDate > parentEndDate) {
+        const formattedDate = parentEndDate.toLocaleDateString('en-SG', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        errors.value.endDate = `End date cannot be after parent task end date (${formattedDate})`
+      }
     }
   }
 }
+
 
 // Validate specific field
 const validateField = (fieldName) => {
