@@ -1,7 +1,8 @@
 from flask import Blueprint, jsonify, request
 from firebase_utils import get_firestore_client
 from firebase_admin import firestore
-from datetime import datetime
+from datetime import datetime, timedelta
+import calendar
 import traceback
 import pytz
 import sys
@@ -13,6 +14,113 @@ from services.notification_service import notification_service
 
 
 tasks_bp = Blueprint('tasks', __name__)
+
+def _parse_date_value(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value).date()
+        except ValueError:
+            try:
+                return datetime.strptime(value, '%Y-%m-%d').date()
+            except ValueError:
+                return None
+    return None
+
+
+def _add_months(base_dt, months):
+    month_index = base_dt.month - 1 + months
+    year = base_dt.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(base_dt.day, calendar.monthrange(year, month)[1])
+    return base_dt.replace(year=year, month=month, day=day)
+
+
+def _compute_next_occurrence_dates(current_start_dt, current_end_dt, recurrence_info):
+    if current_start_dt is None:
+        return None, None
+
+    freq = (recurrence_info.get('frequency') or 'daily').lower()
+    try:
+        interval = int(recurrence_info.get('interval') or 1)
+    except (TypeError, ValueError):
+        interval = 1
+    interval = max(1, interval)
+
+    def apply_duration(next_start_dt):
+        if current_end_dt and isinstance(current_end_dt, datetime):
+            duration = current_end_dt - current_start_dt
+            return next_start_dt, next_start_dt + duration
+        return next_start_dt, None
+
+    if freq == 'daily':
+        return apply_duration(current_start_dt + timedelta(days=interval))
+
+    if freq == 'weekly':
+        weekly_days = recurrence_info.get('weeklyDays') or []
+        normalized_days = []
+        for entry in weekly_days:
+            try:
+                normalized_days.append(int(str(entry)))
+            except (TypeError, ValueError):
+                continue
+        normalized_days = sorted({d for d in normalized_days if 0 <= d <= 6})
+        if not normalized_days:
+            normalized_days = [current_start_dt.weekday()]
+
+        current_weekday = current_start_dt.weekday()
+        for day in normalized_days:
+            if day > current_weekday:
+                delta_days = day - current_weekday
+                return apply_duration(current_start_dt + timedelta(days=delta_days))
+
+        delta_weeks = interval - 1
+        delta_days = (7 * delta_weeks) + ((7 - current_weekday) + normalized_days[0])
+        return apply_duration(current_start_dt + timedelta(days=delta_days))
+
+    if freq == 'monthly':
+        next_start = _add_months(current_start_dt, interval)
+        monthly_day = recurrence_info.get('monthlyDay')
+        if monthly_day not in (None, '', 0):
+            try:
+                monthly_day = int(monthly_day)
+                monthly_day = max(1, min(31, monthly_day))
+                days_in_month = calendar.monthrange(next_start.year, next_start.month)[1]
+                next_start = next_start.replace(day=min(monthly_day, days_in_month))
+            except (TypeError, ValueError):
+                pass
+        return apply_duration(next_start)
+
+    if freq == 'custom':
+        unit = (recurrence_info.get('customUnit') or 'days').lower()
+        if unit in ('week', 'weeks'):
+            return apply_duration(current_start_dt + timedelta(days=7 * interval))
+        if unit in ('month', 'months'):
+            return apply_duration(_add_months(current_start_dt, interval))
+        return apply_duration(current_start_dt + timedelta(days=interval))
+
+    return apply_duration(current_start_dt + timedelta(days=interval))
+
+
+def _should_stop_recurrence(recurrence_info, next_occurrence_index, next_start_dt):
+    end_condition = (recurrence_info.get('endCondition') or 'never').lower()
+    if end_condition == 'after':
+        try:
+            max_occurrences = int(recurrence_info.get('endAfterOccurrences') or 0)
+        except (TypeError, ValueError):
+            max_occurrences = 0
+        if max_occurrences and next_occurrence_index > max_occurrences:
+            return True
+    elif end_condition == 'ondate':
+        end_date_value = recurrence_info.get('endDate')
+        end_date = _parse_date_value(end_date_value)
+        if end_date and next_start_dt and next_start_dt.date() > end_date:
+            return True
+    return False
+
 
 # =============== CREATE TASK ===============
 @tasks_bp.route('/api/tasks', methods=['POST'])
@@ -55,20 +163,94 @@ def create_task():
             end_date = sg_tz.localize(end_date.replace(hour=0, minute=0, second=0))
 
         # Helper for parsing project/task end dates
-        def parse_date_value(value):
-            if value is None:
-                return None
-            if isinstance(value, datetime):
-                return value.date()
-            if isinstance(value, str):
-                try:
-                    return datetime.fromisoformat(value).date()
-                except ValueError:
+        def add_months(base_dt, months):
+            month_index = base_dt.month - 1 + months
+            year = base_dt.year + month_index // 12
+            month = month_index % 12 + 1
+            day = min(base_dt.day, calendar.monthrange(year, month)[1])
+            return base_dt.replace(year=year, month=month, day=day)
+
+        def compute_next_occurrence_dates(current_start_dt, current_end_dt, recurrence_info):
+            if current_start_dt is None:
+                return None, None
+
+            freq = (recurrence_info.get('frequency') or 'daily').lower()
+            try:
+                interval = int(recurrence_info.get('interval') or 1)
+            except (TypeError, ValueError):
+                interval = 1
+            interval = max(1, interval)
+
+            def apply_duration(next_start_dt):
+                if current_end_dt and isinstance(current_end_dt, datetime):
+                    duration = current_end_dt - current_start_dt
+                    return next_start_dt, next_start_dt + duration
+                return next_start_dt, None
+
+            if freq == 'daily':
+                return apply_duration(current_start_dt + timedelta(days=interval))
+
+            if freq == 'weekly':
+                weekly_days = recurrence_info.get('weeklyDays') or []
+                normalized_days = []
+                for entry in weekly_days:
                     try:
-                        return datetime.strptime(value, '%Y-%m-%d').date()
-                    except ValueError:
-                        return None
-            return None
+                        normalized_days.append(int(str(entry)))
+                    except (TypeError, ValueError):
+                        continue
+                normalized_days = sorted({d for d in normalized_days if 0 <= d <= 6})
+                if not normalized_days:
+                    normalized_days = [current_start_dt.weekday()]
+
+                current_weekday = current_start_dt.weekday()
+                for day in normalized_days:
+                    if day > current_weekday:
+                        delta_days = day - current_weekday
+                        return apply_duration(current_start_dt + timedelta(days=delta_days))
+
+                delta_weeks = interval - 1
+                delta_days = (7 * delta_weeks) + ((7 - current_weekday) + normalized_days[0])
+                return apply_duration(current_start_dt + timedelta(days=delta_days))
+
+            if freq == 'monthly':
+                next_start = add_months(current_start_dt, interval)
+                monthly_day = recurrence_info.get('monthlyDay')
+                if monthly_day not in (None, '', 0):
+                    try:
+                        monthly_day = int(monthly_day)
+                        monthly_day = max(1, min(31, monthly_day))
+                        days_in_month = calendar.monthrange(next_start.year, next_start.month)[1]
+                        next_start = next_start.replace(day=min(monthly_day, days_in_month))
+                    except (TypeError, ValueError):
+                        pass
+                return apply_duration(next_start)
+
+            if freq == 'custom':
+                unit = (recurrence_info.get('customUnit') or 'days').lower()
+                if unit in ('week', 'weeks'):
+                    return apply_duration(current_start_dt + timedelta(days=7 * interval))
+                if unit in ('month', 'months'):
+                    return apply_duration(add_months(current_start_dt, interval))
+                return apply_duration(current_start_dt + timedelta(days=interval))
+
+            # Default fallback behaves like daily
+            return apply_duration(current_start_dt + timedelta(days=interval))
+
+        def should_stop_recurrence(recurrence_info, next_occurrence_index, next_start_dt):
+            end_condition = (recurrence_info.get('endCondition') or 'never').lower()
+            if end_condition == 'after':
+                try:
+                    max_occurrences = int(recurrence_info.get('endAfterOccurrences') or 0)
+                except (TypeError, ValueError):
+                    max_occurrences = 0
+                if max_occurrences and next_occurrence_index > max_occurrences:
+                    return True
+            elif end_condition == 'ondate':
+                end_date_value = recurrence_info.get('endDate')
+                end_date = _parse_date_value(end_date_value)
+                if end_date and next_start_dt and next_start_dt.date() > end_date:
+                    return True
+            return False
 
         project_end_limit = None
         # Get project ID from project name if provided
@@ -90,7 +272,7 @@ def create_task():
                     or project_doc_data.get('proj_end_date')
                     or project_doc_data.get('project_end_date')
                 )
-                project_end_limit = parse_date_value(raw_project_end)
+                project_end_limit = _parse_date_value(raw_project_end)
             else:
                 print(f"Warning: Project not found for name: {task_data.get('proj_name')}")
                 all_projects = projects_ref.stream()
@@ -108,7 +290,7 @@ def create_task():
                 or task_data.get('proj_endDate')
                 or task_data.get('project_endDate')
             )
-            project_end_limit = parse_date_value(fallback_project_end)
+            project_end_limit = _parse_date_value(fallback_project_end)
 
         recurrence_payload = task_data.get('recurrence')
         recurrence_data = {'enabled': False}
@@ -136,6 +318,12 @@ def create_task():
 
                 frequency_value = normalized_recurrence.get('frequency')
                 normalized_recurrence['frequency'] = str(frequency_value).lower() if frequency_value else ''
+
+                allowed_frequencies = {'daily', 'weekly', 'monthly', 'custom'}
+                if not normalized_recurrence['frequency']:
+                    return jsonify({"error": "Recurrence frequency is required when recurrence is enabled"}), 400
+                if normalized_recurrence['frequency'] not in allowed_frequencies:
+                    return jsonify({"error": f"Invalid recurrence frequency: {normalized_recurrence['frequency']}"}), 400
 
                 try:
                     normalized_recurrence['interval'] = max(1, int(normalized_recurrence.get('interval') or 1))
@@ -185,7 +373,7 @@ def create_task():
                     normalized_recurrence.pop('endDate', None)
                 elif end_condition_value == 'onDate':
                     end_date_value = normalized_recurrence.get('endDate')
-                    parsed_end_date = parse_date_value(end_date_value)
+                    parsed_end_date = _parse_date_value(end_date_value)
                     if parsed_end_date is None:
                         return jsonify({"error": "Invalid recurrence endDate"}), 400
                     if project_end_limit and parsed_end_date > project_end_limit:
@@ -216,6 +404,8 @@ def create_task():
             'hasSubtasks': task_data.get('hasSubtasks', False),
             'is_deleted': task_data.get('is_deleted', False), 
             'recurrence': recurrence_data,
+            'recurrence_occurrence': 1 if recurrence_data.get('enabled') else None,
+            'recurrence_series_id': None,
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
         }
@@ -225,12 +415,20 @@ def create_task():
 
         # Add document to Firestore
         doc_ref = db.collection('Tasks').add(firestore_task_data)
-        task_id = doc_ref[1].id
+        task_ref = doc_ref[1]
+        task_id = task_ref.id
+        if firestore_task_data['recurrence_occurrence']:
+            try:
+                task_ref.update({'recurrence_series_id': task_id})
+            except Exception:
+                pass
         print(f"Task created successfully with ID: {task_id}")
 
         # Prepare response data
         response_data = firestore_task_data.copy()
         response_data['id'] = task_id
+        if response_data.get('recurrence_occurrence'):
+            response_data['recurrence_series_id'] = task_id
         response_data['start_date'] = start_date.isoformat()
         if end_date:
             response_data['end_date'] = end_date.isoformat()
@@ -578,7 +776,7 @@ def update_task(task_id):
                 project_doc = db.collection('Projects').document(project_identifier).get()
                 if project_doc.exists:
                     project_data = project_doc.to_dict() or {}
-                    project_end_limit = parse_date_value(project_data.get('end_date'))
+                    project_end_limit = _parse_date_value(project_data.get('end_date'))
         except Exception as resolve_error:
             print(f"⚠️ Failed to resolve project end date for task {task_id}: {resolve_error}")
 
@@ -589,7 +787,7 @@ def update_task(task_id):
                 or update_data.get('proj_end_date')
                 or update_data.get('project_end_date')
             )
-            project_end_limit = parse_date_value(fallback_project_end)
+            project_end_limit = _parse_date_value(fallback_project_end)
 
         recurrence_payload = permitted_update.get('recurrence')
         if recurrence_payload is not None:
@@ -615,6 +813,12 @@ def update_task(task_id):
 
                 frequency_value = normalized_recurrence.get('frequency')
                 normalized_recurrence['frequency'] = str(frequency_value).lower() if frequency_value else ''
+
+                allowed_frequencies = {'daily', 'weekly', 'monthly', 'custom'}
+                if not normalized_recurrence['frequency']:
+                    return jsonify({'error': 'Recurrence frequency is required when recurrence is enabled'}), 400
+                if normalized_recurrence['frequency'] not in allowed_frequencies:
+                    return jsonify({'error': f"Invalid recurrence frequency: {normalized_recurrence['frequency']}"}), 400
 
                 try:
                     normalized_recurrence['interval'] = max(1, int(normalized_recurrence.get('interval') or 1))
@@ -664,7 +868,7 @@ def update_task(task_id):
                     normalized_recurrence.pop('endDate', None)
                 elif end_condition_value == 'onDate':
                     end_date_value = normalized_recurrence.get('endDate')
-                    parsed_end = parse_date_value(end_date_value)
+                    parsed_end = _parse_date_value(end_date_value)
                     if parsed_end is None:
                         return jsonify({'error': 'Invalid recurrence endDate'}), 400
                     if project_end_limit and parsed_end > project_end_limit:
@@ -678,6 +882,33 @@ def update_task(task_id):
                 permitted_update['recurrence'] = normalized_recurrence
             else:
                 permitted_update['recurrence'] = {'enabled': False}
+
+        series_id = old_data.get('recurrence_series_id') or (old_doc.id if old_doc and old_doc.exists else None)
+        current_occurrence_index = old_data.get('recurrence_occurrence')
+        if old_data.get('recurrence', {}).get('enabled'):
+            if current_occurrence_index is None:
+                current_occurrence_index = 1
+        else:
+            current_occurrence_index = None
+
+        if recurrence_payload is not None:
+            if permitted_update['recurrence'].get('enabled'):
+                if current_occurrence_index is None:
+                    current_occurrence_index = old_data.get('recurrence_occurrence') or 1
+            else:
+                current_occurrence_index = None
+
+        if current_occurrence_index is not None:
+            permitted_update['recurrence_occurrence'] = current_occurrence_index
+        elif 'recurrence_occurrence' not in permitted_update:
+            permitted_update['recurrence_occurrence'] = None
+
+        if series_id:
+            permitted_update['recurrence_series_id'] = series_id
+        if 'recurrence_occurrence' in permitted_update and permitted_update['recurrence_occurrence'] == old_data.get('recurrence_occurrence'):
+            permitted_update.pop('recurrence_occurrence')
+        if 'recurrence_series_id' in permitted_update and permitted_update['recurrence_series_id'] == old_data.get('recurrence_series_id'):
+            permitted_update.pop('recurrence_series_id')
 
         # Determine status change
         def normalize_status(value):
@@ -752,7 +983,8 @@ def update_task(task_id):
         # Get updated document for response
         updated_doc = doc_ref.get()
         if updated_doc.exists:
-            response_data = updated_doc.to_dict()
+            raw_updated_data = updated_doc.to_dict() or {}
+            response_data = dict(raw_updated_data)
             response_data['id'] = updated_doc.id
             
             # Convert timestamps for response
@@ -956,6 +1188,113 @@ def update_task(task_id):
                 print(f"❌ Failed to create update notifications: {e}")
                 import traceback
                 traceback.print_exc()
+
+            try:
+                next_instance_payload = None
+                recurrence_info = raw_updated_data.get('recurrence') or {}
+                series_id = raw_updated_data.get('recurrence_series_id') or updated_doc.id
+                current_occurrence_index = raw_updated_data.get('recurrence_occurrence')
+                if recurrence_info.get('enabled'):
+                    if current_occurrence_index is None:
+                        current_occurrence_index = 1
+                else:
+                    current_occurrence_index = None
+
+                if (
+                    status_changed
+                    and new_status_normalized.lower() == 'completed'
+                    and recurrence_info.get('enabled')
+                    and current_occurrence_index is not None
+                ):
+                    current_start_dt = raw_updated_data.get('start_date')
+                    current_end_dt = raw_updated_data.get('end_date')
+                    if isinstance(current_start_dt, str):
+                        try:
+                            current_start_dt = datetime.fromisoformat(current_start_dt)
+                        except Exception:
+                            current_start_dt = None
+                    if isinstance(current_end_dt, str):
+                        try:
+                            current_end_dt = datetime.fromisoformat(current_end_dt)
+                        except Exception:
+                            current_end_dt = None
+
+                    next_start_dt, next_end_dt = _compute_next_occurrence_dates(current_start_dt, current_end_dt, recurrence_info)
+                    if next_start_dt:
+                        next_occurrence_index = (current_occurrence_index or 1) + 1
+                        if not _should_stop_recurrence(recurrence_info, next_occurrence_index, next_start_dt):
+                            recurrence_clone = dict(recurrence_info)
+                            new_task_data = {
+                                'proj_name': raw_updated_data.get('proj_name', ''),
+                                'proj_ID': raw_updated_data.get('proj_ID'),
+                                'task_name': raw_updated_data.get('task_name', ''),
+                                'task_desc': raw_updated_data.get('task_desc', ''),
+                                'start_date': next_start_dt,
+                                'end_date': next_end_dt,
+                                'owner': raw_updated_data.get('owner'),
+                                'assigned_to': raw_updated_data.get('assigned_to', []) or [],
+                                'attachments': raw_updated_data.get('attachments', []),
+                                'task_status': 'Unassigned',
+                                'priority_level': raw_updated_data.get('priority_level'),
+                                'hasSubtasks': raw_updated_data.get('hasSubtasks', False),
+                                'is_deleted': False,
+                                'recurrence': recurrence_clone,
+                                'recurrence_occurrence': next_occurrence_index,
+                                'recurrence_series_id': series_id,
+                                'status_history': [],
+                                'status_log': [],
+                                'createdAt': firestore.SERVER_TIMESTAMP,
+                                'updatedAt': firestore.SERVER_TIMESTAMP
+                            }
+
+                            new_doc_ref = db.collection('Tasks').add(new_task_data)
+                            new_doc = new_doc_ref[1]
+                            new_doc_id = new_doc.id
+                            try:
+                                new_doc.update({'recurrence_series_id': series_id})
+                            except Exception:
+                                pass
+
+                            assigned_users_next = new_task_data.get('assigned_to') or []
+                            if assigned_users_next:
+                                try:
+                                    notification_service.notify_task_assigned(
+                                        {
+                                            'task_name': new_task_data.get('task_name', 'Unknown Task'),
+                                            'task_ID': new_task_data.get('task_ID'),
+                                            'id': new_doc_id,
+                                            'proj_ID': new_task_data.get('proj_ID')
+                                        },
+                                        assigned_users_next
+                                    )
+                                except Exception as notify_error:
+                                    print(f"⚠️ Failed to notify new recurring assignees: {notify_error}")
+
+                            next_instance_payload = dict(new_task_data)
+                            next_instance_payload['id'] = new_doc_id
+                            next_instance_payload['start_date'] = next_start_dt.isoformat()
+                            if next_end_dt:
+                                next_instance_payload['end_date'] = next_end_dt.isoformat()
+                            else:
+                                next_instance_payload['end_date'] = None
+                            next_instance_payload.pop('createdAt', None)
+                            next_instance_payload.pop('updatedAt', None)
+                            next_instance_payload['task_status'] = 'Unassigned'
+                            next_instance_payload['recurrence_occurrence'] = next_occurrence_index
+                            next_instance_payload['recurrence_series_id'] = series_id
+                            response_data['next_instance'] = next_instance_payload
+                            response_data['recurrence_series_id'] = series_id
+
+                            response_data['recurrence_occurrence'] = current_occurrence_index
+                            try:
+                                doc_ref.update({
+                                    'recurrence_occurrence': current_occurrence_index,
+                                    'recurrence_series_id': series_id
+                                })
+                            except Exception:
+                                pass
+            except Exception as recurrence_error:
+                print(f"⚠️ Failed to generate next recurring instance: {recurrence_error}")
 
             return jsonify(response_data), 200
         else:
@@ -1587,3 +1926,4 @@ def permanently_delete_subtask(subtask_id):
     except Exception as e:
         print(f"❌ Error permanently deleting subtask {subtask_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
