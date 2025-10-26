@@ -297,12 +297,33 @@ export default {
       return this.projects.filter(project => project.collaborators && project.collaborators.length > 0);
     },
 
-    sortedProjects() {
+sortedProjects() {
       if (!this.filteredProjects || this.filteredProjects.length === 0) {
         return [];
       }
 
-      const sorted = [...this.filteredProjects].sort((a, b) => {
+      // Filter out completed projects if showCompletedProjects is false
+      let projectsToSort = [...this.filteredProjects];
+      
+      if (!this.showCompletedProjects) {
+        projectsToSort = projectsToSort.filter(project => {
+          const status = project.proj_status || project.status || project.project_status || '';
+          const statusLower = String(status).toLowerCase().trim();
+          
+          // Check if all tasks are completed
+          const allTasksCompleted = project.tasks && project.tasks.length > 0 && 
+            project.tasks.every(task => {
+              const taskStatus = task.task_status || task.status || '';
+              return String(taskStatus).toLowerCase().trim() === 'completed';
+            });
+          
+          // Exclude if project status is completed OR all tasks are completed
+          return !(statusLower === 'completed' || allTasksCompleted);
+        });
+      }
+
+      // Sort the filtered projects
+      const sorted = projectsToSort.sort((a, b) => {
         if (!a.end_date && !b.end_date) return 0;
         if (!a.end_date) return 1;
         if (!b.end_date) return -1;
