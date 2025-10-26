@@ -290,14 +290,20 @@
           </span>
         </div>
 
-        <!-- Current Attachments (Read-only) -->
-        <div class="form-group" v-if="formData.attachments && formData.attachments.length > 0">
-          <label class="form-label">Current Attachments</label>
-          <div class="file-preview-container">
+        <!-- Attachments -->
+        <div class="form-group">
+          <label class="form-label" for="attachments">Attachments (0-3 max)</label>
+          
+          <!-- Existing Attachments -->
+          <div class="file-preview-container" v-if="formData.attachments && formData.attachments.length > 0">
+            <div class="attachments-section-header">
+              <span class="section-label">Current Attachments</span>
+            </div>
             <div 
               v-for="(attachment, index) in formData.attachments" 
-              :key="`attachment-${index}`"
+              :key="`existing-${index}-${attachment.name}`"
               class="file-preview-item"
+              :style="{ borderLeftColor: '#666666' }"
             >
               <div class="file-icon">
                 {{ getFileIcon(attachment.name) }}
@@ -306,35 +312,86 @@
                 <span class="file-name">{{ attachment.name }}</span>
                 <span class="file-size">Existing attachment</span>
               </div>
+              <button 
+                type="button" 
+                class="remove-file-btn" 
+                @click="removeExistingAttachment(index)"
+                title="Remove attachment"
+                :disabled="!canEditAttachments"
+              >
+                ×
+              </button>
             </div>
           </div>
-          <p class="helper-text">Note: Attachment editing not available in this version</p>
-        </div>
 
-        <!-- Subtask Status -->
-        <div class="form-group">
-          <label class="form-label" for="taskStatus">
-            Subtask Status *
-          </label>
-          <select 
-            id="taskStatus" 
-            name="status"
-            v-model="formData.status" 
-            class="form-select"
-            :class="{ 'error': errors.status }"
-            @change="clearError('status')"
-            @blur="validateField('status')"
-            :disabled="!canEditStatus"
-          >
-            <option value="" disabled>Select status</option>
-            <option value="Unassigned">Unassigned</option>
-            <option value="Ongoing">Ongoing</option>
-            <option value="Under Review">Under Review</option>
-            <option value="Completed">Completed</option>
-          </select>
-          <span v-if="errors.status" class="error-message">
-            {{ errors.status }}
+          <!-- Add New Attachments -->
+          <div class="file-upload-container">
+            <input
+              id="attachments"
+              type="file"
+              class="file-input"
+              multiple
+              accept=".pdf,.doc,.docx,.jpg,.png,.txt"
+              @change="handleFileUpload"
+              ref="fileInput"
+              :disabled="!canEditAttachments || totalAttachments >= 3 || isSubmitting"
+            />
+            <label 
+              for="attachments" 
+              class="file-upload-label"
+              :class="{ disabled: !canEditAttachments || totalAttachments >= 3 || isSubmitting }"
+            >
+              Choose Files
+            </label>
+            <span class="file-status">
+              {{ selectedNewFiles.length > 0 ? `${selectedNewFiles.length} file(s) selected` : 'No files selected' }}
+            </span>
+          </div>
+
+          <!-- New Files Preview -->
+          <div class="file-preview-container" v-if="selectedNewFiles.length > 0">
+            <div class="attachments-section-header">
+              <span class="section-label">New Attachments</span>
+            </div>
+            <div 
+              v-for="(file, index) in selectedNewFiles" 
+              :key="`new-${index}-${file.name}`"
+              class="file-preview-item"
+              :style="{ borderLeftColor: getFileTypeColor(file.type) }"
+            >
+              <div class="file-icon">
+                {{ getFileIcon(file.name) }}
+              </div>
+              <div class="file-info">
+                <span class="file-name">{{ file.name }}</span>
+                <span class="file-size">{{ formatFileSize(file.size) }}</span>
+              </div>
+              <button 
+                type="button" 
+                class="remove-file-btn" 
+                @click="removeNewFile(index)"
+                title="Remove file"
+                :disabled="!canEditAttachments"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          <!-- No Attachments Message -->
+          <div v-if="(!formData.attachments || formData.attachments.length === 0) && selectedNewFiles.length === 0" class="no-attachments">
+            No attachments for this subtask
+          </div>
+
+          <!-- Attachment validation error -->
+          <span v-if="errors.attachments" class="error-message">
+            {{ errors.attachments }}
           </span>
+
+          <!-- Attachment Note -->
+          <div class="attachment-note">
+            Remove existing files or add new ones. All changes are saved when you update the subtask.
+          </div>
         </div>
 
         <!-- Subtask Priority -->
@@ -367,6 +424,32 @@
           </select>
           <span v-if="errors.priority" class="error-message">
             {{ errors.priority }}
+          </span>
+        </div>
+
+        <!-- Subtask Status -->
+        <div class="form-group">
+          <label class="form-label" for="taskStatus">
+            Subtask Status *
+          </label>
+          <select 
+            id="taskStatus" 
+            name="status"
+            v-model="formData.status" 
+            class="form-select"
+            :class="{ 'error': errors.status }"
+            @change="clearError('status')"
+            @blur="validateField('status')"
+            :disabled="!canEditStatus"
+          >
+            <option value="" disabled>Select status</option>
+            <option value="Unassigned">Unassigned</option>
+            <option value="Ongoing">Ongoing</option>
+            <option value="Under Review">Under Review</option>
+            <option value="Completed">Completed</option>
+          </select>
+          <span v-if="errors.status" class="error-message">
+            {{ errors.status }}
           </span>
         </div>
 
@@ -482,6 +565,11 @@ const dropdownCloseTimeout = ref(null)
 
 // Transfer ownership data 
 const showTransferModal = ref(false)  
+
+// File Attachments Data
+const selectedNewFiles = ref([])  // New files to upload
+const fileInput = ref(null)
+const isUploadingFiles = ref(false)
 
 // Available staff from prop
 const availableStaff = computed(() => {
@@ -634,6 +722,18 @@ const canEditStatus = computed(() => {
     }
   }
   return false
+})
+
+// Check if user can edit attachments (only subtask owner)
+const canEditAttachments = computed(() => {
+  return isSubtaskOwner.value
+})
+
+// Total attachments count
+const totalAttachments = computed(() => {
+  const existingCount = formData.value.attachments ? formData.value.attachments.length : 0
+  const newCount = selectedNewFiles.value.length
+  return existingCount + newCount
 })
 
 // Initialize form with subtask data
@@ -1072,6 +1172,84 @@ const hasUnsavedChanges = () => {
   )
 }
 
+// ============ FILE HANDLING METHODS ============
+
+// Handle file upload
+const handleFileUpload = (event) => {
+  const files = Array.from(event.target.files)
+  
+  // Check total attachment limit
+  const currentTotal = totalAttachments.value
+  const availableSlots = 3 - currentTotal
+  
+  if (files.length > availableSlots) {
+    errors.value.attachments = `You can only add ${availableSlots} more file(s). Maximum 3 attachments allowed.`
+    return
+  }
+  
+  // Validate file types and sizes
+  const allowedTypes = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.txt']
+  const maxSize = 10 * 1024 * 1024 // 10MB
+  
+  for (const file of files) {
+    const fileExt = '.' + file.name.split('.').pop().toLowerCase()
+    if (!allowedTypes.includes(fileExt)) {
+      errors.value.attachments = `Invalid file type: ${file.name}. Allowed types: PDF, DOC, DOCX, JPG, PNG, TXT`
+      return
+    }
+    if (file.size > maxSize) {
+      errors.value.attachments = `File too large: ${file.name}. Maximum size: 10MB`
+      return
+    }
+  }
+  
+  // Add files to selected list
+  selectedNewFiles.value.push(...files)
+  clearError('attachments')
+}
+
+// Remove existing attachment
+const removeExistingAttachment = (index) => {
+  if (!canEditAttachments.value) return
+  
+  if (confirm('Are you sure you want to remove this attachment?')) {
+    formData.value.attachments.splice(index, 1)
+  }
+}
+
+// Remove new file
+const removeNewFile = (index) => {
+  selectedNewFiles.value.splice(index, 1)
+  
+  // Reset file input
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+  
+  clearError('attachments')
+}
+
+// Format file size
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+// Get file type color for border
+const getFileTypeColor = (fileType) => {
+  if (!fileType) return '#666666'
+  
+  const type = fileType.toLowerCase()
+  if (type.includes('pdf')) return '#dc3545'
+  if (type.includes('doc') || type.includes('docx')) return '#007bff'
+  if (type.includes('jpg') || type.includes('jpeg') || type.includes('png') || type.includes('gif')) return '#28a745'
+  if (type.includes('txt')) return '#6c757d'
+  return '#666666'
+}
+
 // Handle cancel
 const handleCancel = () => {
   if (hasUnsavedChanges()) {
@@ -1170,7 +1348,47 @@ const handleSubmit = async () => {
   try {
     // Get current user
     const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}')
+    const userId = currentUser.id || 'unknown'
+
+    // Start with existing attachments
+    let uploadedAttachments = [...(formData.value.attachments || [])]
     
+    // Upload new files if any are selected
+    if (selectedNewFiles.value.length > 0) {
+      isUploadingFiles.value = true
+      uploadProgressMessage.value = `📤 Uploading ${selectedNewFiles.value.length} file(s)...`
+      
+      try {
+        // Import fileUploadService
+        const { fileUploadService } = await import('@/services/fileUploadService.js')
+        
+        const newUploadedFiles = await fileUploadService.uploadMultipleSubtaskFiles(
+          selectedNewFiles.value,
+          props.subtask.id, // Use actual subtask ID
+          userId
+        )
+        
+        // Add new uploads to existing attachments
+        uploadedAttachments.push(...newUploadedFiles)
+        
+        uploadProgressMessage.value = ''
+        successMessage.value = `✅ ${newUploadedFiles.length} file(s) uploaded successfully!`
+        
+        setTimeout(() => {
+          successMessage.value = ''
+        }, 2000)
+      } catch (uploadError) {
+        console.error('File upload failed:', uploadError)
+        uploadProgressMessage.value = ''
+        errorMessage.value = `Failed to upload files: ${uploadError.message}`
+        isUploadingFiles.value = false
+        isSubmitting.value = false
+        return
+      } finally {
+        isUploadingFiles.value = false
+      }
+    }
+
     // Prepare update data
     const updateData = {
       name: formData.value.name.trim(),
@@ -1180,7 +1398,7 @@ const handleSubmit = async () => {
       status: formData.value.status,
       priority: formData.value.priority,
       assigned_to: selectedCollaborators.value.map(collab => collab.id),
-      attachments: formData.value.attachments,
+      attachments: uploadedAttachments,
     }
     
     // Check if status changed - if so, add change log
@@ -1948,5 +2166,171 @@ onMounted(() => {
   color: #6b7280;
   font-style: italic;
   margin-left: 8px;
+}
+
+/* ============ ATTACHMENT STYLES ============ */
+
+.attachments-section-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.section-label {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.attachment-info-text {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+.file-upload-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-upload-label {
+  background-color: #f5f5f5;
+  color: #333333;
+  padding: 10px 18px;
+  border: 1px solid #d1d1d1;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.file-upload-label:hover {
+  background-color: #e5e5e5;
+}
+
+.file-upload-label.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.file-preview-container.new-files {
+  border-style: dashed;
+}
+
+.no-attachments {
+  color: #666666;
+  font-style: italic;
+  text-align: center;
+  padding: 16px;
+}
+
+.attachment-note {
+  color: #666666;
+  font-size: 12px;
+  font-style: italic;
+  margin-top: 8px;
+}
+
+.file-status {
+  font-size: 13px;
+  color: #888888;
+}
+
+.file-preview-container {
+  margin-top: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 12px;
+  background-color: #fafafa;
+}
+
+.file-preview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background-color: #ffffff;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  border-left: 3px solid #666;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease;
+}
+
+.file-preview-item:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.file-preview-item:last-child {
+  margin-bottom: 0;
+}
+
+.file-icon {
+  margin-right: 10px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.file-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #333333;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #666666;
+}
+
+.remove-file-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.remove-file-btn:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.remove-file-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 </style>
