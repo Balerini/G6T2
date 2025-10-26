@@ -19,6 +19,7 @@
     "core-js": "^3.8.3",
     "firebase": "^12.3.0",
     "frappe-gantt": "^1.0.4",
+    "selenium-webdriver": "^4.38.0",
     "vue": "^3.2.13",
     "vue-chartjs": "^5.3.2",
     "vue-ganttastic": "^0.9.34",

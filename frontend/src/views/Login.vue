@@ -39,7 +39,7 @@
           {{ error }}
         </div>
 
-        <button @click="login" class="btn-primary" :disabled="loading">
+        <button @click="login" class="btn-primary" :disabled="loading" type="submit">
           <span v-if="loading">Signing in...</span>
           <span v-else>Sign In</span>
         </button>

@@ -36,17 +36,9 @@
                     </span>
                 </div>
                 <p class="project-desc">{{ projectData.proj_desc || 'No description' }}</p>
-                
-                <!-- <button @click="exportProjectPDF" class="export-btn">
-                    ⬇ Export Tasks to PDF
-                </button>
-                <button class="export-btn" :disabled="downloading" @click="exportProjectEXCEL">
-                    <span v-if="!downloading">📊 Export Excel Report</span>
-                    <span v-else>⏳ Generating...</span>
-                </button>    -->
 
                 <div class="export-dropdown">
-                    <button @click="toggleDropdown" class="export-btn">
+                    <button @click="toggleDropdown" class="export-btn" data-testid="export-button">
                     Export ▾
                     </button>
 
@@ -55,12 +47,14 @@
                         <button
                         @click="exportProjectPDF"
                         class="dropdown-item"
+                        data-testid="export-pdf"
                         >
                         📄 Download as PDF
                         </button>
                         <button
                         @click="exportProjectEXCEL"
                         class="dropdown-item"
+                        data-testid="export-excel"
                         >
                         📊 Download as Excel
                         </button>
