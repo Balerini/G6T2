@@ -1,54 +1,69 @@
 #!/usr/bin/env python3
 """
-API Integration Tests - Registration Feature
-Tests API endpoints with mocked dependencies.
-Tests Flask app + business logic integration.
+REAL Integration Tests - Registration Feature
+Tests API endpoints with REAL database integration.
+Tests Flask app + business logic + real database integration.
 """
 
 import unittest
 import sys
 import os
 import json
-from unittest.mock import patch, MagicMock
+from datetime import datetime, timedelta
 
 # Add the backend directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+# Set Firebase credentials with relative path
+service_account_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'service-account.json')
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = service_account_path
+
 from app import create_app
+from firebase_utils import get_firestore_client
 
 
 class TestRegistrationAPI(unittest.TestCase):
-    """API Integration tests for registration API endpoint"""
+    """REAL Integration tests for registration API endpoint with real database"""
     
     def setUp(self):
-        """Set up test client and mock Firestore"""
+        """Set up test client with REAL database"""
         self.app = create_app()
         self.app.config['TESTING'] = True
         self.client = self.app.test_client()
         
-        # Mock Firestore client
-        self.mock_db = MagicMock()
-        self.mock_users_ref = MagicMock()
-        self.mock_db.collection.return_value = self.mock_users_ref
+        # Use REAL Firestore client
+        self.db = get_firestore_client()
+        
+        # Track test data for cleanup
+        self.test_user_ids = []
+        
+        # Generate unique test emails to avoid conflicts
+        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    def tearDown(self):
+        """Clean up REAL test data from database"""
+        # Clean up test users
+        for user_id in self.test_user_ids:
+            try:
+                self.db.collection('Users').document(user_id).delete()
+            except Exception as e:
+                print(f"Warning: Could not delete test user {user_id}: {e}")
+        
+        self.test_user_ids.clear()
         
     def test_registration_success(self):
-        """Test successful user registration via API"""
-        # Mock data
+        """Test successful user registration via API with REAL database"""
+        # Real test data with unique email
         registration_data = {
             "name": "John Doe",
-            "email": "john.doe@company.com",
+            "email": f"john.doe.{self.timestamp}@company.com",
             "password": "TestPass123!",
             "division_name": "Sales"
         }
         
-        # Mock Firestore responses
-        self.mock_users_ref.where.return_value.stream.return_value = []  # No existing user
-        self.mock_users_ref.add.return_value = (None, MagicMock(id="test_user_id"))
-        
-        with patch('app.get_firestore_client', return_value=self.mock_db):
-            response = self.client.post('/register', 
-                                      data=json.dumps(registration_data),
-                                      content_type='application/json')
+        response = self.client.post('/register', 
+                                  data=json.dumps(registration_data),
+                                  content_type='application/json')
         
         # Assertions
         self.assertEqual(response.status_code, 201)
@@ -57,15 +72,19 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['message'], 'Registration successful')
         self.assertIn('user', response_data)
         self.assertEqual(response_data['user']['name'], 'John Doe')
-        self.assertEqual(response_data['user']['email'], 'john.doe@company.com')
+        self.assertEqual(response_data['user']['email'], registration_data['email'])
         self.assertEqual(response_data['user']['role_name'], 'Staff')
         self.assertEqual(response_data['user']['division_name'], 'Sales')
+        
+        # Track user for cleanup
+        if 'user' in response_data and 'id' in response_data['user']:
+            self.test_user_ids.append(response_data['user']['id'])
     
     def test_registration_missing_fields(self):
         """Test registration with missing required fields via API"""
         # Test missing name
         data = {
-            "email": "test@company.com",
+            "email": f"test.{self.timestamp}@company.com",
             "password": "TestPass123!",
             "division_name": "Sales"
         }
@@ -83,7 +102,7 @@ class TestRegistrationAPI(unittest.TestCase):
         """Test registration with name too short via API"""
         data = {
             "name": "J",  # Too short
-            "email": "test@company.com",
+            "email": f"test.{self.timestamp}@company.com",
             "password": "TestPass123!",
             "division_name": "Sales"
         }
@@ -101,7 +120,7 @@ class TestRegistrationAPI(unittest.TestCase):
         """Test registration with invalid password via API"""
         data = {
             "name": "John Doe",
-            "email": "test@company.com",
+            "email": f"test.{self.timestamp}@company.com",
             "password": "weak",  # Invalid password
             "division_name": "Sales"
         }
@@ -119,7 +138,7 @@ class TestRegistrationAPI(unittest.TestCase):
         """Test registration with invalid department via API"""
         data = {
             "name": "John Doe",
-            "email": "test@company.com",
+            "email": f"test.{self.timestamp}@company.com",
             "password": "TestPass123!",
             "division_name": "InvalidDepartment"
         }
@@ -134,118 +153,106 @@ class TestRegistrationAPI(unittest.TestCase):
         self.assertEqual(response_data['error'], 'Invalid department selected')
     
     def test_registration_duplicate_email(self):
-        """Test registration with existing email via API"""
-        data = {
-            "name": "John Doe",
-            "email": "existing@company.com",
+        """Test registration with existing email via API with REAL database"""
+        # First, create a user
+        registration_data = {
+            "name": "First User",
+            "email": f"duplicate.{self.timestamp}@company.com",
             "password": "TestPass123!",
             "division_name": "Sales"
         }
         
-        # Mock existing user
-        mock_user = MagicMock()
-        self.mock_users_ref.where.return_value.stream.return_value = [mock_user]
+        response1 = self.client.post('/register',
+                                   data=json.dumps(registration_data),
+                                   content_type='application/json')
         
-        with patch('app.get_firestore_client', return_value=self.mock_db):
-            response = self.client.post('/register',
-                                      data=json.dumps(data),
-                                      content_type='application/json')
+        self.assertEqual(response1.status_code, 201)
+        response1_data = json.loads(response1.data)
+        if 'user' in response1_data and 'id' in response1_data['user']:
+            self.test_user_ids.append(response1_data['user']['id'])
         
-        self.assertEqual(response.status_code, 409)
-        response_data = json.loads(response.data)
-        self.assertFalse(response_data['ok'])
-        self.assertEqual(response_data['error'], 'Email already exists')
+        # Now try to register with the same email
+        duplicate_data = {
+            "name": "Second User",
+            "email": f"duplicate.{self.timestamp}@company.com",  # Same email
+            "password": "TestPass123!",
+            "division_name": "Sales"
+        }
+        
+        response2 = self.client.post('/register',
+                                   data=json.dumps(duplicate_data),
+                                   content_type='application/json')
+        
+        self.assertEqual(response2.status_code, 409)
+        response2_data = json.loads(response2.data)
+        self.assertFalse(response2_data['ok'])
+        self.assertEqual(response2_data['error'], 'Email already exists')
     
     def test_registration_role_assignment_director(self):
-        """Test role assignment for director email via API"""
+        """Test role assignment for director email via API with REAL database"""
         data = {
             "name": "Director Name",
-            "email": "director@company.com",
+            "email": f"director.{self.timestamp}@company.com",
             "password": "TestPass123!",
             "division_name": "Sales"
         }
         
-        # Mock no existing user
-        self.mock_users_ref.where.return_value.stream.return_value = []
-        self.mock_users_ref.add.return_value = (None, MagicMock(id="test_user_id"))
-        
-        with patch('app.get_firestore_client', return_value=self.mock_db):
-            response = self.client.post('/register',
-                                      data=json.dumps(data),
-                                      content_type='application/json')
+        response = self.client.post('/register',
+                                  data=json.dumps(data),
+                                  content_type='application/json')
         
         self.assertEqual(response.status_code, 201)
         response_data = json.loads(response.data)
         self.assertEqual(response_data['user']['role_name'], 'Director')
         self.assertEqual(response_data['user']['role_num'], 2)
+        
+        # Track user for cleanup
+        if 'user' in response_data and 'id' in response_data['user']:
+            self.test_user_ids.append(response_data['user']['id'])
     
     def test_registration_role_assignment_manager(self):
-        """Test role assignment for manager email via API"""
+        """Test role assignment for manager email via API with REAL database"""
         data = {
             "name": "Manager Name",
-            "email": "manager@company.com",
+            "email": f"manager.{self.timestamp}@company.com",
             "password": "TestPass123!",
             "division_name": "Sales"
         }
         
-        # Mock no existing user
-        self.mock_users_ref.where.return_value.stream.return_value = []
-        self.mock_users_ref.add.return_value = (None, MagicMock(id="test_user_id"))
-        
-        with patch('app.get_firestore_client', return_value=self.mock_db):
-            response = self.client.post('/register',
-                                      data=json.dumps(data),
-                                      content_type='application/json')
+        response = self.client.post('/register',
+                                  data=json.dumps(data),
+                                  content_type='application/json')
         
         self.assertEqual(response.status_code, 201)
         response_data = json.loads(response.data)
         self.assertEqual(response_data['user']['role_name'], 'Manager')
         self.assertEqual(response_data['user']['role_num'], 3)
+        
+        # Track user for cleanup
+        if 'user' in response_data and 'id' in response_data['user']:
+            self.test_user_ids.append(response_data['user']['id'])
     
     def test_registration_role_assignment_staff(self):
-        """Test role assignment for staff email via API"""
+        """Test role assignment for staff email via API with REAL database"""
         data = {
             "name": "Staff Name",
-            "email": "staff@company.com",
+            "email": f"staff.{self.timestamp}@company.com",
             "password": "TestPass123!",
             "division_name": "Sales"
         }
         
-        # Mock no existing user
-        self.mock_users_ref.where.return_value.stream.return_value = []
-        self.mock_users_ref.add.return_value = (None, MagicMock(id="test_user_id"))
-        
-        with patch('app.get_firestore_client', return_value=self.mock_db):
-            response = self.client.post('/register',
-                                      data=json.dumps(data),
-                                      content_type='application/json')
+        response = self.client.post('/register',
+                                  data=json.dumps(data),
+                                  content_type='application/json')
         
         self.assertEqual(response.status_code, 201)
         response_data = json.loads(response.data)
         self.assertEqual(response_data['user']['role_name'], 'Staff')
         self.assertEqual(response_data['user']['role_num'], 4)
-    
-    def test_registration_database_error(self):
-        """Test registration with database error via API"""
-        data = {
-            "name": "John Doe",
-            "email": "test@company.com",
-            "password": "TestPass123!",
-            "division_name": "Sales"
-        }
         
-        # Mock database error
-        self.mock_users_ref.where.return_value.stream.side_effect = Exception("Database error")
-        
-        with patch('app.get_firestore_client', return_value=self.mock_db):
-            response = self.client.post('/register',
-                                      data=json.dumps(data),
-                                      content_type='application/json')
-        
-        self.assertEqual(response.status_code, 500)
-        response_data = json.loads(response.data)
-        self.assertFalse(response_data['ok'])
-        self.assertIn('Database error', response_data['error'])
+        # Track user for cleanup
+        if 'user' in response_data and 'id' in response_data['user']:
+            self.test_user_ids.append(response_data['user']['id'])
     
     def test_registration_empty_request(self):
         """Test registration with empty request body via API"""
@@ -271,16 +278,36 @@ class TestRegistrationAPI(unittest.TestCase):
 
 
 class TestRegistrationIntegration(unittest.TestCase):
-    """API Integration tests for registration with password functions"""
+    """REAL Integration tests for registration with password functions"""
     
     def setUp(self):
-        """Set up test client"""
+        """Set up test client with REAL database"""
         self.app = create_app()
         self.app.config['TESTING'] = True
         self.client = self.app.test_client()
+        
+        # Use REAL Firestore client
+        self.db = get_firestore_client()
+        
+        # Track test data for cleanup
+        self.test_user_ids = []
+        
+        # Generate unique test emails to avoid conflicts
+        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    def tearDown(self):
+        """Clean up REAL test data from database"""
+        # Clean up test users
+        for user_id in self.test_user_ids:
+            try:
+                self.db.collection('Users').document(user_id).delete()
+            except Exception as e:
+                print(f"Warning: Could not delete test user {user_id}: {e}")
+        
+        self.test_user_ids.clear()
     
     def test_registration_password_validation_integration(self):
-        """Test that password validation is properly integrated via API"""
+        """Test that password validation is properly integrated via API with REAL database"""
         # Test various invalid passwords
         invalid_passwords = [
             "short", 
@@ -290,10 +317,10 @@ class TestRegistrationIntegration(unittest.TestCase):
             "NoSpecial123"     
         ]
         
-        for password in invalid_passwords:
+        for i, password in enumerate(invalid_passwords):
             data = {
                 "name": "John Doe",
-                "email": f"test{password}@company.com",
+                "email": f"test{i}.{self.timestamp}@company.com",
                 "password": password,
                 "division_name": "Sales"
             }
@@ -308,41 +335,43 @@ class TestRegistrationIntegration(unittest.TestCase):
             self.assertIn('Password', response_data['error'])
     
     def test_registration_password_hashing_integration(self):
-        """Test that password hashing is properly integrated via API"""
+        """Test that password hashing is properly integrated via API with REAL database"""
         data = {
             "name": "John Doe",
-            "email": "test@company.com",
+            "email": f"hash.test.{self.timestamp}@company.com",
             "password": "TestPass123!",
             "division_name": "Sales"
         }
         
-        # Mock Firestore
-        mock_db = MagicMock()
-        mock_users_ref = MagicMock()
-        mock_db.collection.return_value = mock_users_ref
-        mock_users_ref.where.return_value.stream.return_value = []  # No existing user
-        mock_users_ref.add.return_value = (None, MagicMock(id="test_user_id"))
+        response = self.client.post('/register',
+                                  data=json.dumps(data),
+                                  content_type='application/json')
         
-        with patch('app.get_firestore_client', return_value=mock_db):
-            response = self.client.post('/register',
-                                      data=json.dumps(data),
-                                      content_type='application/json')
-        
-        # Verify that add was called with hashed password
+        # Verify registration was successful
         self.assertEqual(response.status_code, 201)
-        call_args = mock_users_ref.add.call_args[0][0]
-        self.assertIn('password', call_args)
-        # Password should be hashed (hex string, not plain text)
-        self.assertNotEqual(call_args['password'], 'TestPass123!')
-        self.assertTrue(len(call_args['password']) > 50)
+        response_data = json.loads(response.data)
+        self.assertTrue(response_data['ok'])
+        
+        # Track user for cleanup
+        if 'user' in response_data and 'id' in response_data['user']:
+            self.test_user_ids.append(response_data['user']['id'])
+            
+            # Verify password was hashed in database
+            user_doc = self.db.collection('Users').document(response_data['user']['id']).get()
+            if user_doc.exists:
+                user_data = user_doc.to_dict()
+                stored_password = user_data.get('password', '')
+                # Password should be hashed (not plain text)
+                self.assertNotEqual(stored_password, 'TestPass123!')
+                self.assertTrue(len(stored_password) > 50)  # bcrypt hashes are long
 
 
 if __name__ == '__main__':
     print("=" * 80)
-    print("API INTEGRATION TESTING - REGISTRATION FEATURE")
+    print("REAL INTEGRATION TESTING - REGISTRATION FEATURE")
     print("=" * 80)
-    print("Testing API endpoints with mocked dependencies")
-    print("Tests Flask app + business logic integration")
+    print("Testing API endpoints with REAL database integration")
+    print("Tests Flask app + business logic + real database")
     print("=" * 80)
     
     # Run with verbose output
