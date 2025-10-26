@@ -1,5 +1,5 @@
 <template>
-  <div class="task-item">
+  <div class="task-item" data-testid='task-card'>
     <div class="task-title-row">
       <h3 class="task-title">{{ task.task_name }}</h3>
       <!-- <button class="edit-btn" @click.stop="$emit('edit-task', task)" title="Edit Task" aria-label="Edit Task">
@@ -51,7 +51,7 @@
         </div>
       </div> -->
 
-      <button class="view-btn" @click="$emit('view-task', task)">View Task</button>
+      <button class="view-btn" @click="$emit('view-task', task)" data-testid='task-view-details'>View Task</button>
     </div>
   </div>
 </template>

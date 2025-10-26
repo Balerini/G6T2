@@ -49,7 +49,7 @@
           id="taskName"
           v-model="form.name"
           type="text"
-          class="form-input"
+          class="form-input" data-testid='subtask-name'
           :class="{ 'error': errors.name }"
           placeholder="Enter subtask name"
           @input="clearError('name')"
@@ -86,7 +86,7 @@
           id="startDate"
           v-model="form.startDate"
           type="date"
-          class="form-input"
+          class="form-input" data-testid='subtask-start'
           :class="{ 'error': errors.startDate }"
           :min="getSubtaskMinStartDate()"
           :max="getSubtaskMaxStartDate()"
@@ -109,7 +109,7 @@
           id="endDate"
           v-model="form.endDate"
           type="date"
-          class="form-input"
+          class="form-input" data-testid='subtask-end'
           :class="{ 'error': errors.endDate }"
           :min="form.startDate || getSubtaskMinStartDate()"
           :max="getSubtaskMaxEndDate()"
@@ -135,7 +135,7 @@
         />
       </div>
 
-      <!-- Assigned To -->
+      <!-- Collaborators -->
       <div class="form-group">
         <label class="form-label" for="assignedTo">
           Collaborators (Optional)
@@ -169,7 +169,7 @@
           <!-- Dropdown icon -->
           <div 
             class="dropdown-toggle-icon" 
-            @click="toggleDropdown"
+            @click="toggleDropdown" data-testid='subtask-collab-list'
             :class="{ 'rotated': showDropdown }"
           >
             ▼
@@ -202,7 +202,7 @@
             <div 
               v-for="(user, index) in filteredUsers" 
               :key="`user-${index}-${user.id || user.name || 'unknown'}`"
-              class="dropdown-item"
+              class="dropdown-item" data-testid='subtask-collab-option'
               :class="{ 
                 'highlighted': index === highlightedIndex,
                 'selected': isUserSelected(user)
@@ -311,14 +311,14 @@
         <select 
           id="taskStatus" 
           v-model="form.status" 
-          class="form-select"
+          class="form-select" data-testid='subtask-status'
           :class="{ 'error': errors.status }"
           @change="clearError('status')"
           @blur="validateField('status')"
         >
           <option value="" disabled>Select status</option>
           <option value="Unassigned">Unassigned</option>
-          <option value="Ongoing">Ongoing</option>
+          <option value="Ongoing" data-testid='subtask-status-option'>Ongoing</option>
           <option value="Under Review">Under Review</option>
           <option value="Completed">Completed</option>
         </select>
@@ -335,7 +335,7 @@
         <select 
           id="priority"
           v-model="form.priority"
-          class="form-select"
+          class="form-select" data-testid='subtask-priority'
           :class="{ 'error': errors.priority }"
           @change="validateField('priority')"
           @blur="validateField('priority')"
@@ -348,7 +348,7 @@
           <option value="5">5</option>
           <option value="6">6</option>
           <option value="7">7</option>
-          <option value="8">8</option>
+          <option value="8" data-testid='subtask-priority-option'>8</option>
           <option value="9">9</option>
           <option value="10">10</option>
         </select>
@@ -365,7 +365,7 @@
         <button
           type="submit"
           :disabled="isSubmitting || isUploadingFiles"
-          class="btn btn-primary"
+          class="btn btn-primary" data-testid='subtask-create'
         >
           {{ isUploadingFiles ? 'Uploading files...' : isSubmitting ? 'Creating...' : 'Create Subtask' }}
         </button>

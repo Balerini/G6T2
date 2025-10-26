@@ -24,7 +24,7 @@
           <button class="tab-btn" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
             All Projects
           </button>
-          <button class="tab-btn" :class="{ active: activeTab === 'standalone' }" @click="activeTab = 'standalone'">
+          <button class="tab-btn" :class="{ active: activeTab === 'standalone' }" @click="activeTab = 'standalone'" data-testid='standalone-task'>
             Standalone Tasks
           </button>
         </div>
