@@ -1,205 +1,351 @@
-# test_create_project.py - Unit tests for Project Creation
+#!/usr/bin/env python3
+"""
+REAL Integration Tests - Project Creation Feature
+Tests project creation API endpoints with REAL database integration.
+Tests Flask app + business logic + real database integration.
+"""
+
 import unittest
 import json
-from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
 from flask import Flask
 import sys
 import os
 
-from dotenv import load_dotenv
-load_dotenv()
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-# Import your Flask blueprint
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# Set Firebase credentials with relative path
+service_account_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'service-account.json')
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = service_account_path
+
 from routes.project import projects_bp
+from firebase_utils import get_firestore_client
 
-# =============== BASE TEST CLASS ===============
-class BaseProjectTestCase(unittest.TestCase):
-    """Base class with common setup for project tests"""
+
+class TestCreateProject(unittest.TestCase):
+    """REAL Integration tests for project creation with real database"""
     
     def setUp(self):
-        """Run before each test"""
+        """Set up test fixtures with REAL database"""
         # Create Flask app
         self.app = Flask(__name__)
         self.app.config['TESTING'] = True
         self.app.register_blueprint(projects_bp)
         self.client = self.app.test_client()
         
-        # Sample project data
-        self.sample_project_data = {
-            'proj_name': 'Test Project',
-            'proj_desc': 'Test Description',
-            'start_date': (datetime.now() + timedelta(days=1)).isoformat(),
-            'end_date': (datetime.now() + timedelta(days=30)).isoformat(),
-            'owner': 'user123',
-            'division_name': 'IT Department',
-            'collaborators': ['user123', 'user456']
-        }
+        # Use REAL Firestore client
+        self.db = get_firestore_client()
         
-        # Mock headers
-        self.mock_headers = {
-            'X-User-Id': 'user123',
-            'X-User-Role': 'manager',
-            'X-User-Name': 'Test User'
-        }
+        # Track test data for cleanup
+        self.test_project_ids = []
+        self.test_user_ids = []
         
-        # Setup Firebase mocks
-        self.setup_firebase_mocks()
+        # Generate unique test data to avoid conflicts
+        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Set up real test users
+        self.setup_test_users()
     
-    def setup_firebase_mocks(self):
-        """Setup global Firebase mocks"""
-        patcher1 = patch('firebase_utils.get_firestore_client')
-        patcher2 = patch('routes.project.get_firestore_client')
+    def tearDown(self):
+        """Clean up REAL test data from database"""
+        # Clean up test projects
+        for project_id in self.test_project_ids:
+            try:
+                self.db.collection('Projects').document(project_id).delete()
+            except Exception as e:
+                print(f"Warning: Could not delete test project {project_id}: {e}")
         
-        self.mock_firestore = patcher1.start()
-        self.mock_route_firestore = patcher2.start()
+        # Clean up test users
+        for user_id in self.test_user_ids:
+            try:
+                self.db.collection('Users').document(user_id).delete()
+            except Exception as e:
+                print(f"Warning: Could not delete test user {user_id}: {e}")
         
-        self.addCleanup(patcher1.stop)
-        self.addCleanup(patcher2.stop)
-        
-        # Setup mock database
-        self.mock_db = Mock()
-        self.mock_firestore.return_value = self.mock_db
-        self.mock_route_firestore.return_value = self.mock_db
-        
-        # Setup collection mocks
-        mock_collection = Mock()
-        self.mock_db.collection.return_value = mock_collection
-        
-        # Make add() return proper document reference
-        mock_doc_ref = Mock()
-        mock_doc_ref.id = 'project123'
-        mock_collection.add.return_value = (None, mock_doc_ref)
-        
-        # Make get() return the created project
-        mock_doc = Mock()
-        mock_doc.to_dict.return_value = {
-            'proj_name': 'Test Project',
-            'owner': 'user123',
-            'collaborators': ['user123', 'user456']
+        self.test_project_ids.clear()
+        self.test_user_ids.clear()
+    
+    def setup_test_users(self):
+        """Create real test users in the database"""
+        # Create owner user
+        owner_data = {
+            'name': f'Test Owner {self.timestamp}',
+            'email': f'owner.{self.timestamp}@company.com',
+            'role_name': 'Manager',
+            'role_num': 3,
+            'division_name': 'IT Department',
+            'created_at': datetime.now().isoformat()
         }
-        mock_doc_ref.get.return_value = mock_doc
-
-# =============== CREATE PROJECT TESTS ===============
-class TestCreateProject(BaseProjectTestCase):
+        
+        owner_ref = self.db.collection('Users').add(owner_data)
+        self.test_owner_id = owner_ref[1].id
+        self.test_user_ids.append(self.test_owner_id)
+        
+        # Create collaborator user
+        collaborator_data = {
+            'name': f'Test Collaborator {self.timestamp}',
+            'email': f'collaborator.{self.timestamp}@company.com',
+            'role_name': 'Staff',
+            'role_num': 4,
+            'division_name': 'IT Department',
+            'created_at': datetime.now().isoformat()
+        }
+        
+        collaborator_ref = self.db.collection('Users').add(collaborator_data)
+        self.test_collaborator_id = collaborator_ref[1].id
+        self.test_user_ids.append(self.test_collaborator_id)
     
     def test_create_project_success(self):
-        """Test successful project creation"""
+        """Test successful project creation with REAL database"""
+        # Real project data with future dates
+        future_start = datetime.now() + timedelta(days=1)
+        future_end = datetime.now() + timedelta(days=30)
+        
+        project_data = {
+            'proj_name': f'Test Project {self.timestamp}',
+            'proj_desc': 'Test project description for integration testing',
+            'start_date': future_start.strftime('%Y-%m-%d'),
+            'end_date': future_end.strftime('%Y-%m-%d'),
+            'owner': self.test_owner_id,
+            'division_name': 'IT Department',
+            'collaborators': [self.test_owner_id, self.test_collaborator_id]
+        }
+        
+        # Mock headers for authentication
+        headers = {
+            'X-User-Id': self.test_owner_id,
+            'X-User-Role': 'manager',
+            'X-User-Name': f'Test Owner {self.timestamp}'
+        }
+        
         response = self.client.post('/api/projects',
-                                    json=self.sample_project_data,
-                                    headers=self.mock_headers)
+                                   json=project_data,
+                                   headers=headers)
         
-        self.assertIn(response.status_code, [201, 500])
+        # Assertions
+        self.assertEqual(response.status_code, 201)
+        response_data = json.loads(response.data)
+        self.assertIn('message', response_data)
+        self.assertIn('project', response_data)
         
-        if response.status_code == 201:
-            data = json.loads(response.data)
-            self.assertIn('message', data)
-            self.assertIn('project', data)
+        # Track project for cleanup
+        if 'project' in response_data and 'id' in response_data['project']:
+            self.test_project_ids.append(response_data['project']['id'])
+        
+        # Verify project exists in real database
+        if 'project' in response_data and 'id' in response_data['project']:
+            project_doc = self.db.collection('Projects').document(response_data['project']['id']).get()
+            self.assertTrue(project_doc.exists)
+            
+            project_data_from_db = project_doc.to_dict()
+            self.assertEqual(project_data_from_db['proj_name'], project_data['proj_name'])
+            self.assertEqual(project_data_from_db['proj_desc'], project_data['proj_desc'])
+            self.assertEqual(project_data_from_db['owner'], project_data['owner'])
+            self.assertEqual(project_data_from_db['division_name'], project_data['division_name'])
     
     def test_create_project_missing_required_fields(self):
-        """Test project creation fails without required fields"""
-        incomplete_data = {'proj_name': 'Test'}
+        """Test project creation with missing required fields with REAL database"""
+        # Missing proj_name
+        incomplete_data = {
+            'proj_desc': 'Test description',
+            'start_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
+            'end_date': (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
+            'owner': self.test_owner_id,
+            'division_name': 'IT Department'
+        }
+        
+        headers = {
+            'X-User-Id': self.test_owner_id,
+            'X-User-Role': 'manager',
+            'X-User-Name': f'Test Owner {self.timestamp}'
+        }
         
         response = self.client.post('/api/projects',
-                                    json=incomplete_data,
-                                    headers=self.mock_headers)
+                                   json=incomplete_data,
+                                   headers=headers)
         
+        # Should return validation error
         self.assertEqual(response.status_code, 400)
-        data = json.loads(response.data)
-        self.assertIn('error', data)
+        response_data = json.loads(response.data)
+        self.assertIn('error', response_data)
+        self.assertIn('required', response_data['error'].lower())
     
-    def test_create_project_short_name(self):
-        """Test project creation fails with name less than 3 characters"""
-        self.sample_project_data['proj_name'] = 'AB'  # Only 2 characters
-        
-        response = self.client.post('/api/projects',
-                                    json=self.sample_project_data,
-                                    headers=self.mock_headers)
-        
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.data)
-        self.assertIn('at least 3 characters', data.get('error', '').lower())
-    
-    def test_create_project_start_date_in_past(self):
-        """Test project creation fails when start date is in the past"""
-        # Set start date to yesterday
-        self.sample_project_data['start_date'] = (datetime.now() - timedelta(days=1)).isoformat()
-        
-        response = self.client.post('/api/projects',
-                                    json=self.sample_project_data,
-                                    headers=self.mock_headers)
-        
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.data)
-        self.assertIn('past', data.get('error', '').lower())
-    
-    def test_create_project_end_before_start(self):
-        """Test project creation fails when end date is before start date"""
+    def test_create_project_invalid_dates(self):
+        """Test project creation with invalid dates with REAL database"""
         # End date before start date
-        self.sample_project_data['start_date'] = (datetime.now() + timedelta(days=30)).isoformat()
-        self.sample_project_data['end_date'] = (datetime.now() + timedelta(days=1)).isoformat()
+        invalid_data = {
+            'proj_name': f'Test Project {self.timestamp}',
+            'proj_desc': 'Test description',
+            'start_date': (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),  # Later date
+            'end_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),    # Earlier date
+            'owner': self.test_owner_id,
+            'division_name': 'IT Department'
+        }
+        
+        headers = {
+            'X-User-Id': self.test_owner_id,
+            'X-User-Role': 'manager',
+            'X-User-Name': f'Test Owner {self.timestamp}'
+        }
         
         response = self.client.post('/api/projects',
-                                    json=self.sample_project_data,
-                                    headers=self.mock_headers)
+                                   json=invalid_data,
+                                   headers=headers)
         
+        # Should return validation error
         self.assertEqual(response.status_code, 400)
-        data = json.loads(response.data)
-        self.assertIn('after start date', data.get('error', '').lower())
+        response_data = json.loads(response.data)
+        self.assertIn('error', response_data)
     
-    def test_create_project_auto_adds_owner_to_collaborators(self):
-        """Test owner is automatically added to collaborators if missing"""
-        # Remove owner from collaborators
-        self.sample_project_data['collaborators'] = ['user456']
+    def test_create_project_past_start_date(self):
+        """Test project creation with past start date with REAL database"""
+        # Start date in the past
+        past_data = {
+            'proj_name': f'Test Project {self.timestamp}',
+            'proj_desc': 'Test description',
+            'start_date': (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d'),  # Past date
+            'end_date': (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
+            'owner': self.test_owner_id,
+            'division_name': 'IT Department'
+        }
+        
+        headers = {
+            'X-User-Id': self.test_owner_id,
+            'X-User-Role': 'manager',
+            'X-User-Name': f'Test Owner {self.timestamp}'
+        }
         
         response = self.client.post('/api/projects',
-                                    json=self.sample_project_data,
-                                    headers=self.mock_headers)
+                                   json=past_data,
+                                   headers=headers)
         
-        # Should succeed - owner added automatically
-        self.assertIn(response.status_code, [201, 500])
-    
-    def test_create_project_invalid_date_format(self):
-        """Test project creation fails with invalid date format"""
-        self.sample_project_data['start_date'] = 'invalid-date'
-        
-        response = self.client.post('/api/projects',
-                                    json=self.sample_project_data,
-                                    headers=self.mock_headers)
-        
+        # Should return validation error
         self.assertEqual(response.status_code, 400)
-        data = json.loads(response.data)
-        self.assertIn('invalid date', data.get('error', '').lower())
+        response_data = json.loads(response.data)
+        self.assertIn('error', response_data)
     
-    def test_create_project_no_data(self):
-        """Test project creation fails with no data"""
-        response = self.client.post('/api/projects',
-                                    json={},
-                                    headers=self.mock_headers)
+    def test_create_project_invalid_owner(self):
+        """Test project creation with invalid owner with REAL database"""
+        project_data = {
+            'proj_name': f'Test Project {self.timestamp}',
+            'proj_desc': 'Test description',
+            'start_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
+            'end_date': (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
+            'owner': 'non_existent_user_id',  # Invalid owner
+            'division_name': 'IT Department'
+        }
         
+        headers = {
+            'X-User-Id': self.test_owner_id,
+            'X-User-Role': 'manager',
+            'X-User-Name': f'Test Owner {self.timestamp}'
+        }
+        
+        response = self.client.post('/api/projects',
+                                   json=project_data,
+                                   headers=headers)
+        
+        # Should return validation error
         self.assertEqual(response.status_code, 400)
+        response_data = json.loads(response.data)
+        self.assertIn('error', response_data)
     
-    def test_create_project_with_description(self):
-        """Test project creation with description"""
-        self.sample_project_data['proj_desc'] = 'Detailed project description'
+    def test_create_project_unauthorized_user(self):
+        """Test project creation with unauthorized user with REAL database"""
+        project_data = {
+            'proj_name': f'Test Project {self.timestamp}',
+            'proj_desc': 'Test description',
+            'start_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
+            'end_date': (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
+            'owner': self.test_owner_id,
+            'division_name': 'IT Department'
+        }
+        
+        # Unauthorized headers (staff trying to create project)
+        headers = {
+            'X-User-Id': self.test_collaborator_id,
+            'X-User-Role': 'staff',
+            'X-User-Name': f'Test Collaborator {self.timestamp}'
+        }
         
         response = self.client.post('/api/projects',
-                                    json=self.sample_project_data,
-                                    headers=self.mock_headers)
+                                   json=project_data,
+                                   headers=headers)
         
-        self.assertIn(response.status_code, [201, 500])
+        # Should return authorization error
+        self.assertEqual(response.status_code, 403)
+        response_data = json.loads(response.data)
+        self.assertIn('error', response_data)
     
-    def test_create_project_default_status(self):
-        """Test newly created project has default status 'Not Started'"""
-        response = self.client.post('/api/projects',
-                                    json=self.sample_project_data,
-                                    headers=self.mock_headers)
+    def test_create_project_missing_headers(self):
+        """Test project creation with missing authentication headers with REAL database"""
+        project_data = {
+            'proj_name': f'Test Project {self.timestamp}',
+            'proj_desc': 'Test description',
+            'start_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
+            'end_date': (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
+            'owner': self.test_owner_id,
+            'division_name': 'IT Department'
+        }
         
-        if response.status_code == 201:
-            data = json.loads(response.data)
-            # Verify default status
-            self.assertIn(response.status_code, [201, 500])
+        # No headers
+        response = self.client.post('/api/projects',
+                                   json=project_data)
+        
+        # Should return authentication error
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.data)
+        self.assertIn('error', response_data)
+    
+    def test_create_project_duplicate_name(self):
+        """Test project creation with duplicate name with REAL database"""
+        # First create a project
+        project_data = {
+            'proj_name': f'Duplicate Test Project {self.timestamp}',
+            'proj_desc': 'Test description',
+            'start_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
+            'end_date': (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'),
+            'owner': self.test_owner_id,
+            'division_name': 'IT Department'
+        }
+        
+        headers = {
+            'X-User-Id': self.test_owner_id,
+            'X-User-Role': 'manager',
+            'X-User-Name': f'Test Owner {self.timestamp}'
+        }
+        
+        response1 = self.client.post('/api/projects',
+                                    json=project_data,
+                                    headers=headers)
+        
+        self.assertEqual(response1.status_code, 201)
+        response1_data = json.loads(response1.data)
+        if 'project' in response1_data and 'id' in response1_data['project']:
+            self.test_project_ids.append(response1_data['project']['id'])
+        
+        # Try to create another project with the same name
+        duplicate_data = project_data.copy()
+        duplicate_data['proj_desc'] = 'Different description'
+        
+        response2 = self.client.post('/api/projects',
+                                    json=duplicate_data,
+                                    headers=headers)
+        
+        # Should return validation error for duplicate name
+        self.assertEqual(response2.status_code, 400)
+        response2_data = json.loads(response2.data)
+        self.assertIn('error', response2_data)
+
 
 if __name__ == '__main__':
+    print("=" * 80)
+    print("REAL INTEGRATION TESTING - PROJECT CREATION FEATURE")
+    print("=" * 80)
+    print("Testing project creation API endpoints with REAL database integration")
+    print("Tests Flask app + business logic + real database")
+    print("=" * 80)
+    
+    # Run with verbose output
     unittest.main(verbosity=2)
