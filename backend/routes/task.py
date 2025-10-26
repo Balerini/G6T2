@@ -1552,7 +1552,7 @@ def test_update_subtask(subtask_id):
         print(f"📋 TEST: Current subtask data: is_deleted = {current_data.get('is_deleted')}", flush=True)
         
         # Try to update it
-        print(f"🔄 TEST: Updating subtask...", flush=True)
+        print("🔄 TEST: Updating subtask...", flush=True)
         subtask_ref.update({
             'is_deleted': True,
             'test_field': 'updated_by_test'
