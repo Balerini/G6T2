@@ -1,7 +1,7 @@
 <template>
   <div class="view-task-page">
     <!-- Toast Notifications -->
-    <div v-if="successMessage"
+    <div v-if="successMessage" data-testid='subtask-toast'
       style="position: fixed; top: 20px; right: 20px; background: #10b981; color: white; padding: 16px; border-radius: 8px; z-index: 10000; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); min-width: 300px;">
       {{ successMessage }}
     </div>
@@ -101,9 +101,9 @@
                 <button @click="openEditModal" class="edit-task-btn" v-if="task">
                   ✏️ Edit Task
                 </button>
-              <button @click="openSubtaskModal" class="add-subtask-btn">
-                + Add Subtask
-              </button>
+                <button @click="openSubtaskModal" class="add-subtask-btn" data-testid='add-subtask'>
+                  + Add Subtask
+                </button>
               <!-- Delete Task Button - Only show for task owner -->
               <button 
                   @click="confirmDeleteTask" 

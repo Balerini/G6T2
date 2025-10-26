@@ -7,16 +7,16 @@
           <p class="schedule-subtitle">Project timeline and task assignments</p>
         </div>
         <div class="export-dropdown">
-          <button @click="toggleDropdown" class="export-btn">
+          <button @click="toggleDropdown" class="export-btn" data-testid='export-calendar-button'>
             Export ▾
           </button>
           
           <transition name="fade">
             <div v-if="showDropdown" class="dropdown-menu">
-              <button @click="downloadSchedule('pdf')" class="dropdown-item">
+              <button @click="downloadSchedule('pdf')" class="dropdown-item" data-testid='export-calendar-pdf'>
                 📄 Download as PDF
               </button>
-              <button @click="downloadSchedule('excel')" class="dropdown-item">
+              <button @click="downloadSchedule('excel')" class="dropdown-item" data-testid='export-calendar-excel'>
                 📊 Download as Excel
               </button>
             </div>

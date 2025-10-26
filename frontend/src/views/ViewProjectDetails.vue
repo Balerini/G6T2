@@ -38,7 +38,7 @@
                 <p class="project-desc">{{ projectData.proj_desc || 'No description' }}</p>
 
                 <div class="export-dropdown">
-                    <button @click="toggleDropdown" class="export-btn" data-testid="export-button">
+                    <button @click="toggleDropdown" class="export-btn" data-testid="export-task-button">
                     Export ▾
                     </button>
 
@@ -47,14 +47,14 @@
                         <button
                         @click="exportProjectPDF"
                         class="dropdown-item"
-                        data-testid="export-pdf"
+                        data-testid="export-task-pdf"
                         >
                         📄 Download as PDF
                         </button>
                         <button
                         @click="exportProjectEXCEL"
                         class="dropdown-item"
-                        data-testid="export-excel"
+                        data-testid="export-task-excel"
                         >
                         📊 Download as Excel
                         </button>
@@ -388,6 +388,7 @@ export default {
                 a.download = `Project_${projectName}_Tasks_Report.pdf`;
                 a.click();
                 window.URL.revokeObjectURL(url);
+                this.dropdownOpen = false;
             } catch (error) {
                 console.error("Export failed:", error);
                 alert("Failed to export project tasks. Please try again.");
@@ -465,6 +466,7 @@ export default {
                 link.click();
                 link.remove();
                 window.URL.revokeObjectURL(url);
+                this.dropdownOpen = false;
             } catch (error) {
                 console.error("Error downloading XLSX:", error);
                 this.error = "Failed to download Excel report.";

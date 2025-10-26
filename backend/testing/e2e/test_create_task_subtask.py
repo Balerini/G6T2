@@ -6,11 +6,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-# import requests
-# import firebase_utils
-# from firebase_utils import get_firestore_client
-# from firebase_admin import firestore
-# from datetime import datetime
 
 
 @pytest.fixture(scope="module")
@@ -90,11 +85,11 @@ def test_project_excel_export(driver):
     )
     task_collab_ddl.click()
     
-    task_collab_option = WebDriverWait(driver, 5).until(
+    task_collab_options = WebDriverWait(driver, 5).until(
         EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "[data-testid='task-collab-option']"))
     )
     target_name = "Ang Koo Kueh"
-    for option in task_collab_option:
+    for option in task_collab_options:
         name_element = option.find_element(By.CSS_SELECTOR, ".user-name")
         if target_name.lower() in name_element.text.lower():
             option.click()
@@ -111,20 +106,93 @@ def test_project_excel_export(driver):
         EC.text_to_be_present_in_element((By.CSS_SELECTOR, ".toast-message"), valid_message)
     )
 
-    # ref_dt = datetime.now()
-    # ref_ts = ref_dt.timestamp()
+    # add subtask now
+    # project link in navbar
+    projects_link = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='nav-projects']"))
+    )
+    projects_link.click()
 
-    # validate task in homepage
-    # tasks = requests.get("http://localhost:8000/tasks").json()
-    # assert any(task["task_name"] == "Selenium Testing" for task in tasks)
+    # click standalone tasks
+    # driver.find_element(By.CSS_SELECTOR, "[data-testid='standalone-task']").click()
+    standalone_tasks = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='standalone-task']"))
+    )
+    standalone_tasks.click()
+
+    # click view task details for "Selenium Testing"
+    task_list = WebDriverWait(driver, 10).until(
+        EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "[data-testid='task-card']"))
+    )
+    target_task = "Selenium Testing"
+    for task in task_list:
+        name_element = task.find_element(By.CSS_SELECTOR, ".task-title")
+        if target_task.lower() in name_element.text.lower():
+            task.find_element(By.CSS_SELECTOR, "[data-testid='task-view-details']").click()
+            break
+    else:
+        raise Exception(f"Task '{target_task}' not found in page.")
     
-    # validate task in firestore
-    # try:
-    #     db = get_firestore_client()
-    #     tasks_ref = db.collection('Tasks')
-    #     task_query = tasks_ref.where('createdAt', '==', ref_ts)
-    #     task = task_query.stream()
-    #     assert task.to_dict()["task_name"] == "Selenium Testing"
+    time.sleep(2)
 
-    # except Exception as e:
-    #     print(e)
+    # add subtask
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='add-subtask']").click()
+
+    # fields
+    # name
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-name']").send_keys("Selenium Sub Testing")
+   
+    # start & end date
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-start']").send_keys("29/10/2025")
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-end']").send_keys("30/10/2025")
+
+    # priority
+    subtask_prio_ddl = WebDriverWait(driver, 5).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='subtask-priority']"))
+    )
+    subtask_prio_ddl.click()
+
+    subtask_prio_option = WebDriverWait(driver, 5).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='subtask-priority-option']"))
+    )
+    subtask_prio_option.click()
+    
+    # status
+    subtask_status_ddl = WebDriverWait(driver, 5).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='subtask-status']"))
+    )
+    subtask_status_ddl.click()
+
+    subtask_status_option = WebDriverWait(driver, 5).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='subtask-status-option']"))
+    )
+    subtask_status_option.click()
+
+    # Collaborators
+    subtask_collab_ddl = WebDriverWait(driver, 5).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='subtask-collab-list']"))
+    )
+    subtask_collab_ddl.click()
+    
+    subtask_collab_options = WebDriverWait(driver, 5).until(
+        EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "[data-testid='subtask-collab-option']"))
+    )
+    target_name = "Ang Koo Kueh"
+    for option in subtask_collab_options:
+        name_element = option.find_element(By.CSS_SELECTOR, ".user-name")
+        if target_name.lower() in name_element.text.lower():
+            option.click()
+            break
+    else:
+        raise Exception(f"Collaborator '{target_name}' not found in dropdown options.")
+
+    # create subtask
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-create']").click()
+
+    time.sleep(2)
+
+    # validate in success message
+    valid_message = '✅ Subtask created successfully!'
+    WebDriverWait(driver, 10).until(
+        EC.text_to_be_present_in_element((By.CSS_SELECTOR, "[data-testid='subtask-toast']"), valid_message)
+    )
