@@ -220,6 +220,27 @@ class TestEmailServiceUnit(unittest.TestCase):
         mock_server.login.assert_called_once_with('test@gmail.com', 'test_password')
         mock_server.send_message.assert_called_once()
     
+    @patch('smtplib.SMTP')
+    def test_send_deadline_reminder_email_exception(self, mock_smtp):
+        """Test deadline reminder email with exception handling"""
+        # Mock SMTP server to raise exception
+        mock_server = MagicMock()
+        mock_server.send_message.side_effect = Exception("SMTP Error")
+        mock_smtp.return_value.__enter__.return_value = mock_server
+        
+        result = self.email_service.send_deadline_reminder_email(
+            to_email="test@example.com",
+            user_name="John Doe",
+            task_name="Test Task",
+            task_desc="Test Description",
+            project_name="Test Project",
+            hours_until_due=24.0,
+            due_date="2025-01-31",
+            priority_level="High"
+        )
+        
+        self.assertFalse(result)
+
     def test_priority_colors_mapping(self):
         """Test priority level color mapping in deadline reminder"""
         # This tests the internal logic of priority color assignment

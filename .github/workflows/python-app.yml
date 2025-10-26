@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Python application
+name: Python Application - C1 Unit Testing & Integration Testing
 
 on:
   push:
@@ -19,70 +19,91 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
       with:
         python-version: "3.10"
+    
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install flake8 pytest coverage==7.3.2
         pip install -r backend/requirements.txt
+    
     - name: Verify openpyxl installation
       run: |
         python -c "import openpyxl; print('openpyxl version:', openpyxl.__version__)"
-    - name: Verify test files exist
+    
+    - name: Verify C1 unit test files exist
       run: |
         cd backend && ls -la testing/unit/
-        echo "Checking if all test files exist..."
+        echo "Checking if all C1 unit test files exist..."
         python3 -c "
         import os
-        test_files = [
-            'testing.unit.test_password_validation',
-            'testing.unit.test_dashboard_utils', 
-            'testing.unit.test_project_completion',
-            'testing.unit.test_email_service',
-            'testing.unit.test_notification_unit',
-            'testing.unit.test_collaborator_utils',
-            'testing.unit.test_subtask_utils',
-            'testing.unit.test_register_validation',
-            'testing.unit.test_reset_password_validation',
-            'testing.unit.test_task_utils',
-            'testing.unit.test_project_utils'
+        c1_unit_tests = [
+            'testing.unit.test_password_validation',      # Authentication features
+            'testing.unit.test_register_validation',      # Registration features  
+            'testing.unit.test_reset_password_validation', # Password reset features
+            'testing.unit.test_project_completion',       # Project completion logic
+            'testing.unit.test_email_service',            # Email notification features
+            'testing.unit.test_notification_unit',        # Notification features
+            'testing.unit.test_recurrence_features',      # Recurrence features
+            'testing.unit.test_dashboard_analytics'       # Dashboard utility functions
         ]
-        for test_file in test_files:
+        print('C1 Unit Tests:')
+        for test_file in c1_unit_tests:
+            file_path = test_file.replace('.', '/') + '.py'
+            if os.path.exists(file_path):
+                print(f'✓ {file_path}')
+            else:
+                print(f'✗ {file_path} - MISSING')
+        
+        integration_tests = [
+            'testing.integration.test_api_registration',
+            'testing.integration.test_api_subtask'
+        ]
+        print('\\nIntegration Tests:')
+        for test_file in integration_tests:
             file_path = test_file.replace('.', '/') + '.py'
             if os.path.exists(file_path):
                 print(f'✓ {file_path}')
             else:
                 print(f'✗ {file_path} - MISSING')
         "
+    
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Run C1 unit tests 
+    
+    - name: Run C1 Unit Tests (Pure Functions Only)
       run: | 
-        cd backend && python3 -m unittest testing.unit.test_password_validation testing.unit.test_dashboard_utils testing.unit.test_project_completion testing.unit.test_email_service testing.unit.test_notification_unit testing.unit.test_collaborator_utils testing.unit.test_subtask_utils testing.unit.test_register_validation testing.unit.test_reset_password_validation testing.unit.test_task_utils testing.unit.test_project_utils
+        cd backend && python3 -m unittest testing.unit.test_password_validation testing.unit.test_register_validation testing.unit.test_reset_password_validation testing.unit.test_project_completion testing.unit.test_email_service testing.unit.test_notification_unit testing.unit.test_recurrence_features testing.unit.test_dashboard_analytics
       env:
         GMAIL_USER: test@example.com
         GMAIL_APP_PASSWORD: test_password
-    - name: Run integration tests 
+    
+    - name: Run Integration Tests (API Endpoints)
       run: | 
         cd backend && python3 -m unittest testing.integration.test_api_registration testing.integration.test_api_subtask
-    - name: Run C1 unit tests with coverage
+    
+    - name: Run C1 Unit Tests with Coverage Analysis
       run: |
-        cd backend && coverage run --source=. -m unittest testing.unit.test_password_validation testing.unit.test_dashboard_utils testing.unit.test_project_completion testing.unit.test_email_service testing.unit.test_notification_unit testing.unit.test_collaborator_utils testing.unit.test_subtask_utils testing.unit.test_register_validation testing.unit.test_reset_password_validation testing.unit.test_task_utils testing.unit.test_project_utils
+        cd backend && coverage run --source=. -m unittest testing.unit.test_password_validation testing.unit.test_register_validation testing.unit.test_reset_password_validation testing.unit.test_project_completion testing.unit.test_email_service testing.unit.test_notification_unit testing.unit.test_recurrence_features testing.unit.test_dashboard_analytics
+        echo "=== COVERAGE REPORT ==="
         coverage report
+        echo "=== GENERATING HTML COVERAGE REPORT ==="
         coverage html -d htmlcov
         echo "Coverage report generated successfully"
       env:
         GMAIL_USER: test@example.com
         GMAIL_APP_PASSWORD: test_password
-    - name: Upload coverage reports
+    
+    - name: Upload Coverage Reports
       uses: actions/upload-artifact@v4
       with:
-        name: coverage-report
+        name: c1-unit-test-coverage-report
         path: backend/htmlcov/

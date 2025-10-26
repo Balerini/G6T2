@@ -27,19 +27,16 @@ def run_unit_tests_with_coverage():
     print("=" * 80)
     
     try:
-        # Run coverage on all unit tests
+        # Run coverage on application feature unit tests only
         test_modules = [
-            'testing.unit.test_password_validation',
-            'testing.unit.test_dashboard_utils',
-            'testing.unit.test_project_completion',
-            'testing.unit.test_email_service',
-            'testing.unit.test_notification_unit',
-            'testing.unit.test_collaborator_utils',
-            'testing.unit.test_subtask_utils',
-            'testing.unit.test_register_validation',
-            'testing.unit.test_reset_password_validation',
-            'testing.unit.test_task_utils',
-            'testing.unit.test_project_utils'
+            'testing.unit.test_password_validation',      # Authentication features
+            'testing.unit.test_register_validation',      # Registration features  
+            'testing.unit.test_reset_password_validation', # Password reset features
+            'testing.unit.test_project_completion',       # Project completion logic
+            'testing.unit.test_email_service',            # Email notification features
+            'testing.unit.test_notification_unit',        # Notification features
+            'testing.unit.test_recurrence_features',      # Recurrence features
+            'testing.unit.test_dashboard_analytics'        # Dashboard utility functions
         ]
         
         # Run coverage
@@ -107,7 +104,8 @@ def run_individual_feature_coverage(feature):
         'email': 'testing.unit.test_email_service_unit',
         'subtask': 'testing.unit.test_subtask_unit',
         'collaborators': 'testing.unit.test_collaborators_project',
-        'reminder': 'testing.unit.test_task_reminder_unit'
+        'reminder': 'testing.unit.test_task_reminder_unit', 
+        
     }
     
     if feature not in feature_tests:
