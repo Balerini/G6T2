@@ -14,6 +14,8 @@ omit =
     */site-packages/*
     run_unit_tests_with_coverage.py
     run_c1_tests_with_coverage.py
+    # Exclude test files from function coverage
+    testing/unit/test_*.py
     # Exclude files that are truly not unit testable
     scheduler.py
     trigger_reminders.py
