@@ -145,8 +145,8 @@ def get_task_subtasks(task_id):
         print(f"Error fetching subtasks: {str(e)}")
         return jsonify({'error': str(e)}), 500
     
-@subtask_bp.route('/api/subtasks/<subtask_id>', methods=['PUT', 'OPTIONS'])
-def update_subtask(subtask_id):
+@subtask_bp.route('/api/subtasks/<subtask_id>', methods=['GET','PUT', 'OPTIONS'])
+def get_or_update_subtask(subtask_id):
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
         response = jsonify({'status': 'OK'})
@@ -154,6 +154,92 @@ def update_subtask(subtask_id):
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-User-Id,X-User-Role')
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
         return response, 200
+
+    # Handle GET request
+    if request.method == 'GET':
+        try:
+            print(f"📖 Fetching subtask by ID: {subtask_id}")
+            db = get_firestore_client()
+            subtask_ref = db.collection('subtasks').document(subtask_id)
+            subtask_doc = subtask_ref.get()
+            
+            if not subtask_doc.exists:
+                return jsonify({'error': 'Subtask not found'}), 404
+            
+            subtask_data = subtask_doc.to_dict()
+            subtask_data['id'] = subtask_id
+            
+            if subtask_data.get('is_deleted', False):
+                return jsonify({'error': 'Subtask has been deleted'}), 404
+            
+            collaborator_ids = subtask_data.get('assigned_to', [])
+            collaborators_info = []
+            
+            for collab_id in collaborator_ids:
+                user_doc = db.collection('Users').document(collab_id).get()
+                if user_doc.exists:
+                    user_data = user_doc.to_dict()
+                    collaborators_info.append({
+                        'id': collab_id,
+                        'name': user_data.get('name', 'Unknown User'),
+                        'email': user_data.get('email', ''),
+                        'role_name': user_data.get('role_name', 'Staff')
+                    })
+                else:
+                    collaborators_info.append({
+                        'id': collab_id,
+                        'name': 'Unknown User',
+                        'email': '',
+                        'role_name': 'Staff'
+                    })
+            
+            owner_id = subtask_data.get('owner')
+            owner_info = None
+            if owner_id:
+                owner_doc = db.collection('Users').document(owner_id).get()
+                if owner_doc.exists:
+                    owner_data = owner_doc.to_dict()
+                    owner_info = {
+                        'id': owner_id,
+                        'name': owner_data.get('name', 'Unknown User'),
+                        'email': owner_data.get('email', ''),
+                        'role_name': owner_data.get('role_name', 'Staff')
+                    }
+            
+            response_data = {
+                'id': subtask_id,
+                'name': subtask_data.get('name', 'Untitled Subtask'),
+                'description': subtask_data.get('description', ''),
+                'start_date': subtask_data.get('start_date'),
+                'end_date': subtask_data.get('end_date'),
+                'status': subtask_data.get('status', 'Unassigned'),
+                'priority': subtask_data.get('priority', 5),
+                'parent_task_id': subtask_data.get('parent_task_id'),
+                'project_id': subtask_data.get('project_id'),
+                'owner': owner_id,
+                'owner_info': owner_info,
+                'assigned_to': collaborator_ids,
+                'collaborators': collaborators_info,
+                'attachments': subtask_data.get('attachments', []),
+                'status_history': subtask_data.get('status_history', []),
+                'createdAt': subtask_data.get('createdAt'),
+                'updatedAt': subtask_data.get('updatedAt')
+            }
+            
+            for field in ['start_date', 'end_date', 'createdAt', 'updatedAt']:
+                if field in response_data and response_data[field]:
+                    try:
+                        if hasattr(response_data[field], 'isoformat'):
+                            response_data[field] = response_data[field].isoformat()
+                    except:
+                        pass
+            
+            return jsonify(response_data), 200
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': str(e)}), 500
     
     try:
         data = request.get_json()
@@ -448,6 +534,119 @@ def update_subtask(subtask_id):
         print(f"Error type: {type(e)}")
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+# ==================== GET SINGLE SUBTASK BY ID ====================
+# ADD THIS ENDPOINT to backend/routes/subtask.py
+# Add it after the get_task_subtasks function (around line 147)
+
+@subtask_bp.route('/api/subtasks/<subtask_id>', methods=['GET', 'OPTIONS'])
+def get_subtask_by_id(subtask_id):
+    """Get a single subtask by ID with all details"""
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'OK'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-User-Id,X-User-Role')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,OPTIONS')
+        return response, 200
+    
+    try:
+        print(f"📖 Fetching subtask by ID: {subtask_id}")
+        
+        # Get Firestore client
+        db = get_firestore_client()
+        
+        # Get subtask document
+        subtask_ref = db.collection('subtasks').document(subtask_id)
+        subtask_doc = subtask_ref.get()
+        
+        if not subtask_doc.exists:
+            print(f"❌ Subtask not found: {subtask_id}")
+            return jsonify({'error': 'Subtask not found'}), 404
+        
+        # Get subtask data
+        subtask_data = subtask_doc.to_dict()
+        subtask_data['id'] = subtask_id
+        
+        # Check if subtask is deleted
+        if subtask_data.get('is_deleted', False):
+            print(f"⚠️ Subtask is deleted: {subtask_id}")
+            return jsonify({'error': 'Subtask has been deleted'}), 404
+        
+        # Get collaborator details (expand user info)
+        collaborator_ids = subtask_data.get('assigned_to', [])
+        collaborators_info = []
+        
+        for collab_id in collaborator_ids:
+            user_doc = db.collection('Users').document(collab_id).get()
+            if user_doc.exists:
+                user_data = user_doc.to_dict()
+                collaborators_info.append({
+                    'id': collab_id,
+                    'name': user_data.get('name', 'Unknown User'),
+                    'email': user_data.get('email', ''),
+                    'role_name': user_data.get('role_name', 'Staff')
+                })
+            else:
+                collaborators_info.append({
+                    'id': collab_id,
+                    'name': 'Unknown User',
+                    'email': '',
+                    'role_name': 'Staff'
+                })
+        
+        # Get owner details
+        owner_id = subtask_data.get('owner')
+        owner_info = None
+        if owner_id:
+            owner_doc = db.collection('Users').document(owner_id).get()
+            if owner_doc.exists:
+                owner_data = owner_doc.to_dict()
+                owner_info = {
+                    'id': owner_id,
+                    'name': owner_data.get('name', 'Unknown User'),
+                    'email': owner_data.get('email', ''),
+                    'role_name': owner_data.get('role_name', 'Staff')
+                }
+        
+        # Prepare response with all required fields
+        response_data = {
+            'id': subtask_id,
+            'name': subtask_data.get('name', 'Untitled Subtask'),
+            'description': subtask_data.get('description', ''),
+            'start_date': subtask_data.get('start_date'),
+            'end_date': subtask_data.get('end_date'),
+            'status': subtask_data.get('status', 'Unassigned'),
+            'priority': subtask_data.get('priority', 5),
+            'parent_task_id': subtask_data.get('parent_task_id'),
+            'project_id': subtask_data.get('project_id'),
+            'owner': owner_id,
+            'owner_info': owner_info,
+            'assigned_to': collaborator_ids,
+            'collaborators': collaborators_info,  # Expanded user info
+            'attachments': subtask_data.get('attachments', []),
+            'status_history': subtask_data.get('status_history', []),
+            'createdAt': subtask_data.get('createdAt'),
+            'updatedAt': subtask_data.get('updatedAt')
+        }
+        
+        # Convert timestamps to ISO format if needed
+        for field in ['start_date', 'end_date', 'createdAt', 'updatedAt']:
+            if field in response_data and response_data[field]:
+                try:
+                    if hasattr(response_data[field], 'isoformat'):
+                        response_data[field] = response_data[field].isoformat()
+                except:
+                    pass
+        
+        print(f"✅ Subtask fetched successfully: {subtask_data.get('name')}")
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        print(f"❌ Error fetching subtask: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 # ==================== TRANSFER SUBTASK OWNERSHIP ====================
