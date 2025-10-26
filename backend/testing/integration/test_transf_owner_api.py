@@ -15,7 +15,7 @@ import pytz
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set Firebase credentials
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '../service-account.json'
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/Users/ean/Documents/SMU Y3/SPM/G6T2/backend/service-account.json'
 
 from firebase_utils import get_firestore_client
 from app import create_app
