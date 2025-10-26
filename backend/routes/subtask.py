@@ -145,8 +145,7 @@ def get_task_subtasks(task_id):
         print(f"Error fetching subtasks: {str(e)}")
         return jsonify({'error': str(e)}), 500
     
-# ==================== UPDATE SUBTASK ====================
-@subtask_bp.route('/api/subtasks/<subtask_id>', methods=['PUT', 'OPTIONS'])  # Add /api/ prefix and OPTIONS
+@subtask_bp.route('/api/subtasks/<subtask_id>', methods=['PUT', 'OPTIONS'])
 def update_subtask(subtask_id):
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
@@ -162,7 +161,7 @@ def update_subtask(subtask_id):
         print(f"Updating subtask ID: {subtask_id}")
         print(f"Received update data: {data}")
 
-        # Get user info first, for all updates, not just ownership trf
+        # Get user info first, for all updates
         current_user_id = request.headers.get('X-User-Id')
         current_user_role = request.headers.get('X-User-Role')
 
@@ -182,8 +181,8 @@ def update_subtask(subtask_id):
         # Get Firestore client
         db = get_firestore_client()
         
-        # Check if subtask exists - USE LOWERCASE COLLECTION
-        subtask_ref = db.collection('subtasks').document(subtask_id)  # Changed to lowercase
+        # Check if subtask exists
+        subtask_ref = db.collection('subtasks').document(subtask_id)
         subtask_doc = subtask_ref.get()
         
         if not subtask_doc.exists:
@@ -191,16 +190,73 @@ def update_subtask(subtask_id):
             return jsonify({'error': 'Subtask not found'}), 404
         
         subtask_data = subtask_doc.to_dict()
-
-        # Validate assigned_to if being updated 
-        if 'assigned_to' in data:
-            # SECURITY FIX: Only owner can modify collaborators
-            current_owner = subtask_data.get('owner')
-            if str(current_owner) != str(current_user_id):
-                return jsonify({
-                    'error': 'Only the subtask owner can invite or modify collaborators'
-                }), 403
+        current_owner = subtask_data.get('owner')
+        collaborators = subtask_data.get('assigned_to', [])
+        
+        # ==================== AUTHORIZATION CHECK ====================
+        # Check if user is involved in the subtask (owner or collaborator)
+        if current_user_id not in collaborators and current_user_id != current_owner:
+            print(f"❌ User {current_user_id} not authorized - not a collaborator or owner")
+            return jsonify({'error': 'You are not authorized to edit this subtask'}), 403
+        
+        # Determine if current user is the owner
+        is_owner = (current_user_id == current_owner)
+        print(f"🔐 User is owner: {is_owner}")
+        
+        # ==================== PERMISSION-BASED FIELD FILTERING ====================
+        # Define restricted fields (only owner can edit these)
+        restricted_fields = ['name', 'start_date', 'end_date', 'priority', 'assigned_to', 'owner']
+        
+        # If user is NOT owner, filter out restricted fields
+        if not is_owner:
+            print(f"👤 User is collaborator - filtering restricted fields")
+            original_data = data.copy()
             
+            # Remove all restricted fields from update
+            for field in restricted_fields:
+                if field in data:
+                    print(f"  ❌ Removing restricted field: {field}")
+                    data.pop(field)
+            
+            # Only allow status and description for collaborators
+            allowed_fields = ['status', 'description']
+            data = {k: v for k, v in data.items() if k in allowed_fields}
+            print(f"✅ Collaborator can only update: {list(data.keys())}")
+        
+        # ==================== VALIDATION ====================
+        # Validate required field: name (if owner is trying to update it)
+        if 'name' in data:
+            if not data['name'] or len(data['name'].strip()) == 0:
+                return jsonify({'error': 'Subtask name is required and cannot be empty'}), 400
+        
+        # Validate date range (if dates are being updated)
+        if 'start_date' in data or 'end_date' in data:
+            # Get current or new dates
+            start_date_str = data.get('start_date', subtask_data.get('start_date'))
+            end_date_str = data.get('end_date', subtask_data.get('end_date'))
+            
+            if start_date_str and end_date_str:
+                try:
+                    from datetime import datetime
+                    # Handle both string and datetime objects
+                    if isinstance(start_date_str, str):
+                        start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+                    else:
+                        start_date = start_date_str
+                    
+                    if isinstance(end_date_str, str):
+                        end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                    else:
+                        end_date = end_date_str
+                    
+                    if end_date < start_date:
+                        return jsonify({'error': 'End date must be after start date'}), 400
+                except Exception as e:
+                    print(f"Date validation error: {e}")
+                    return jsonify({'error': 'Invalid date format'}), 400
+        
+        # ==================== COLLABORATOR VALIDATION (if owner is updating) ====================
+        if 'assigned_to' in data and is_owner:
             new_assigned_to = data['assigned_to']
             parent_task_id = subtask_data.get('parent_task_id')
             
@@ -222,13 +278,9 @@ def update_subtask(subtask_id):
                             }), 400
                     
                     print("All updated collaborators are valid")
-
-        # Validate ownership transfer
-        if 'owner' in data:
-            # Check if current user is the owner
-            if str(subtask_data.get('owner')) != str(current_user_id):
-                return jsonify({'error': 'Only the subtask owner can transfer ownership'}), 403
-            
+        
+        # ==================== OWNERSHIP TRANSFER VALIDATION ====================
+        if 'owner' in data and is_owner:
             # Check if current user is a manager
             if current_user_role != 3:
                 return jsonify({'error': 'Only managers can transfer subtask ownership'}), 403
@@ -259,30 +311,42 @@ def update_subtask(subtask_id):
         # Store old owner ID BEFORE updating (for email notification)
         old_owner_id = subtask_data.get('owner')
         
-        # Prepare update data
+        # ==================== STATUS HISTORY LOGGING ====================
+        if 'status' in data and data['status'] != subtask_data.get('status'):
+            print(f"📝 Status change detected: {subtask_data.get('status')} → {data['status']}")
+            
+            # Get user info for logging
+            user_doc = db.collection('Users').document(current_user_id).get()
+            user_name = user_doc.to_dict().get('name', 'Unknown User') if user_doc.exists else 'Unknown User'
+            
+            # Create status history entry
+            from datetime import datetime
+            status_entry = {
+                'old_status': subtask_data.get('status'),
+                'new_status': data['status'],
+                'changed_by': current_user_id,
+                'changed_by_name': user_name,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            # Get existing status history and append
+            status_history = subtask_data.get('status_history', [])
+            status_history.append(status_entry)
+            data['status_history'] = status_history
+            
+            print(f"✅ Status history entry added: {status_entry}")
+        
+        # ==================== PREPARE UPDATE DATA ====================
         update_data = {}
         
-        # Update only fields that are provided
-        if 'name' in data:
-            update_data['name'] = data['name']
-        if 'description' in data:
-            update_data['description'] = data['description']
-        if 'start_date' in data:
-            update_data['start_date'] = data['start_date']
-        if 'end_date' in data:
-            update_data['end_date'] = data['end_date']
-        if 'status' in data:
-            update_data['status'] = data['status']
-        if 'priority' in data:
-            update_data['priority'] = data['priority']
-        if 'assigned_to' in data:
-            update_data['assigned_to'] = data['assigned_to']
-        if 'attachments' in data:
-            update_data['attachments'] = data['attachments']
-        if 'status_history' in data:
-            update_data['status_history'] = data['status_history']
-        if 'owner' in data:
-            update_data['owner'] = data['owner']
+        # Update only fields that are provided (and allowed based on permissions)
+        allowed_update_fields = ['name', 'description', 'start_date', 'end_date', 
+                                 'status', 'priority', 'assigned_to', 'attachments', 
+                                 'status_history', 'owner']
+        
+        for field in allowed_update_fields:
+            if field in data:
+                update_data[field] = data[field]
         
         # Always update the timestamp
         update_data['updatedAt'] = firestore.SERVER_TIMESTAMP
@@ -354,84 +418,26 @@ def update_subtask(subtask_id):
                             old_owner_name = old_owner_data.get('name', 'Previous Owner')
                             print(f"✅ Old owner found: {old_owner_name} ({old_owner_email})")
                     
-                    # Prepare subtask details for email
-                    subtask_name = updated_subtask.get('name', 'Unknown Subtask')
-                    subtask_desc = updated_subtask.get('description', '')
+                    subtask_name = updated_subtask.get('name', 'Untitled Subtask')
+                    print(f"📨 Sending ownership transfer email...")
                     
-                    # Get parent task name
-                    parent_task_name = ''
-                    parent_task_id = updated_subtask.get('parent_task_id')
-                    if parent_task_id:
-                        try:
-                            parent_task_doc = db.collection('Tasks').document(parent_task_id).get()
-                            if parent_task_doc.exists:
-                                parent_task_name = parent_task_doc.to_dict().get('task_name', '')
-                        except Exception as e:
-                            print(f"⚠️ Could not fetch parent task: {e}")
-                    
-                    # Get project name
-                    project_name = ''
-                    project_id = updated_subtask.get('project_id')
-                    if project_id:
-                        try:
-                            project_doc = db.collection('Projects').document(project_id).get()
-                            if project_doc.exists:
-                                project_name = project_doc.to_dict().get('proj_name', '')
-                        except Exception as e:
-                            print(f"⚠️ Could not fetch project: {e}")
-                    
-                    # Get who made the transfer (current user)
-                    transferred_by_name = new_owner_name  # Default fallback
-                    try:
-                        current_user_doc = db.collection('Users').document(current_user_id).get()
-                        if current_user_doc.exists:
-                            transferred_by_name = current_user_doc.to_dict().get('name', 'Manager')
-                    except Exception as e:
-                        print(f"⚠️ Could not fetch current user: {e}")
-                    
-                    # Format dates safely
-                    start_date_str = 'Not specified'
-                    end_date_str = None
-                    
-                    if updated_subtask.get('start_date'):
-                        start_date_str = updated_subtask['start_date']
-                    
-                    if updated_subtask.get('end_date'):
-                        end_date_str = updated_subtask['end_date']
-                    
-                    print("📧 Preparing to send subtask ownership transfer email...")
-                    print(f"   To: {new_owner_email}")
-                    print(f"   CC: {old_owner_email}")
-                    print(f"   Subtask: {subtask_name}")
-                    
-                    # Send email to new owner (with old owner CC'd)
-                    if new_owner_email:
-                        success = email_service.send_subtask_transfer_ownership_email(
-                            new_owner_email=new_owner_email,
-                            new_owner_name=new_owner_name,
-                            old_owner_email=old_owner_email if old_owner_email else '',
-                            old_owner_name=old_owner_name,
-                            subtask_name=subtask_name,
-                            subtask_desc=subtask_desc,
-                            parent_task_name=parent_task_name,
-                            project_name=project_name,
-                            transferred_by_name=transferred_by_name,
-                            start_date=start_date_str,
-                            end_date=end_date_str
-                        )
-                        if success:
-                            print(f"✅ SUBTASK OWNERSHIP TRANSFER EMAIL SENT to {new_owner_email} (CC: {old_owner_email})")
-                        else:
-                            print("❌ FAILED to send subtask ownership transfer email")
-                    else:
-                        print(f"⚠️ No email found for new owner {new_owner_id}")
+                    # Send email notification
+                    email_service.send_ownership_transfer_email(
+                        new_owner_email=new_owner_email,
+                        new_owner_name=new_owner_name,
+                        old_owner_name=old_owner_name,
+                        subtask_name=subtask_name,
+                        cc_email=old_owner_email
+                    )
+                    print(f"✅ Email sent successfully to {new_owner_email}")
                 else:
-                    print(f"⚠️ New owner document not found: {new_owner_id}")
+                    print(f"⚠️ New owner user document not found: {new_owner_id}")
             else:
                 print("⏭️  No owner change detected")
-                    
-        except Exception as e:
-            print(f"❌ Failed to send owner change email: {e}")
+        
+        except Exception as email_error:
+            # Don't fail the entire update if email fails
+            print(f"⚠️  Email notification failed: {str(email_error)}")
             import traceback
             traceback.print_exc()
         
@@ -439,8 +445,72 @@ def update_subtask(subtask_id):
         
     except Exception as e:
         print(f"Error updating subtask: {str(e)}")
+        print(f"Error type: {type(e)}")
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+# ==================== TRANSFER SUBTASK OWNERSHIP ====================
+@subtask_bp.route('/api/subtasks/<subtask_id>/transfer-ownership', methods=['PUT', 'OPTIONS'])
+def transfer_subtask_ownership(subtask_id):
+    """Transfer ownership of a subtask to another collaborator"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'OK'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-User-Id,X-User-Role')
+        response.headers.add('Access-Control-Allow-Methods', 'PUT,OPTIONS')
+        return response, 200
+    
+    try:
+        data = request.get_json()
+        current_user_id = request.headers.get('X-User-Id')
+        current_user_role = request.headers.get('X-User-Role')
+        new_owner_id = data.get('new_owner_id')
+        
+        if not current_user_id or not new_owner_id:
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        if not current_user_role:
+            return jsonify({'error': 'User role is required'}), 401
+        
+        try:
+            current_user_role = int(current_user_role)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid user role format'}), 400
+        
+        db = get_firestore_client()
+        subtask_ref = db.collection('subtasks').document(subtask_id)
+        subtask_doc = subtask_ref.get()
+        
+        if not subtask_doc.exists:
+            return jsonify({'error': 'Subtask not found'}), 404
+        
+        subtask_data = subtask_doc.to_dict()
+        current_owner = subtask_data.get('owner')
+        collaborators = subtask_data.get('assigned_to', [])
+        
+        if current_user_id != current_owner:
+            return jsonify({'error': 'Only the current owner can transfer ownership'}), 403
+        
+        if current_user_role != 3:
+            return jsonify({'error': 'Only managers can transfer subtask ownership'}), 403
+        
+        if new_owner_id not in collaborators:
+            return jsonify({'error': 'New owner must be a collaborator of this subtask'}), 400
+        
+        subtask_ref.update({
+            'owner': new_owner_id,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+        
+        return jsonify({
+            'message': 'Ownership transferred successfully',
+            'new_owner': new_owner_id
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     
 # =============== SOFT DELETE SUBTASK ===============
