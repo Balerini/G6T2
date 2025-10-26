@@ -577,6 +577,81 @@ class TestNotificationService(unittest.TestCase):
         # Verify counter remains the same (it's not incremented in the current implementation)
         final_counter = self.notification_service.notification_counter
         self.assertEqual(final_counter, initial_counter)  # Counter doesn't increment in current implementation
+    
+    def test_notification_service_comprehensive_edge_cases(self):
+        """Test notification service with comprehensive edge cases"""
+        # Test with various invalid user IDs
+        invalid_user_ids = [
+            "",
+            "   ",
+            "user@domain.com",  # Email format
+            "user with spaces",
+            "user\nwith\nnewlines",
+            "user\twith\ttabs",
+            "user" + "x" * 1000,  # Very long user ID
+        ]
+        
+        for user_id in invalid_user_ids:
+            with self.subTest(user_id=user_id):
+                notification_id = self.notification_service.create_notification(user_id, "Test", "Test message", "Test message")
+                # Should handle gracefully
+                self.assertIsInstance(notification_id, (str, type(None)))
+        
+        # Test with various invalid notification IDs
+        invalid_notification_ids = [
+            "",
+            "   ",
+            "invalid-id",
+            "nonexistent-id",
+            "id with spaces",
+            "id\nwith\nnewlines",
+            "id\twith\ttabs",
+        ]
+        
+        for notification_id in invalid_notification_ids:
+            with self.subTest(notification_id=notification_id):
+                result = self.notification_service.delete_notification(notification_id)
+                # Should handle gracefully
+                self.assertIsInstance(result, bool)
+        
+        # Test with various message types
+        message_types = [
+            "Task Assigned",
+            "Task Completed",
+            "Deadline Approaching",
+            "Project Updated",
+            "Team Member Added",
+            "Custom Message",
+            "Message with Special Chars: !@#$%^&*()",
+            "Message with Unicode: 测试消息",
+            "Message with Quotes: \"Important\"",
+            "Message with Apostrophe: O'Reilly's Task",
+        ]
+        
+        for message_type in message_types:
+            with self.subTest(message_type=message_type):
+                notification_id = self.notification_service.create_notification("test_user_123", message_type, "Test message", "Test message")
+                self.assertIsNotNone(notification_id)
+        
+        # Test with various message contents
+        message_contents = [
+            "Simple message",
+            "Message with numbers: 12345",
+            "Message with special chars: !@#$%^&*()",
+            "Message with unicode: 测试内容",
+            "Message with quotes: \"Important task\"",
+            "Message with apostrophe: O'Reilly's task",
+            "Message with newlines: Line 1\nLine 2",
+            "Message with tabs: Column1\tColumn2",
+            "Very long message: " + "A" * 1000,
+            "",  # Empty message
+        ]
+        
+        for message_content in message_contents:
+            with self.subTest(message_content=message_content):
+                notification_id = self.notification_service.create_notification("test_user_123", "Test", message_content, message_content)
+                self.assertIsNotNone(notification_id)
+
 
 if __name__ == '__main__':
     print("=" * 80)

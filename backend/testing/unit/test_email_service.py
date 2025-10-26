@@ -525,6 +525,7 @@ class TestEmailServiceUnit(unittest.TestCase):
             )
             
             self.assertTrue(result)
+    
 
 
 if __name__ == '__main__':

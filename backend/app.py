@@ -45,7 +45,7 @@ def hash_password(password):
     """Hash password using SHA-256 with salt"""
     salt = os.urandom(32)  # Generate random salt
     password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
-    return salt + password_hash  # Store salt + hash together
+    return (salt + password_hash).hex()  # Convert to hex string
 
 def verify_password(stored_password, provided_password):
     """Verify a password against its hash"""
@@ -224,7 +224,7 @@ def create_app() -> Flask:
                 'division_name': division_name.strip(),
                 'email': email.lower().strip(),
                 'name': name.strip(),
-                'password': hashed_password.hex(),  # Convert bytes to hex string for storage
+                'password': hashed_password,  # Already a hex string
                 'role_name': role.capitalize(),
                 'role_num': 4 if role == "staff" else 2 if role == "director" else 3 if role == "manager" else 1
             }
@@ -289,7 +289,7 @@ def create_app() -> Flask:
 
             # Update user's password
             users_ref.document(user_id).update({
-                'password': hashed_password.hex()
+                'password': hashed_password  # Already a hex string
             })
 
             return jsonify({

@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # Import individual function for unit testing
-from routes.project import is_project_completed
+from project_utils import is_project_completed, is_project_completed_pure
 
 
 class TestProjectCompletionUnit(unittest.TestCase):
@@ -172,6 +172,173 @@ class TestProjectCompletionUnit(unittest.TestCase):
         
         result = is_project_completed("project123", mock_db)
         self.assertFalse(result, "Project completion should return False on database error")
+    
+    def test_is_project_completed_edge_cases(self):
+        """Test project completion with various edge cases"""
+        mock_db = MagicMock()
+        mock_tasks_ref = MagicMock()
+        mock_db.collection.return_value = mock_tasks_ref
+        
+        # Test with empty subtasks list
+        mock_task = MagicMock()
+        mock_task.to_dict.return_value = {
+            'task_status': 'Completed',  # Task must be completed
+            'is_deleted': False,
+            'subtasks': []
+        }
+        mock_tasks_ref.where.return_value.stream.return_value = [mock_task]
+        
+        result = is_project_completed("project123", mock_db)
+        self.assertTrue(result, "Project with completed task and empty subtasks should be considered completed")
+        
+        # Test with None subtasks - this should cause an exception and return False
+        mock_task.to_dict.return_value = {
+            'task_status': 'Completed',  # Task must be completed
+            'is_deleted': False,
+            'subtasks': None
+        }
+        
+        result = is_project_completed("project123", mock_db)
+        self.assertFalse(result, "Project with None subtasks should return False due to iteration error")
+        
+        # Test with missing subtasks key
+        mock_task.to_dict.return_value = {
+            'task_status': 'Completed',  # Task must be completed
+            'is_deleted': False
+        }
+        
+        result = is_project_completed("project123", mock_db)
+        self.assertTrue(result, "Project with completed task and missing subtasks key should be considered completed")
+
+
+class TestProjectCompletionPureUnit(unittest.TestCase):
+    """C1 Unit tests for is_project_completed_pure function - pure function testing"""
+    
+    def test_is_project_completed_pure_no_tasks(self):
+        """Test pure function with no tasks"""
+        result = is_project_completed_pure([])
+        self.assertFalse(result, "Project with no tasks should not be considered completed")
+    
+    def test_is_project_completed_pure_all_completed(self):
+        """Test pure function with all tasks and subtasks completed"""
+        tasks_data = [
+            {
+                'task_status': 'Completed',
+                'is_deleted': False,
+                'subtasks': [
+                    {'status': 'Completed', 'is_deleted': False},
+                    {'status': 'Completed', 'is_deleted': False}
+                ]
+            },
+            {
+                'task_status': 'Completed',
+                'is_deleted': False,
+                'subtasks': []
+            }
+        ]
+        
+        result = is_project_completed_pure(tasks_data)
+        self.assertTrue(result, "Project with all tasks and subtasks completed should be completed")
+    
+    def test_is_project_completed_pure_some_incomplete_task(self):
+        """Test pure function with some tasks not completed"""
+        tasks_data = [
+            {
+                'task_status': 'Completed',
+                'is_deleted': False,
+                'subtasks': []
+            },
+            {
+                'task_status': 'In Progress',
+                'is_deleted': False,
+                'subtasks': []
+            }
+        ]
+        
+        result = is_project_completed_pure(tasks_data)
+        self.assertFalse(result, "Project with incomplete tasks should not be completed")
+    
+    def test_is_project_completed_pure_deleted_tasks_ignored(self):
+        """Test pure function with deleted tasks ignored"""
+        tasks_data = [
+            {
+                'task_status': 'In Progress',
+                'is_deleted': True,
+                'subtasks': []
+            }
+        ]
+        
+        result = is_project_completed_pure(tasks_data)
+        self.assertTrue(result, "Project with only deleted tasks should be considered completed")
+    
+    def test_is_project_completed_pure_with_incomplete_subtasks(self):
+        """Test pure function with incomplete subtasks"""
+        tasks_data = [
+            {
+                'task_status': 'Completed',
+                'is_deleted': False,
+                'subtasks': [
+                    {'status': 'Completed', 'is_deleted': False},
+                    {'status': 'In Progress', 'is_deleted': False}
+                ]
+            }
+        ]
+        
+        result = is_project_completed_pure(tasks_data)
+        self.assertFalse(result, "Project with incomplete subtasks should not be completed")
+    
+    def test_is_project_completed_pure_deleted_subtasks_ignored(self):
+        """Test pure function with deleted subtasks ignored"""
+        tasks_data = [
+            {
+                'task_status': 'Completed',
+                'is_deleted': False,
+                'subtasks': [
+                    {'status': 'Completed', 'is_deleted': False},
+                    {'status': 'In Progress', 'is_deleted': True}  # Deleted subtask
+                ]
+            }
+        ]
+        
+        result = is_project_completed_pure(tasks_data)
+        self.assertTrue(result, "Project with deleted subtasks should be considered completed if other subtasks are complete")
+    
+    def test_is_project_completed_pure_edge_cases(self):
+        """Test pure function with edge cases"""
+        # Test with empty subtasks list
+        tasks_data = [
+            {
+                'task_status': 'Completed',
+                'is_deleted': False,
+                'subtasks': []
+            }
+        ]
+        
+        result = is_project_completed_pure(tasks_data)
+        self.assertTrue(result, "Project with completed task and empty subtasks should be considered completed")
+        
+        # Test with None subtasks
+        tasks_data = [
+            {
+                'task_status': 'Completed',
+                'is_deleted': False,
+                'subtasks': None
+            }
+        ]
+        
+        result = is_project_completed_pure(tasks_data)
+        self.assertTrue(result, "Project with completed task and None subtasks should be considered completed")
+        
+        # Test with missing subtasks key
+        tasks_data = [
+            {
+                'task_status': 'Completed',
+                'is_deleted': False
+            }
+        ]
+        
+        result = is_project_completed_pure(tasks_data)
+        self.assertTrue(result, "Project with completed task and missing subtasks key should be considered completed")
 
 
 if __name__ == '__main__':

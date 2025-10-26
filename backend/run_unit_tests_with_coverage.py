@@ -36,7 +36,8 @@ def run_unit_tests_with_coverage():
             'testing.unit.test_email_service',            # Email notification features
             'testing.unit.test_notification_unit',        # Notification features
             'testing.unit.test_recurrence_features',      # Recurrence features
-            'testing.unit.test_dashboard_analytics'        # Dashboard utility functions
+            'testing.unit.test_dashboard_analytics',       # Dashboard utility functions
+            'testing.unit.test_compute_effective_due_date' # Effective due date computation
         ]
         
         # Run coverage
