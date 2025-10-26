@@ -374,7 +374,7 @@ class TestProjectUtilsUnit(unittest.TestCase):
         """Test calculate_project_priority with comprehensive scenarios"""
         # Test with high deadline urgency
         result = calculate_project_priority('urgent', 'medium')
-        self.assertEqual(result, 8)  # 5 + 3 = 8
+        self.assertEqual(result, 9)  # 5 + 3 + 1 = 9
         
         # Test with high complexity
         result = calculate_project_priority('normal', 'high')

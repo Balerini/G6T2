@@ -16,14 +16,30 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 with patch('firebase_utils.get_firestore_client') as mock_get_firestore_client, \
      patch('services.email_service.email_service') as mock_email_service:
     
-    # Set up mock database
+    # Set up mock database with proper chain mocking
     mock_db = MagicMock()
     mock_get_firestore_client.return_value = mock_db
+    
+    # Mock the database query chain
+    mock_user_doc = MagicMock()
+    mock_user_doc.to_dict.return_value = {
+        'role_name': 'staff',
+        'role_num': 4
+    }
+    mock_user_doc.exists = True
+    
+    mock_collection = MagicMock()
+    mock_collection.document.return_value.get.return_value = mock_user_doc
+    mock_collection.where.return_value.stream.return_value = []
+    mock_db.collection.return_value = mock_collection
     
     # Set up mock email service
     mock_email_service.send_deadline_reminder_email.return_value = True
     
     from services.notification_service import NotificationService
+    
+    # Mock the db property to avoid Firebase calls
+    NotificationService.db = property(lambda self: mock_db)
 
 class TestNotificationService(unittest.TestCase):
     """Test the NotificationService class core functionality"""
