@@ -370,6 +370,63 @@ class TestProjectUtilsUnit(unittest.TestCase):
         self.assertTrue(is_valid)
         self.assertEqual(message, "Valid project dates")
     
+    def test_calculate_project_priority_comprehensive(self):
+        """Test calculate_project_priority with comprehensive scenarios"""
+        # Test with high deadline urgency
+        result = calculate_project_priority('urgent', 'medium')
+        self.assertEqual(result, 8)  # 5 + 3 = 8
+        
+        # Test with high complexity
+        result = calculate_project_priority('normal', 'high')
+        self.assertEqual(result, 8)  # 5 + 1 + 2 = 8
+        
+        # Test with both high urgency and complexity
+        result = calculate_project_priority('urgent', 'high')
+        self.assertEqual(result, 10)  # 5 + 3 + 2 = 10, capped at 10
+        
+        # Test with medium complexity
+        result = calculate_project_priority('normal', 'medium')
+        self.assertEqual(result, 7)  # 5 + 1 + 1 = 7
+        
+        # Test with low urgency and complexity
+        result = calculate_project_priority('low', 'low')
+        self.assertEqual(result, 5)  # 5 + 0 + 0 = 5
+        
+        # Test edge case - priority caps at 10
+        result = calculate_project_priority('urgent', 'high')
+        self.assertEqual(result, 10)  # 5 + 3 + 2 = 10, capped at 10
+    
+    def test_validate_project_dates_comprehensive(self):
+        """Test validate_project_dates with comprehensive scenarios"""
+        # Test with None dates
+        result = validate_project_dates(None, '2024-01-10')
+        self.assertTrue(result[0])  # Should return True for None dates
+        
+        result = validate_project_dates('2024-01-01', None)
+        self.assertTrue(result[0])  # Should return True for None dates
+        
+        # Test with empty strings
+        result = validate_project_dates("", '2024-01-10')
+        self.assertTrue(result[0])  # Should return True for empty strings
+        
+        result = validate_project_dates('2024-01-01', "")
+        self.assertTrue(result[0])  # Should return True for empty strings
+        
+        # Test with invalid date formats
+        result = validate_project_dates("invalid", '2024-01-10')
+        self.assertFalse(result[0])  # Should return False for invalid dates
+        
+        result = validate_project_dates('2024-01-01', "invalid")
+        self.assertFalse(result[0])  # Should return False for invalid dates
+        
+        # Test with same dates
+        result = validate_project_dates('2024-01-01', '2024-01-01')
+        self.assertTrue(result[0])  # Should return True for same dates
+        
+        # Test with very long duration (more than 5 years)
+        result = validate_project_dates('2020-01-01', '2030-01-01')
+        self.assertFalse(result[0])  # Should return False for very long duration
+    
     def test_validate_project_dates_invalid_order(self):
         """Test invalid project dates (end before start)"""
         is_valid, message = validate_project_dates('2024-12-31', '2024-01-01')

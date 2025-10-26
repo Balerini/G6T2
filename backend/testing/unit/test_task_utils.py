@@ -270,6 +270,205 @@ class TestTaskUtilsUnit(unittest.TestCase):
             {'status': 'Not Started'}
         ]
         self.assertAlmostEqual(calculate_subtask_progress(mixed_subtasks), 33.333333333333336, places=10)
+    
+    def test_parse_date_value_edge_cases(self):
+        """Test parse_date_value function edge cases"""
+        # Test with invalid datetime string
+        result = parse_date_value("invalid-date")
+        self.assertIsNone(result)
+        
+        # Test with empty string
+        result = parse_date_value("")
+        self.assertIsNone(result)
+        
+        # Test with whitespace string
+        result = parse_date_value("   ")
+        self.assertIsNone(result)
+    
+    def test_validate_priority_level_edge_cases(self):
+        """Test validate_priority_level function edge cases"""
+        # Test with string numbers
+        self.assertTrue(validate_priority_level("5"))
+        self.assertTrue(validate_priority_level("1"))
+        self.assertTrue(validate_priority_level("10"))
+        
+        # Test with float numbers
+        self.assertTrue(validate_priority_level(5.0))
+        self.assertTrue(validate_priority_level(1.0))
+        self.assertTrue(validate_priority_level(10.0))
+        
+        # Test with edge values
+        self.assertTrue(validate_priority_level(1))  # Minimum valid
+        self.assertTrue(validate_priority_level(10))  # Maximum valid
+        self.assertFalse(validate_priority_level(0))  # Below minimum
+        self.assertFalse(validate_priority_level(11))  # Above maximum
+        
+        # Test with invalid types
+        self.assertFalse(validate_priority_level("abc"))
+        self.assertFalse(validate_priority_level([]))
+        self.assertFalse(validate_priority_level({}))
+        self.assertFalse(validate_priority_level(None))
+    
+    def test_validate_task_data_edge_cases(self):
+        """Test validate_task_data function edge cases"""
+        # Test with empty data
+        errors = validate_task_data({})
+        self.assertGreater(len(errors), 0)
+        
+        # Test with None data - this will cause an AttributeError, which is expected
+        with self.assertRaises(AttributeError):
+            validate_task_data(None)
+        
+        # Test with partial data
+        partial_data = {'task_name': 'Test Task'}
+        errors = validate_task_data(partial_data)
+        self.assertGreater(len(errors), 0)
+        
+        # Test with invalid priority
+        invalid_priority_data = {
+            'task_name': 'Test Task',
+            'start_date': '2024-01-01',
+            'priority_level': 15  # Invalid priority
+        }
+        errors = validate_task_data(invalid_priority_data)
+        self.assertGreater(len(errors), 0)
+    
+    def test_format_task_status_edge_cases(self):
+        """Test format_task_status function edge cases"""
+        # Test with None status - this will cause an AttributeError, which is expected
+        with self.assertRaises(AttributeError):
+            format_task_status(None)
+        
+        # Test with empty status
+        result = format_task_status("")
+        self.assertEqual(result, "")  # Empty string
+        
+        # Test with whitespace status
+        result = format_task_status("   ")
+        self.assertEqual(result, "   ")  # Whitespace string
+    
+    def test_validate_subtask_data_edge_cases(self):
+        """Test validate_subtask_data function edge cases"""
+        # Test with empty data
+        errors = validate_subtask_data({})
+        self.assertGreater(len(errors), 0)
+        
+        # Test with None data - this will cause an AttributeError, which is expected
+        with self.assertRaises(AttributeError):
+            validate_subtask_data(None)
+        
+        # Test with partial data
+        partial_data = {'subtask_name': 'Test Subtask'}
+        errors = validate_subtask_data(partial_data)
+        self.assertGreater(len(errors), 0)
+    
+    def test_calculate_task_duration_edge_cases(self):
+        """Test calculate_task_duration function edge cases"""
+        # Test with same start and end date
+        duration = calculate_task_duration('2024-01-01', '2024-01-01')
+        self.assertEqual(duration, 0)
+        
+        # Test with None dates
+        duration = calculate_task_duration(None, '2024-01-01')
+        self.assertIsNone(duration)
+        
+        duration = calculate_task_duration('2024-01-01', None)
+        self.assertIsNone(duration)
+        
+        # Test with invalid date strings
+        duration = calculate_task_duration('invalid', '2024-01-01')
+        self.assertIsNone(duration)
+        
+        duration = calculate_task_duration('2024-01-01', 'invalid')
+        self.assertIsNone(duration)
+    
+    def test_is_task_overdue_edge_cases(self):
+        """Test is_task_overdue function edge cases"""
+        # Test with None date
+        result = is_task_overdue(None)
+        self.assertFalse(result)
+        
+        # Test with empty string
+        result = is_task_overdue("")
+        self.assertFalse(result)
+        
+        # Test with invalid date string
+        result = is_task_overdue("invalid-date")
+        self.assertFalse(result)
+        
+        # Test with today's date (should not be overdue)
+        from datetime import date
+        today = date.today().strftime('%Y-%m-%d')
+        result = is_task_overdue(today)
+        self.assertFalse(result)
+    
+    def test_validate_task_data_invalid_date_formats(self):
+        """Test validate_task_data with invalid date formats"""
+        # Test with invalid start_date format
+        invalid_start_data = {
+            'task_name': 'Test Task',
+            'start_date': 'invalid-date',
+            'priority_level': 5
+        }
+        errors = validate_task_data(invalid_start_data)
+        self.assertIn("Invalid start_date format", errors)
+        
+        # Test with invalid end_date format
+        invalid_end_data = {
+            'task_name': 'Test Task',
+            'start_date': '2024-01-01',
+            'end_date': 'invalid-date',
+            'priority_level': 5
+        }
+        errors = validate_task_data(invalid_end_data)
+        self.assertIn("Invalid end_date format", errors)
+        
+        # Test with both invalid dates
+        invalid_both_data = {
+            'task_name': 'Test Task',
+            'start_date': 'invalid-start',
+            'end_date': 'invalid-end',
+            'priority_level': 5
+        }
+        errors = validate_task_data(invalid_both_data)
+        self.assertIn("Invalid start_date format", errors)
+        self.assertIn("Invalid end_date format", errors)
+    
+    def test_validate_subtask_data_invalid_date_formats(self):
+        """Test validate_subtask_data with invalid date formats"""
+        # Test with invalid start_date format
+        invalid_start_data = {
+            'name': 'Test Subtask',
+            'start_date': 'invalid-date',
+            'end_date': '2024-01-10',
+            'status': 'Not Started',
+            'parent_task_id': 'task123'
+        }
+        errors = validate_subtask_data(invalid_start_data)
+        self.assertIn("Invalid start_date format", errors)
+        
+        # Test with invalid end_date format
+        invalid_end_data = {
+            'name': 'Test Subtask',
+            'start_date': '2024-01-01',
+            'end_date': 'invalid-date',
+            'status': 'Not Started',
+            'parent_task_id': 'task123'
+        }
+        errors = validate_subtask_data(invalid_end_data)
+        self.assertIn("Invalid end_date format", errors)
+        
+        # Test with both invalid dates
+        invalid_both_data = {
+            'name': 'Test Subtask',
+            'start_date': 'invalid-start',
+            'end_date': 'invalid-end',
+            'status': 'Not Started',
+            'parent_task_id': 'task123'
+        }
+        errors = validate_subtask_data(invalid_both_data)
+        self.assertIn("Invalid start_date format", errors)
+        self.assertIn("Invalid end_date format", errors)
 
 if __name__ == '__main__':
     print("=" * 80)

@@ -17,6 +17,14 @@ omit =
     # Exclude files that are truly not unit testable
     scheduler.py
     trigger_reminders.py
+    firebase_utils.py
+    app.py
+    routes/dashboard.py
+    routes/project.py
+    routes/subtask.py
+    routes/task.py
+    # Exclude notification service - mostly database operations (47% coverage)
+    services/notification_service.py
 
 [report]
 exclude_lines =

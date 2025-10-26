@@ -256,6 +256,173 @@ class TestSubtaskUtilsUnit(unittest.TestCase):
             {'status': 'Not Started'}
         ]
         self.assertAlmostEqual(calculate_subtask_completion_percentage(mixed_subtasks), 33.333333333333336, places=10)
+    
+    def test_validate_subtask_collaborators_edge_cases(self):
+        """Test validate_subtask_collaborators function edge cases"""
+        # Test with None collaborators
+        result = validate_subtask_collaborators(None, ['user1', 'user2'])
+        self.assertTrue(result[0])  # Should return True for None
+        
+        # Test with empty list
+        result = validate_subtask_collaborators([], ['user1', 'user2'])
+        self.assertTrue(result[0])  # Should return True for empty list
+        
+        # Test with valid collaborators
+        result = validate_subtask_collaborators(['user1'], ['user1', 'user2'])
+        self.assertTrue(result[0])  # Should return True for valid
+        
+        # Test with invalid collaborators
+        result = validate_subtask_collaborators(['user3'], ['user1', 'user2'])
+        self.assertFalse(result[0])  # Should return False for invalid
+        
+        # Test with mixed valid and invalid
+        result = validate_subtask_collaborators(['user1', 'user3'], ['user1', 'user2'])
+        self.assertFalse(result[0])  # Should return False for mixed
+    
+    def test_calculate_subtask_timeline_edge_cases(self):
+        """Test calculate_subtask_timeline function edge cases"""
+        # Test with None dates
+        result = calculate_subtask_timeline(None, '2030-01-10')
+        self.assertIsNone(result)
+        
+        result = calculate_subtask_timeline('2030-01-01', None)
+        self.assertIsNone(result)
+        
+        # Test with empty strings
+        result = calculate_subtask_timeline("", '2030-01-10')
+        self.assertIsNone(result)
+        
+        result = calculate_subtask_timeline('2030-01-01', "")
+        self.assertIsNone(result)
+        
+        # Test with invalid date formats
+        result = calculate_subtask_timeline("invalid", '2030-01-10')
+        self.assertIsNone(result)
+        
+        result = calculate_subtask_timeline('2030-01-01', "invalid")
+        self.assertIsNone(result)
+        
+        # Test with same start and end date
+        result = calculate_subtask_timeline('2030-01-01', '2030-01-01')
+        self.assertIsNotNone(result)
+        self.assertEqual(result['duration_days'], 0)
+        self.assertFalse(result['is_overdue'])
+    
+    def test_validate_subtask_status_transition_edge_cases(self):
+        """Test validate_subtask_status_transition function edge cases"""
+        # Test with None values
+        result = validate_subtask_status_transition(None, 'In Progress')
+        self.assertFalse(result)
+        
+        result = validate_subtask_status_transition('Not Started', None)
+        self.assertFalse(result)
+        
+        # Test with empty strings
+        result = validate_subtask_status_transition("", 'In Progress')
+        self.assertFalse(result)
+        
+        result = validate_subtask_status_transition('Not Started', "")
+        self.assertFalse(result)
+        
+        # Test with invalid status values
+        result = validate_subtask_status_transition('Invalid', 'In Progress')
+        self.assertFalse(result)
+        
+        result = validate_subtask_status_transition('Not Started', 'Invalid')
+        self.assertFalse(result)
+    
+    def test_calculate_subtask_priority_edge_cases(self):
+        """Test calculate_subtask_priority function edge cases"""
+        # Test with None values
+        result = calculate_subtask_priority(None, None)
+        self.assertEqual(result, 5)  # Should use default priority 5
+        
+        result = calculate_subtask_priority('urgent', None)
+        self.assertEqual(result, 7)  # 5 + 2 = 7
+        
+        result = calculate_subtask_priority(None, 3)
+        self.assertEqual(result, 3)  # Should use provided priority 3
+        
+        # Test with invalid urgency
+        result = calculate_subtask_priority('invalid', 5)
+        self.assertEqual(result, 5)  # Should return base priority
+        
+        # Test with edge priority values
+        result = calculate_subtask_priority('urgent', 9)
+        self.assertEqual(result, 10)  # Should cap at 10
+        
+        result = calculate_subtask_priority('low', 1)
+        self.assertEqual(result, 1)  # Should cap at 1
+    
+    def test_format_subtask_summary_edge_cases(self):
+        """Test format_subtask_summary function edge cases"""
+        # Test with None values - this will cause an AttributeError, which is expected
+        with self.assertRaises(AttributeError):
+            format_subtask_summary(None)
+        
+        # Test with empty dict
+        result = format_subtask_summary({})
+        self.assertIn("Unnamed Subtask", result)
+        
+        # Test with partial data
+        partial_data = {'name': 'Test Subtask'}
+        result = format_subtask_summary(partial_data)
+        self.assertIn("Test Subtask", result)
+        self.assertIn("Unknown", result)
+    
+    def test_validate_subtask_deadline_edge_cases(self):
+        """Test validate_subtask_deadline function edge cases"""
+        # Test with None values
+        result = validate_subtask_deadline(None, '2030-01-10')
+        self.assertTrue(result[0])  # Should return True for None dates
+        
+        result = validate_subtask_deadline('2030-01-01', None)
+        self.assertTrue(result[0])  # Should return True for None dates
+        
+        # Test with empty strings
+        result = validate_subtask_deadline("", '2030-01-10')
+        self.assertTrue(result[0])  # Should return True for empty strings
+        
+        result = validate_subtask_deadline('2030-01-01', "")
+        self.assertTrue(result[0])  # Should return True for empty strings
+        
+        # Test with invalid date formats
+        result = validate_subtask_deadline("invalid", '2030-01-10')
+        self.assertFalse(result[0])  # Should return False for invalid dates
+        
+        result = validate_subtask_deadline('2030-01-01', "invalid")
+        self.assertFalse(result[0])  # Should return False for invalid dates
+        
+        # Test with same dates
+        result = validate_subtask_deadline('2030-01-01', '2030-01-01')
+        self.assertTrue(result[0])  # Should return True for same dates
+    
+    def test_calculate_subtask_completion_percentage_edge_cases(self):
+        """Test calculate_subtask_completion_percentage function edge cases"""
+        # Test with None subtasks
+        result = calculate_subtask_completion_percentage(None)
+        self.assertEqual(result, 0)
+        
+        # Test with empty list
+        result = calculate_subtask_completion_percentage([])
+        self.assertEqual(result, 0)
+        
+        # Test with subtasks missing status field
+        subtasks_without_status = [
+            {'name': 'Subtask 1'},
+            {'name': 'Subtask 2'}
+        ]
+        result = calculate_subtask_completion_percentage(subtasks_without_status)
+        self.assertEqual(result, 0)
+        
+        # Test with mixed valid and invalid subtasks
+        mixed_subtasks = [
+            {'status': 'Completed'},
+            {'name': 'Subtask without status'},
+            {'status': 'In Progress'}
+        ]
+        result = calculate_subtask_completion_percentage(mixed_subtasks)
+        self.assertAlmostEqual(result, 33.33, places=1)  # 1 out of 3 completed
 
 if __name__ == '__main__':
     print("=" * 80)
