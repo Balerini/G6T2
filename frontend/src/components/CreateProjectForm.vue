@@ -17,7 +17,7 @@
           <!-- Project Name -->
           <div class="form-group">
             <label class="form-label" for="projectName">Project Name *</label>
-            <input id="projectName" v-model="formData.proj_name" type="text" class="form-input"
+            <input id="projectName" v-model="formData.proj_name" type="text" class="form-input" data-testid='proj-name'
               :class="{ 'error': validationErrors.proj_name }" placeholder="Enter project name"
               @input="validateField('proj_name', $event.target.value)"
               @blur="validateField('proj_name', formData.proj_name)" />
@@ -29,7 +29,7 @@
           <!-- Project Description -->
           <div class="form-group">
             <label class="form-label" for="projectDesc">Project Description</label>
-            <textarea id="projectDesc" v-model="formData.proj_desc" class="form-textarea"
+            <textarea id="projectDesc" v-model="formData.proj_desc" class="form-textarea" data-testid='proj-desc'
               :class="{ 'error': validationErrors.proj_desc }"
               placeholder="Enter project description (max 500 characters)" rows="4"
               @input="validateField('proj_desc', $event.target.value)"
@@ -45,7 +45,7 @@
           <!-- Start Date -->
           <div class="form-group">
             <label class="form-label" for="startDate">Start Date *</label>
-            <input id="startDate" v-model="formData.start_date" type="date" class="form-input"
+            <input id="startDate" v-model="formData.start_date" type="date" class="form-input" data-testid='proj-start'
               :class="{ 'error': validationErrors.start_date }" :min="getCurrentDate()"
               @change="validateDates(); validateField('start_date', formData.start_date)"
               @blur="validateField('start_date', formData.start_date)" />
@@ -57,7 +57,7 @@
           <!-- End Date -->
           <div class="form-group">
             <label class="form-label" for="endDate">End Date *</label>
-            <input id="endDate" v-model="formData.end_date" type="date" class="form-input"
+            <input id="endDate" v-model="formData.end_date" type="date" class="form-input" data-testid='proj-end'
               :class="{ 'error': validationErrors.end_date }" :min="formData.start_date || getCurrentDate()"
               @change="validateDates(); validateField('end_date', formData.end_date)"
               @blur="validateField('end_date', formData.end_date)" />
@@ -90,7 +90,7 @@
                 :disabled="isLoadingUsers" />
 
               <!-- Dropdown icon -->
-              <div class="dropdown-toggle-icon" @click="toggleDropdown" :class="{ 'rotated': showDropdown }">
+              <div class="dropdown-toggle-icon" @click="toggleDropdown" :class="{ 'rotated': showDropdown }" data-testid='proj-collab-list'>
                 ▼
               </div>
 
@@ -113,7 +113,7 @@
 
                 <!-- User options -->
                 <div v-for="(user, index) in filteredUsers" :key="`user-${index}-${user.id || user.name || 'unknown'}`"
-                  class="dropdown-item" :class="{
+                  class="dropdown-item" data-testid='proj-collab-option' :class="{
                     'highlighted': index === highlightedIndex,
                     'selected': isUserSelected(user)
                   }" @mousedown.prevent="selectUser(user)" @mouseenter="highlightedIndex = index">
@@ -152,7 +152,7 @@
             <button type="button" class="btn btn-cancel" @click="handleCancel" :disabled="loading">
               Cancel
             </button>
-            <button type="submit" class="btn btn-primary" :disabled="loading">
+            <button type="submit" class="btn btn-primary" :disabled="loading" data-testid='proj-create'>
               {{ submitButtonText }}
             </button>
           </div>

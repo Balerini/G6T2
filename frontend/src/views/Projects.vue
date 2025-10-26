@@ -11,7 +11,7 @@
             </div>
           </div>
           <div class="header-buttons">
-            <button class="tab-btn new-project-btn" @click="navigateToCreateProject">
+            <button class="tab-btn new-project-btn" @click="navigateToCreateProject" data-testid='new-proj'>
               + New Project
             </button>
             <button class="tab-btn new-task-btn" @click="navigateToCreateTask" data-testid='new-task'>
@@ -37,7 +37,7 @@
         <div class="toast-icon">🎉</div>
         <div class="toast-content">
           <div class="toast-title">Success!</div>
-          <div class="toast-message">{{ successMessage }}</div>
+          <div class="toast-message" data-testid='proj-toast'>{{ successMessage }}</div>
         </div>
         <button @click="clearSuccessMessage" class="toast-close">×</button>
       </div>

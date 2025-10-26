@@ -44,18 +44,18 @@ def test_project_excel_export(driver):
     projects_link.click()
 
     # new task button
-    projects_link = WebDriverWait(driver, 5).until(
+    new_task = WebDriverWait(driver, 5).until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='new-task']"))
     )
-    projects_link.click()
+    new_task.click()
 
     # enter task details
     # name
     driver.find_element(By.CSS_SELECTOR, "[data-testid='task-name']").send_keys("Selenium Testing")
    
     # start & end date
-    driver.find_element(By.CSS_SELECTOR, "[data-testid='task-start']").send_keys("28/10/2025")
-    driver.find_element(By.CSS_SELECTOR, "[data-testid='task-end']").send_keys("31/10/2025")
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='task-start']").send_keys("28/11/2025")
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='task-end']").send_keys("31/11/2025")
 
     # priority
     task_prio_ddl = WebDriverWait(driver, 5).until(
@@ -114,7 +114,6 @@ def test_project_excel_export(driver):
     projects_link.click()
 
     # click standalone tasks
-    # driver.find_element(By.CSS_SELECTOR, "[data-testid='standalone-task']").click()
     standalone_tasks = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='standalone-task']"))
     )
@@ -143,8 +142,8 @@ def test_project_excel_export(driver):
     driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-name']").send_keys("Selenium Sub Testing")
    
     # start & end date
-    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-start']").send_keys("29/10/2025")
-    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-end']").send_keys("30/10/2025")
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-start']").send_keys("29/11/2025")
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-end']").send_keys("30/11/2025")
 
     # priority
     subtask_prio_ddl = WebDriverWait(driver, 5).until(
