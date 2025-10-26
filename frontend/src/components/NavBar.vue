@@ -6,9 +6,9 @@
       </router-link>
 
       <div class="navbar-right">
-        <router-link :to="dashboardLink" class="navbar-link" data-testid="nav-projects"
+        <router-link :to="dashboardLink" class="navbar-link" 
           exact-active-class="router-link-active">Dashboard</router-link>
-        <router-link to="/projects" class="navbar-link">Projects</router-link>
+        <router-link to="/projects" class="navbar-link" data-testid="nav-projects">Projects</router-link>
         <a href="/my-schedule" class="navbar-link" @click.prevent="navigateToSchedule">My Schedule</a>
 
         <!-- Notification Bell -->

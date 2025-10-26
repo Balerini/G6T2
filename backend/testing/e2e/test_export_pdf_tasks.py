@@ -39,7 +39,7 @@ def test_project_excel_export(driver):
 
     # project link in navbar
     projects_link = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//a[contains(@class, 'navbar-link') and contains(text(), 'Projects')]"))
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='nav-projects']"))
     )
     projects_link.click()
 
@@ -57,7 +57,7 @@ def test_project_excel_export(driver):
 
     # download as excel 
     download_excel = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='export-excel']"))
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='export-pdf']"))
     )
     download_excel.click()
 
@@ -66,4 +66,4 @@ def test_project_excel_export(driver):
     downloaded_files = os.listdir("downloads")
 
     # validate download folder
-    assert any(f.endswith("Project_yuuuu_Tasks_Report.xlsx") for f in downloaded_files), "Excel export file not found"
+    assert any(f.endswith("Project_yuuuu_Tasks_Report.pdf") for f in downloaded_files), "PDF export file not found"

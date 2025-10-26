@@ -288,7 +288,7 @@
     <!-- Task Name -->
     <div class="form-group">
       <label class="form-label" for="taskName">Task Name *</label>
-      <input id="taskName" v-model="formData.task_name" type="text" class="form-input"
+      <input id="taskName" v-model="formData.task_name" type="text" class="form-input" data-testid='task-name'
         :class="{ 'error': validationErrors.task_name }" placeholder="Enter task name"
         @input="validateField('task_name', $event.target.value)"
         @blur="validateField('task_name', formData.task_name)" />
@@ -315,7 +315,7 @@
     <!-- Start Date -->
     <div class="form-group">
       <label class="form-label" for="startDate">Start Date *</label>
-      <input id="startDate" v-model="formData.start_date" type="date" class="form-input"
+      <input id="startDate" v-model="formData.start_date" type="date" class="form-input" data-testid='task-start'
         :class="{ 'error': validationErrors.start_date }" :min="getTaskMinStartDate()" :max="getTaskMaxEndDate()"
         @change="validateDates(); validateField('start_date', formData.start_date)"
         @blur="validateField('start_date', formData.start_date)" />
@@ -330,7 +330,7 @@
     <!-- End Date -->
     <div class="form-group">
       <label class="form-label" for="endDate">End Date *</label>
-      <input id="endDate" v-model="formData.end_date" type="date" class="form-input"
+      <input id="endDate" v-model="formData.end_date" type="date" class="form-input" data-testid='task-end'
         :class="{ 'error': validationErrors.end_date }" :min="formData.start_date || getTaskMinStartDate()"
         :max="getTaskMaxEndDate()" @change="validateDates(); validateField('end_date', formData.end_date)"
         @blur="validateField('end_date', formData.end_date)" />
@@ -350,7 +350,7 @@
        placeholder="Auto-populated from current user" />
     </div>
 
-    <!-- Assigned To -->
+    <!-- Collaborators -->
     <div class="form-group">
       <label class="form-label" for="assigned_to">
         Collaborators
@@ -367,7 +367,7 @@
           :disabled="isLoadingUsers" />
 
         <!-- Dropdown icon -->
-        <div class="dropdown-toggle-icon" @click="toggleDropdown" :class="{ 'rotated': showDropdown }">
+        <div class="dropdown-toggle-icon" @click="toggleDropdown" :class="{ 'rotated': showDropdown }" data-testid='task-collab-list'>
           ▼
         </div>
 
@@ -394,7 +394,7 @@
               'highlighted': index === highlightedIndex,
               'selected': isUserSelected(user)
             }" @mousedown.prevent="selectUser(user)" @mouseenter="highlightedIndex = index">
-            <div class="user-info">
+            <div class="user-info" data-testid='task-collab-option'>
               <span class="user-name">{{ user.name }}</span>
               <span v-if="user.email" class="user-email">{{ user.email }}</span>
             </div>
@@ -469,13 +469,13 @@
       <label class="form-label" for="priorityLevel">
         Priority Level *
       </label>
-      <select id="priorityLevel" v-model="formData.priority_level" class="form-select"
+      <select id="priorityLevel" v-model="formData.priority_level" class="form-select" data-testid='task-priority'
         :class="{ 'error': validationErrors.priority_level }"
         @change="validateField('priority_level', formData.priority_level)"
         @blur="validateField('priority_level', formData.priority_level)">
         <option value="" disabled>Select priority level (1-10)</option>
         <option value="1">1</option>
-        <option value="2">2</option>
+        <option value="2" data-testid='task-priority-option'>2</option>
         <option value="3">3</option>
         <option value="4">4</option>
         <option value="5">5</option>
@@ -495,13 +495,13 @@
       <label class="form-label" for="taskStatus">
         Task Status *
       </label>
-      <select id="taskStatus" v-model="formData.task_status" class="form-select"
+      <select id="taskStatus" v-model="formData.task_status" class="form-select" data-testid='task-status'
         :class="{ 'error': validationErrors.task_status }" @change="validateField('task_status', formData.task_status)"
         @blur="validateField('task_status', formData.task_status)">
         <option value="" disabled>Select status</option>
         <option value="Unassigned">Unassigned</option>
         <option value="Ongoing">Ongoing</option>
-        <option value="Under Review">Under Review</option>
+        <option value="Under Review" data-testid='task-status-option'>Under Review</option>
         <option value="Completed">Completed</option>
       </select>
       <span v-if="validationErrors.task_status" class="error-message">
@@ -514,7 +514,7 @@
       <button type="button" class="btn btn-cancel" @click="$emit('cancel')" :disabled="isSubmitting">
         Cancel
       </button>
-      <button type="submit" class="btn btn-primary" :disabled="isSubmitting || !isFormValid">
+      <button type="submit" class="btn btn-primary" :disabled="isSubmitting || !isFormValid" data-testid='task-create'>
         {{ isUploadingFiles ? 'Uploading files...' : isSubmitting ? 'Creating...' : 'Create Task' }}
       </button>
     </div>

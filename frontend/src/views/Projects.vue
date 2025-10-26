@@ -14,7 +14,7 @@
             <button class="tab-btn new-project-btn" @click="navigateToCreateProject">
               + New Project
             </button>
-            <button class="tab-btn new-task-btn" @click="navigateToCreateTask">
+            <button class="tab-btn new-task-btn" @click="navigateToCreateTask" data-testid='new-task'>
               + New Task
             </button>
           </div>
