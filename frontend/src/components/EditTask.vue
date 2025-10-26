@@ -670,7 +670,7 @@
       <TransferOwnership
         :visible="showTransferModal"
         :task="task"
-        :users="users"
+        :users="resolvedUsers"
         :task-collaborators="localForm.assigned_to || []"
         @close="showTransferModal = false"
         @transfer-success="handleTransferSuccess"
@@ -932,45 +932,91 @@ export default {
     const isLoadingUsers = ref(false)
     const highlightedIndex = ref(-1)
     const dropdownCloseTimeout = ref(null)
+    const availableUsers = ref([])
+    const resolvedUsers = computed(() => availableUsers.value)
+
+    const normalizeUserId = (value) => {
+      if (value === undefined || value === null) {
+        return ''
+      }
+      return String(value)
+    }
+
+    const loadUsersSafely = async () => {
+      if (isLoadingUsers.value) {
+        return
+      }
+
+      const hasUsers = Array.isArray(availableUsers.value) && availableUsers.value.length > 0
+      if (hasUsers) {
+        return
+      }
+
+      try {
+        isLoadingUsers.value = true
+        const fetched = await taskService.getUsers()
+        availableUsers.value = Array.isArray(fetched) ? fetched : []
+      } catch (error) {
+        console.error('Failed to fetch users for EditTask:', error)
+      } finally {
+        isLoadingUsers.value = false
+      }
+    }
 
     const filteredUsers = computed(() => {
-      let filtered = props.users.filter(user => {
-        // Filter out already selected users
-        const isAlreadySelected = localForm.assigned_to.some(assignee => assignee.id === user.id);
+      const sourceUsers = Array.isArray(resolvedUsers.value) ? resolvedUsers.value : []
 
-        return !isAlreadySelected;
-      });
+      let filtered = sourceUsers.filter(user => {
+        if (!user) {
+          return false
+        }
 
-      // Filter to project collaborators if task belongs to a project
-      console.log('🔍 Edit Task - Debug:', {
-        hasProjectName: !!localForm.proj_name,
-        hasParentProject: !!props.parentProject,
-        projectName: localForm.proj_name,
-        collaborators: props.parentProject?.collaborators
-      });
-      
+        const candidateId = normalizeUserId(user.id ?? user.user_id ?? user.userId ?? user.uid)
+        if (!candidateId) {
+          return false
+        }
+
+        const isAlreadySelected = localForm.assigned_to.some(assignee => {
+          const assigneeId = normalizeUserId(assignee?.id ?? assignee?.user_id ?? assignee?.userId ?? assignee?.uid)
+          return assigneeId && assigneeId === candidateId
+        })
+
+        return !isAlreadySelected
+      })
+
       if (localForm.proj_name && props.parentProject) {
-        const projectCollaboratorIds = props.parentProject.collaborators || [];
-        
-        console.log('🔍 Edit Task - Project collaborators:', projectCollaboratorIds);
-        console.log('📋 Edit Task - Total users available:', filtered.length);
-        filtered = filtered.filter(user => projectCollaboratorIds.includes(user.id));
-        console.log('✅ Edit Task - Filtered to project collaborators only:', filtered.length);
-      } else {
-        console.log('⚠️ Edit Task - No project or collaborators, showing all users');
+        const projectCollaboratorIds = (props.parentProject.collaborators || []).map(normalizeUserId)
+        filtered = filtered.filter(user => {
+          const candidateId = normalizeUserId(user.id ?? user.user_id ?? user.userId ?? user.uid)
+          return candidateId && projectCollaboratorIds.includes(candidateId)
+        })
       }
 
       if (userSearch.value.trim()) {
-        const searchTerm = userSearch.value.toLowerCase().trim();
-        filtered = filtered.filter(user =>
-          user.name.toLowerCase().includes(searchTerm) ||
-          (user.email && user.email.toLowerCase().includes(searchTerm))
-        );
+        const searchTerm = userSearch.value.toLowerCase().trim()
+        filtered = filtered.filter(user => {
+          const name = typeof user.name === 'string' ? user.name.toLowerCase() : ''
+          const email = typeof user.email === 'string' ? user.email.toLowerCase() : ''
+          return name.includes(searchTerm) || email.includes(searchTerm)
+        })
       }
 
-      return filtered.slice(0, 20);
-    });
+      return filtered.slice(0, 20)
+    })
 
+    const findUserById = (userId) => {
+      const targetId = normalizeUserId(userId)
+      if (!targetId) {
+        return null
+      }
+
+      const sourceUsers = Array.isArray(availableUsers.value) ? availableUsers.value : []
+      return (
+        sourceUsers.find(
+          user => normalizeUserId(user.id ?? user.user_id ?? user.userId ?? user.uid) === targetId
+        ) || null
+      )
+    }
     const getCurrentUser = () => {
       try {
         const userData = sessionStorage.getItem('user');
@@ -1137,6 +1183,73 @@ export default {
       }
     });
 
+    watch(
+      () => props.users,
+      (newUsers) => {
+        if (Array.isArray(newUsers) && newUsers.length > 0) {
+          availableUsers.value = [...newUsers]
+          isLoadingUsers.value = false
+        } else {
+          availableUsers.value = Array.isArray(newUsers) ? [...newUsers] : []
+          if (props.visible) {
+            loadUsersSafely()
+          }
+        }
+      },
+      { immediate: true, deep: true }
+    )
+
+    watch(
+      availableUsers,
+      (users) => {
+        if (!Array.isArray(users) || users.length === 0) {
+          return
+        }
+
+        let hasChanges = false
+        const updated = localForm.assigned_to.map(collaborator => {
+          if (!collaborator) {
+            return collaborator
+          }
+
+          const collaboratorId = normalizeUserId(
+            collaborator.id ?? collaborator.user_id ?? collaborator.userId ?? collaborator.uid
+          )
+
+          if (!collaboratorId) {
+            return collaborator
+          }
+
+          const matched = users.find(
+            user => normalizeUserId(user.id ?? user.user_id ?? user.userId ?? user.uid) === collaboratorId
+          )
+
+          if (!matched) {
+            return collaborator
+          }
+
+          const nextName = matched.name || collaborator.name || matched.email || collaborator.email || `User ${collaboratorId}`
+          const nextEmail = matched.email || collaborator.email || ''
+
+          if (nextName !== collaborator.name || nextEmail !== collaborator.email) {
+            hasChanges = true
+            return {
+              ...collaborator,
+              name: nextName,
+              email: nextEmail
+            }
+          }
+
+          return collaborator
+        })
+
+        if (hasChanges) {
+          localForm.assigned_to = updated
+        }
+      },
+      { deep: true }
+    )
+
     const fillFromProps = () => {
       const t = props.task || {}
 
@@ -1157,16 +1270,52 @@ export default {
       // Reset assigned_to before repopulating
       localForm.assigned_to = []
 
-      // Populate assigned_to with user objects
-      if (t.assigned_to && Array.isArray(t.assigned_to)) {
-        localForm.assigned_to = t.assigned_to.map(userId => {
-          const user = props.users.find(u => String(u.id) === String(userId));
-          return user ? {
-            id: user.id,
-            name: user.name,
-            email: user.email
-          } : null;
-        }).filter(user => user !== null);
+      if (Array.isArray(t.assigned_to)) {
+        const seen = new Set()
+        localForm.assigned_to = t.assigned_to
+          .map(entry => {
+            if (entry === undefined || entry === null) {
+              return null
+            }
+
+            const rawIdValue =
+              typeof entry === 'object'
+                ? entry.id ?? entry.user_id ?? entry.userId ?? entry.uid ?? null
+                : entry
+
+            const normalizedId = normalizeUserId(rawIdValue)
+            if (!normalizedId || seen.has(normalizedId)) {
+              return null
+            }
+
+            seen.add(normalizedId)
+
+            const matched = findUserById(normalizedId)
+            const fallbackSource = typeof entry === 'object' ? entry : null
+
+            const name =
+              (matched && matched.name) ||
+              (fallbackSource && fallbackSource.name) ||
+              (fallbackSource && fallbackSource.email) ||
+              (typeof entry === 'string' ? entry : '')
+
+            const email =
+              (matched && matched.email) ||
+              (fallbackSource && fallbackSource.email) ||
+              ''
+
+            const finalId =
+              (matched && matched.id !== undefined && matched.id !== null)
+                ? matched.id
+                : rawIdValue ?? normalizedId
+
+            return {
+              id: finalId,
+              name: name || `User ${normalizedId}`,
+              email
+            }
+          })
+          .filter(Boolean)
       }
 
       // Sync recurrence details without replacing the reactive object reference
@@ -1215,6 +1364,9 @@ export default {
 
     watch(() => props.visible, (isVisible) => {
       if (isVisible) {
+        if (availableUsers.value.length === 0) {
+          loadUsersSafely()
+        }
         nextTick(() => {
           fillFromProps()
         })
@@ -1667,42 +1819,66 @@ export default {
 
     const selectUser = (user) => {
       if (!canEditCollaborators.value) {
-        return;
+        return
       }
 
-      if (isUserSelected(user)) return;
+      if (!user) {
+        return
+      }
+
+      if (isUserSelected(user)) {
+        return
+      }
 
       // Clear any pending close timeout
       if (dropdownCloseTimeout.value) {
-        clearTimeout(dropdownCloseTimeout.value);
-        dropdownCloseTimeout.value = null;
+        clearTimeout(dropdownCloseTimeout.value)
+        dropdownCloseTimeout.value = null
+      }
+
+      const rawId = user.id ?? user.user_id ?? user.userId ?? user.uid
+      const normalizedId = normalizeUserId(rawId)
+      if (!normalizedId) {
+        return
       }
 
       // Add user to selected collaborators
       localForm.assigned_to.push({
-        id: user.id,
-        name: user.name,
-        email: user.email
-      });
+        id: rawId ?? normalizedId,
+        name: user.name || user.email || `User ${normalizedId}`,
+        email: user.email || ''
+      })
 
       // Validate collaborators after adding
-      validateField('collaborators', localForm.assigned_to);
+      validateField('collaborators', localForm.assigned_to)
 
       // Reset search but DON'T close dropdown
-      userSearch.value = '';
+      userSearch.value = ''
 
       nextTick(() => {
-        const input = document.getElementById('assignedTo');
+        const input = document.getElementById('assignedTo')
         if (input) {
-          input.focus();
+          input.focus()
         }
-        showDropdown.value = true;
-      });
-    };
+        showDropdown.value = true
+      })
+    }
 
     const isUserSelected = (user) => {
-      return localForm.assigned_to.some(assignee => assignee.id === user.id);
-    };
+      if (!user) {
+        return false
+      }
+
+      const normalizedId = normalizeUserId(user.id ?? user.user_id ?? user.userId ?? user.uid)
+      if (!normalizedId) {
+        return false
+      }
+
+      return localForm.assigned_to.some(
+        assignee =>
+          normalizeUserId(assignee?.id ?? assignee?.user_id ?? assignee?.userId ?? assignee?.uid) === normalizedId
+      )
+    }
 
     const selectFirstMatch = () => {
       if (roleFilteredUsers.value.length > 0) {
@@ -2599,19 +2775,31 @@ export default {
     const handleClose = () => emit('close')
 
     function findUserNameById(userId) {
-      if (!userId) return null
-      const user = props.users.find(u => String(u.id) === String(userId))
-      return user ? user.name : null
+      if (!userId) {
+        return null
+      }
+
+      const user = findUserById(userId)
+      if (!user) {
+        return null
+      }
+
+      return user.name || user.email || null
     }
 
     // Computed property for displaying the owner name
     const ownerName = computed(() => {
-      if (!localForm.owner) return '';
+      if (!localForm.owner) {
+        return ''
+      }
 
-      // Find the user by ID from the users array
-      const owner = props.users.find(user => String(user.id) === String(localForm.owner));
-      return owner ? owner.name : 'Unknown User';
-    });
+      const owner = findUserById(localForm.owner)
+      if (owner) {
+        return owner.name || owner.email || 'Unknown User'
+      }
+
+      return 'Unknown User'
+    })
 
     function formatTimestamp(timestamp) {
       if (!timestamp) return 'Unknown time'
@@ -2627,8 +2815,9 @@ export default {
     }
 
     onMounted(() => {
-      document.addEventListener('click', handleOutsideClick);
-    });
+      document.addEventListener('click', handleOutsideClick)
+      loadUsersSafely()
+    })
 
     return {
       localForm,
@@ -2653,6 +2842,7 @@ export default {
       highlightedIndex,
       filteredUsers,
       roleFilteredUsers,
+      resolvedUsers,
       isFormValid,
       currentUser,
       isTaskOwner,
