@@ -72,7 +72,7 @@ class TestSubtaskAPI(unittest.TestCase):
         task_data = {
             'task_name': f'Test Task {self.timestamp}',
             'task_status': 'In Progress',
-            'priority_level': 3,
+            'priority': 3,
             'start_date': future_start.strftime('%Y-%m-%d'),
             'end_date': future_end.strftime('%Y-%m-%d'),
             'proj_ID': f'test_project_{self.timestamp}',
@@ -136,7 +136,7 @@ class TestSubtaskAPI(unittest.TestCase):
         subtask_data = {
             'name': f'Test Subtask {self.timestamp}',
             'status': 'Not Started',
-            'priority_level': 2,
+            'priority': 2,
             'start_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
             'end_date': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d'),
             'parent_task_id': 'non_existent_task_id',
@@ -161,7 +161,7 @@ class TestSubtaskAPI(unittest.TestCase):
             'name': f'Test Subtask {self.timestamp}',
             'status': 'Not Started',
             # Missing start_date, end_date, parent_task_id
-            'priority_level': 2
+            'priority': 2
         }
         
         response = self.client.post('/api/subtasks',
@@ -180,7 +180,7 @@ class TestSubtaskAPI(unittest.TestCase):
         invalid_data = {
             'name': f'Test Subtask {self.timestamp}',
             'status': 'Not Started',
-            'priority_level': 2,
+            'priority': 2,
             'start_date': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d'),  # Later date
             'end_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),    # Earlier date
             'parent_task_id': self.test_task_id,
@@ -203,7 +203,7 @@ class TestSubtaskAPI(unittest.TestCase):
         subtask_data = {
             'name': f'Test Subtask {self.timestamp}',
             'status': 'Not Started',
-            'priority_level': 2,
+            'priority': 2,
             'start_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
             'end_date': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d'),
             'parent_task_id': self.test_task_id,
@@ -231,7 +231,7 @@ class TestSubtaskAPI(unittest.TestCase):
         subtask = response_data['subtask']
         self.assertEqual(subtask['name'], subtask_data['name'])
         self.assertEqual(subtask['status'], subtask_data['status'])
-        self.assertEqual(subtask['priority_level'], subtask_data['priority_level'])
+        self.assertEqual(subtask['priority'], subtask_data['priority'])
     
     def test_get_nonexistent_subtask(self):
         """Test retrieving a non-existent subtask via API with REAL database"""
@@ -250,7 +250,7 @@ class TestSubtaskAPI(unittest.TestCase):
         subtask_data = {
             'name': f'Test Subtask {self.timestamp}',
             'status': 'Not Started',
-            'priority_level': 2,
+            'priority': 2,
             'start_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
             'end_date': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d'),
             'parent_task_id': self.test_task_id,
@@ -271,7 +271,7 @@ class TestSubtaskAPI(unittest.TestCase):
         update_data = {
             'name': f'Updated Subtask {self.timestamp}',
             'status': 'In Progress',
-            'priority_level': 1,
+            'priority': 1,
             'start_date': (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d'),
             'end_date': (datetime.now() + timedelta(days=6)).strftime('%Y-%m-%d'),
             'description': 'Updated description'
@@ -292,7 +292,7 @@ class TestSubtaskAPI(unittest.TestCase):
         subtask_data_from_db = subtask_doc.to_dict()
         self.assertEqual(subtask_data_from_db['name'], update_data['name'])
         self.assertEqual(subtask_data_from_db['status'], update_data['status'])
-        self.assertEqual(subtask_data_from_db['priority_level'], update_data['priority_level'])
+        self.assertEqual(subtask_data_from_db['priority'], update_data['priority'])
     
     def test_delete_subtask(self):
         """Test deleting a subtask via API with REAL database"""
@@ -300,7 +300,7 @@ class TestSubtaskAPI(unittest.TestCase):
         subtask_data = {
             'name': f'Test Subtask {self.timestamp}',
             'status': 'Not Started',
-            'priority_level': 2,
+            'priority': 2,
             'start_date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
             'end_date': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d'),
             'parent_task_id': self.test_task_id,
