@@ -194,6 +194,13 @@ def update_subtask(subtask_id):
 
         # Validate assigned_to if being updated 
         if 'assigned_to' in data:
+            # SECURITY FIX: Only owner can modify collaborators
+            current_owner = subtask_data.get('owner')
+            if str(current_owner) != str(current_user_id):
+                return jsonify({
+                    'error': 'Only the subtask owner can invite or modify collaborators'
+                }), 403
+            
             new_assigned_to = data['assigned_to']
             parent_task_id = subtask_data.get('parent_task_id')
             

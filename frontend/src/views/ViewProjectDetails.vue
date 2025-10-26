@@ -23,7 +23,7 @@
                     <button 
                         v-if="canEdit"
                         @click="openEditModal"
-                        class="edit-btn"
+                        class="edit-btn" data-testid='proj-edit'
                     >
                         ✏️ Edit Project
                     </button>
@@ -167,7 +167,7 @@
         />
 
         <!-- Notification Toast -->
-        <div v-if="notification.show" class="notification" :class="notification.type">
+        <div v-if="notification.show" class="notification" :class="notification.type" data-testid='proj-details-notif'>
                 {{ notification.message }}
         </div>
     </div>

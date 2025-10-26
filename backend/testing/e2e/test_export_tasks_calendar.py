@@ -44,10 +44,18 @@ def test_project_excel_export(driver):
     projects_link.click()
 
     # view details for proj yuuuuu
-    proj_detail_view_btn = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='view-project-fT2cCbM1GI3GqsBwfpO9']"))
+    proj_list = WebDriverWait(driver, 5).until(
+        EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "[data-testid='proj-list']"))
     )
-    proj_detail_view_btn.click()
+    target_name = "yuuuu"
+    for proj_card in proj_list:
+        name_element = proj_card.find_element(By.CSS_SELECTOR, ".project-title")
+        if target_name.lower() in name_element.text.lower():
+            time.sleep(1)
+            proj_card.find_element(By.CSS_SELECTOR, "[data-testid='proj-details']").click()
+            break
+    else:
+        raise Exception(f"Collaborator '{target_name}' not found in dropdown options.")
 
     # export task dropdown
     export_task_button = WebDriverWait(driver, 10).until(
