@@ -21,11 +21,14 @@ def create_subtask():
         print(f"Received subtask data: {data}")
         
         # Validate required fields
-        required_fields = ['name', 'start_date', 'end_date', 'status', 'parent_task_id', 'project_id']
+        required_fields = ['name', 'start_date', 'end_date', 'status', 'parent_task_id']
         for field in required_fields:
             if field not in data:
                 print(f"Missing required field: {field}")
                 return jsonify({'error': f'{field} is required'}), 400
+
+        # project_id is optional (can be null for standalone tasks)
+        project_id = data.get('project_id', None)
         
         # Get Firestore client
         db = get_firestore_client()
@@ -67,7 +70,7 @@ def create_subtask():
             'status': data['status'],
             'priority': data.get('priority', 5), # Default priority is 5 (medium)
             'parent_task_id': data['parent_task_id'],
-            'project_id': data['project_id'],
+            'project_id': data.get('project_id', None),
             'assigned_to': data.get('assigned_to', []),
             'owner': data.get('owner'),
             'attachments': data.get('attachments', []),

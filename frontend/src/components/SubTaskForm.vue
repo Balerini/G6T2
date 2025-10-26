@@ -738,8 +738,8 @@ const loadParentTaskData = async () => {
     isLoadingParentData.value = true;
     
     // Validate props
-    if (!props.parentTaskId || !props.parentProjectId) {
-      throw new Error(`Invalid props: parentTaskId=${props.parentTaskId}, parentProjectId=${props.parentProjectId}`);
+    if (!props.parentTaskId) {
+      throw new Error(`Invalid props: parentTaskId=${props.parentTaskId}`);
     }
     
     console.log('Loading parent task data:', { 
@@ -765,10 +765,15 @@ const loadParentTaskData = async () => {
     console.log('Final parent task name:', parentTaskName.value);
     console.log('Available task fields:', Object.keys(taskData));
     
-    // Load parent project data
-    const projectData = await taskService.getProjectById(props.parentProjectId);
-    parentProject.value = projectData;
-    console.log('Parent project loaded:', projectData);
+    // Load parent project data (only if task belongs to a project)
+    if (props.parentProjectId) {
+      const projectData = await taskService.getProjectById(props.parentProjectId);
+      parentProject.value = projectData;
+      console.log('Parent project loaded:', projectData);
+    } else {
+      parentProject.value = null;
+      console.log('No parent project (standalone task)');
+    }
     
     // Pre-fill form with parent task data
     if (parentTask.value) {
