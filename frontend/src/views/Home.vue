@@ -346,6 +346,8 @@ export default {
                 if (userStr) {
                     const user = JSON.parse(userStr);
                     let roleNum = user.role_num;
+                    
+                    console.log('isManager check - role_num:', roleNum, 'type:', typeof roleNum);
 
                     if (typeof roleNum === 'string') {
                         roleNum = parseInt(roleNum);
@@ -357,7 +359,9 @@ export default {
                         else if (roleName === 'director') roleNum = 2;
                     }
 
-                    return roleNum && roleNum < 4;
+                    const result = roleNum && roleNum < 4;
+                    console.log('isManager result:', result, 'for role_num:', roleNum);
+                    return result;
                 }
             } catch (e) {
                 console.error('Error checking manager role:', e);

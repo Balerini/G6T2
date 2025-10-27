@@ -743,6 +743,8 @@ def get_manager_pending_tasks_by_age(user_id):
                             'name': staff_info[staff_id]['name'],
                             'role': staff_info[staff_id]['role_name']
                         }],
+                        'assigned_to_id': staff_id,  # For calendar filtering
+                        'assigned_to_name': staff_info[staff_id]['name'],  # For calendar display
                         'proj_name': task_data.get('proj_name', ''),
                         'proj_id': task_data.get('proj_ID'),
                         'end_date': end_date_normalized.isoformat(),
@@ -761,6 +763,15 @@ def get_manager_pending_tasks_by_age(user_id):
             'due_in_a_month': [],
             'due_later': [],
         }
+        
+        # Update assigned_to_id for tasks with multiple assignees (use first assignee)
+        for task_detail in unique_tasks.values():
+            if not task_detail.get('assigned_to_id') and task_detail.get('assigned_to'):
+                # Use first assignee's ID for calendar filtering
+                task_detail['assigned_to_id'] = task_detail['assigned_to'][0]['id']
+                # Create comma-separated list of names for display
+                names = [a['name'] for a in task_detail['assigned_to']]
+                task_detail['assigned_to_name'] = ', '.join(names)
         
         # Categorize tasks by days until due
         for task_detail in unique_tasks.values():

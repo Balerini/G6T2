@@ -959,12 +959,22 @@ def get_team_subtasks(manager_id):
         manager_division = manager_data.get('division_name')
         manager_role = manager_data.get('role_num')
         
+        print(f"DEBUG: manager_role type: {type(manager_role).__name__}, value: {manager_role}")
+        
+        # Convert role_num to int if it's a string
+        if isinstance(manager_role, str):
+            manager_role = int(manager_role)
+            print(f"DEBUG: Converted manager_role to int: {manager_role}")
+        
         print(f"Manager: {manager_data.get('name')} | Division: {manager_division} | Role: {manager_role}")
         
-        # Validate that user is actually a manager
-        if manager_role not in [2, 3]:  # 2=Director, 3=Manager
-            print(f"User is not a manager (role_num: {manager_role})")
-            return jsonify({'error': 'User is not authorized to view team subtasks'}), 403
+        # Validate that user is actually a manager or director
+        # role_num: 1=Director, 2=Division Manager, 3=Manager, 4=Staff
+        print(f"DEBUG: Checking if {manager_role} is in [1, 2, 3]")
+        if manager_role not in [1, 2, 3]:  # 1=Director, 2=Division Manager, 3=Manager
+            print(f"❌ AUTHORIZATION FAILED: User role_num={manager_role}, allowed=[1, 2, 3]")
+            print(f"❌ User details: name={manager_data.get('name')}, role_name={manager_data.get('role_name')}")
+            return jsonify({'error': f'User is not authorized to view team subtasks (role_num: {manager_role})'}), 403
         
         if not manager_division:
             print(f"Manager has no division")
