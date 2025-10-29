@@ -874,11 +874,28 @@ sortedProjects() {
   user-select: none;
 }
 
-/* Close dropdown when clicking outside */
+/* Position dropdown on the right side on mobile */
 @media (max-width: 768px) {
   .filter-menu {
-    right: auto;
-    left: 0;
+    right: 0 !important;
+    left: auto !important;
+  }
+  
+  .filter-dropdown {
+    margin-left: auto; /* Push filter button to the right */
+  }
+  
+  .header-controls {
+    flex-direction: row !important; /* Keep controls in a row */
+    justify-content: flex-end; /* Align to the right */
+  }
+  
+  .sort-controls {
+    order: 1; /* Sort comes first */
+  }
+  
+  .filter-dropdown {
+    order: 2; /* Filter comes second (furthest right) */
   }
 }
 
@@ -908,10 +925,11 @@ sortedProjects() {
   }
 
   .header-controls {
-    flex-direction: column;
+    flex-direction: row !important; /* Keep in row for mobile */
     width: 100%;
-    align-items: stretch;
-    gap: 1rem;
+    align-items: center;
+    justify-content: flex-end; /* Align to right */
+    gap: 0.75rem;
   }
   
   .completed-toggle {

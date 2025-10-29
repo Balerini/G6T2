@@ -26,8 +26,13 @@
         <div v-else class="calendar-card" :class="{ 'calendar-with-tabs': isManager }">
             <!-- Color Legend -->
             <div class="calendar-legend">
-                <span class="legend-title">Color Legend:</span>
-                <div class="legend-items">
+                <div class="legend-header">
+                    <span class="legend-title">Color Legend:</span>
+                    <button class="legend-toggle" @click="toggleLegend" v-if="isMobile">
+                        <span>{{ legendOpen ? '▼' : '▶' }}</span>
+                    </button>
+                </div>
+                <div class="legend-items" :class="{ 'legend-dropdown': isMobile, 'legend-open': legendOpen }" v-show="!isMobile || legendOpen">
                     <div class="legend-item">
                         <span class="legend-color" style="background-color: #dc2626;"></span>
                         <span class="legend-label">Overdue</span>
@@ -95,6 +100,8 @@ export default {
             allEvents: [],
             myEvents: [],
             currentUserId: null,
+            legendOpen: false,
+            isMobile: false,
             calendarOptions: {
                 plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
                 initialView: 'dayGridMonth',
@@ -141,6 +148,10 @@ export default {
         }
     },
     async mounted() {
+        // Detect mobile view
+        this.checkMobile();
+        window.addEventListener('resize', this.checkMobile);
+        
         try {
             const userStr = sessionStorage.getItem('user');
             if (!userStr) {
@@ -163,6 +174,7 @@ export default {
     },
     beforeUnmount() {
         taskEventService.off('tasks-refresh', this.handleTasksRefresh);
+        window.removeEventListener('resize', this.checkMobile);
     },
     methods: {
         getDefaultTab() {
@@ -329,6 +341,15 @@ export default {
                 'Pending': '#fb923c'
             };
             return colorMap[status] || '#9ca3af';
+        },
+        checkMobile() {
+            this.isMobile = window.innerWidth <= 768;
+            if (!this.isMobile) {
+                this.legendOpen = true; // Always open on desktop
+            }
+        },
+        toggleLegend() {
+            this.legendOpen = !this.legendOpen;
         }
     }
 };
@@ -409,9 +430,26 @@ export default {
     margin-bottom: 1.5rem;
 }
 
+.legend-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
 .legend-title {
     font-weight: 600;
     color: #374151;
+    font-size: 0.875rem;
+}
+
+.legend-toggle {
+    display: none; /* Hidden on desktop */
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    color: #6b7280;
     font-size: 0.875rem;
 }
 
@@ -419,6 +457,13 @@ export default {
     display: flex;
     gap: 1.5rem;
     flex-wrap: wrap;
+    width: 100%;
+}
+
+.legend-items.legend-dropdown {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-top: 0.75rem;
 }
 
 .legend-item {
@@ -548,13 +593,48 @@ export default {
     .calendar-legend {
         padding: 0.75rem 1rem;
         flex-direction: column;
-        align-items: flex-start;
-        gap: 0.75rem;
+        align-items: stretch;
+        gap: 0;
         margin-bottom: 1rem;
     }
 
+    .legend-header {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .legend-toggle {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 32px;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+
+    .legend-toggle:hover {
+        background-color: #e5e7eb;
+    }
+
+    .legend-toggle span {
+        font-size: 0.75rem;
+        transition: transform 0.2s;
+    }
+
     .legend-items {
-        gap: 1rem;
+        gap: 0.75rem;
+        padding-top: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease, padding-top 0.3s ease;
+    }
+
+    .legend-items.legend-dropdown.legend-open {
+        max-height: 500px;
+        padding-top: 0.75rem;
     }
 
     /* FullCalendar toolbar layout for mobile */
