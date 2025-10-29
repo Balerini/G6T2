@@ -62,4 +62,41 @@ export default {
       padding: 0 0.75rem;
     }
   }
+
+  /* Global Mobile Utilities */
+  @media (max-width: 768px) {
+    /* Touch-friendly buttons */
+    button,
+    .btn,
+    a[role="button"] {
+      min-height: 44px; /* iOS recommended touch target size */
+      min-width: 44px;
+    }
+
+    /* Prevent text selection issues on mobile */
+    input,
+    textarea,
+    select {
+      font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    /* Improved scrolling */
+    * {
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+  @media (max-width: 480px) {
+    /* Extra small screens */
+    .container {
+      padding: 0 0.5rem;
+    }
+
+    button,
+    .btn,
+    a[role="button"] {
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+    }
+  }
 </style>

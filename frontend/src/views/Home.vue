@@ -605,28 +605,115 @@ hr {
 }
 
 @media (max-width: 768px) {
+    .header-section {
+        padding: 1rem 0;
+    }
+
     .header-content {
         flex-direction: column;
         align-items: flex-start;
         gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .hero-title {
+        font-size: 1.75rem;
+    }
+
+    .division-badge {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.6rem;
     }
 
     .action-tabs {
-        flex-direction: column;
+        flex-wrap: wrap;
+        gap: 0.5rem;
         width: 100%;
     }
 
     .tab-btn {
-        width: 100%;
+        flex: 1;
+        min-width: calc(50% - 0.25rem);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .dashboard-section {
+        padding: 1rem 0;
     }
 
     .charts-grid {
         grid-template-columns: 1fr;
+        gap: 1rem;
     }
 
     .charts-grid :deep(.card) {
         max-width: 100%;
         margin: 0;
+        padding: 1.5rem;
+    }
+
+    .filter-sort-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 0.75rem;
+    }
+
+    .filter-group,
+    .sort-group {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-group label,
+    .sort-group label {
+        margin-right: 0;
+        margin-bottom: 0.25rem;
+    }
+
+    select {
+        width: 100%;
+    }
+
+    .sort-toggle,
+    .sort-mode-toggle {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .sort-toggle button,
+    .sort-mode-toggle button {
+        flex: 1;
+    }
+
+    hr {
+        margin: 1.5rem 0;
+    }
+
+    .container {
+        padding: 0 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 1.5rem;
+    }
+
+    .tab-btn {
+        min-width: 100%;
+        font-size: 0.8125rem;
+    }
+
+    .card {
+        padding: 1.25rem;
+    }
+
+    .task-card {
+        padding: 1rem;
     }
 }
 

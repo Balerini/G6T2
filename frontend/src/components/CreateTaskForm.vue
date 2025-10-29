@@ -2689,12 +2689,33 @@ export default {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .task-form {
+    gap: 1.5rem;
+  }
+
+  .form-group {
+    gap: 0.5rem;
+  }
+
+  .form-label {
+    font-size: 0.875rem;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
   .form-actions {
     flex-direction: column;
+    gap: 0.75rem;
   }
 
   .btn {
     width: 100%;
+    padding: 10px 20px;
   }
 
   .file-preview-item {
@@ -2705,6 +2726,32 @@ export default {
 
   .remove-file-btn {
     align-self: flex-end;
+  }
+
+  /* Date/Time picker containers */
+  .date-time-group {
+    flex-direction: column;
+  }
+
+  .date-time-group .form-group {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .task-form {
+    gap: 1.25rem;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  .form-label {
+    font-size: 0.8125rem;
   }
 }
 

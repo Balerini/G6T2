@@ -1035,12 +1035,92 @@ export default {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    max-height: 90vh;
+    border-radius: 8px;
+  }
+
+  .modal-header {
+    padding: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .modal-title {
+    font-size: 1.125rem;
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+
+  .project-form {
+    gap: 1.5rem;
+  }
+
+  .form-group {
+    gap: 0.5rem;
+  }
+
+  .form-label {
+    font-size: 0.875rem;
+  }
+
+  .form-input,
+  .form-textarea {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
   .form-actions {
     flex-direction: column;
+    gap: 0.75rem;
+    padding-top: 1rem;
   }
 
   .btn {
     width: 100%;
+    padding: 10px 20px;
+  }
+
+  .char-count {
+    font-size: 11px;
+  }
+
+  /* Collaborator selector responsive */
+  .collaborator-selector :deep(.dropdown) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    margin: 0;
+  }
+
+  .modal-header {
+    padding: 0.875rem;
+  }
+
+  .modal-title {
+    font-size: 1rem;
+  }
+
+  .modal-body {
+    padding: 0.875rem;
+  }
+
+  .project-form {
+    gap: 1.25rem;
+  }
+
+  .form-input,
+  .form-textarea {
+    padding: 8px 10px;
+    font-size: 14px;
   }
 }
 </style>

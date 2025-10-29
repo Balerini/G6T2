@@ -110,6 +110,12 @@ export default {
                     hour: '2-digit',
                     minute: '2-digit',
                     meridiem: false
+                },
+                eventDidMount: (info) => {
+                    // Native tooltip with full title
+                    if (info?.el && info?.event?.title) {
+                        info.el.setAttribute('title', info.event.title);
+                    }
                 }
             }
         };
@@ -550,6 +556,33 @@ export default {
     .legend-items {
         gap: 1rem;
     }
+
+    /* FullCalendar toolbar layout for mobile */
+    :deep(.fc) {
+        overflow-x: auto; /* allow horizontal scroll if needed */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    :deep(.fc .fc-toolbar) {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+
+    :deep(.fc .fc-toolbar .fc-toolbar-chunk) {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    :deep(.fc .fc-toolbar-title) {
+        font-size: 1.125rem;
+        text-align: center;
+        width: 100%;
+    }
+
+    :deep(.fc .fc-button-primary) {
+        padding: 0.5rem 0.75rem;
+    }
 }
 </style>
 
@@ -632,5 +665,43 @@ export default {
     align-items: center;
     justify-content: center;
     margin: 4px;
+}
+
+/* Mobile: improve event readability and spacing */
+@media (max-width: 768px) {
+    .fc .fc-daygrid-day-frame {
+        min-height: 140px; /* give each day more vertical room */
+    }
+
+    .fc .fc-daygrid-day-number {
+        font-size: 0.85rem;
+    }
+
+    .fc .fc-daygrid-event {
+        padding: 6px 8px;
+        font-size: 0.8rem;
+        line-height: 1.2;
+        border-radius: 6px;
+    }
+
+    /* Allow event titles to wrap to two lines on mobile */
+    /* Hide event titles on small screens to prevent crowding */
+    .fc .fc-daygrid-event .fc-event-title {
+        display: none;
+    }
+
+    /* Hide event time to free space in month view */
+    .fc .fc-daygrid-event .fc-event-time {
+        display: none;
+    }
+
+    /* TimeGrid (week/day) event sizing */
+    .fc .fc-timegrid-event {
+        padding: 6px 8px;
+        font-size: 0.75rem;
+        line-height: 1.2;
+        border-radius: 6px;
+        white-space: normal;
+    }
 }
 </style>

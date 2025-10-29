@@ -896,6 +896,83 @@ export default {
         flex-direction: column;
         align-items: flex-start;
     }
+
+    .view-project-container {
+        padding: 1rem 0.75rem;
+    }
+
+    .project-header {
+        padding: 1rem;
+    }
+
+    .project-header h1 {
+        font-size: 1.5rem;
+        word-break: break-word;
+    }
+
+    .project-meta {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .project-desc {
+        font-size: 0.95rem;
+        word-break: break-word;
+    }
+
+    .collaborators-section,
+    .timeline-summary,
+    .all-tasks-section {
+        padding: 1rem;
+    }
+
+    .user-badge {
+        padding: 0.75rem;
+    }
+
+    .tasks-list {
+        gap: 0.75rem;
+    }
+
+    .task-card {
+        padding: 1rem;
+    }
+
+    .task-name {
+        font-size: 0.95rem;
+        word-break: break-word;
+    }
+
+    .task-meta {
+        gap: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    /* Export dropdown becomes full-width on mobile */
+    .export-dropdown {
+        width: 100%;
+    }
+
+    .export-btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    .dropdown-menu {
+        width: 100%;
+        left: 0;
+        right: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .project-header h1 {
+        font-size: 1.375rem;
+    }
+
+    .summary-value {
+        font-size: 1.5rem;
+    }
 }
 
 .export-dropdown {

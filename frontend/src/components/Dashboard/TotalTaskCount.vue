@@ -116,4 +116,40 @@ export default {
     font-size: 14px;
     margin: 10px;
 }
+
+@media (max-width: 768px) {
+    .section-title {
+        font-size: 1.125rem;
+        margin-bottom: 1rem;
+    }
+
+    .cards-container {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .card {
+        padding: 1.5rem;
+        margin: 0;
+        min-width: auto;
+    }
+
+    .stat-number {
+        font-size: 48px;
+    }
+
+    .stat-label {
+        font-size: 0.8125rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .card {
+        padding: 1.25rem;
+    }
+
+    .stat-number {
+        font-size: 40px;
+    }
+}
 </style>

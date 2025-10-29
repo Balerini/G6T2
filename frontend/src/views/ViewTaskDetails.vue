@@ -99,10 +99,17 @@
                   {{ formatStatus(task.task_status) }}
               </div>
                 <button @click="openEditModal" class="edit-task-btn" v-if="task">
-                  ✏️ Edit Task
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                  </svg>
+                  <span class="btn-label">Edit Task</span>
                 </button>
                 <button @click="openSubtaskModal" class="add-subtask-btn" data-testid='add-subtask'>
-                  + Add Subtask
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                  <span class="btn-label">Add Subtask</span>
                 </button>
               <!-- Delete Task Button - Only show for task owner -->
               <button 
@@ -302,7 +309,11 @@
 
                 <!-- Edit Button -->
                 <button @click.stop="openEditSubtaskModal(subtask)" class="edit-subtask-btn">
-                  ✏️ Edit Subtask
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                  </svg>
+                  <span class="btn-label">Edit Subtask</span>
                 </button>
 
                 <!-- Delete Button -->
@@ -318,6 +329,7 @@
                         <line x1="10" y1="11" x2="10" y2="17"></line>
                         <line x1="14" y1="11" x2="14" y2="17"></line>
                     </svg>
+                    <span class="btn-label">Delete</span>
                 </button>
 
                 <!-- View Details -->
@@ -509,7 +521,7 @@
                         <polyline points="3,6 5,6 21,6"></polyline>
                         <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
                     </svg>
-                    {{ isDeletingTask ? 'Deleting...' : 'Delete Task' }}
+                    <span class="btn-label">{{ isDeletingTask ? 'Deleting...' : 'Delete Task' }}</span>
                 </button>
             </div>
         </div>
@@ -2183,6 +2195,407 @@ export default {
   .attachments-grid {
     grid-template-columns: 1fr;
   }
+
+  /* Stack header actions and make buttons full-width on small screens */
+  /* Hide button text labels on mobile for compact UI */
+  .btn-label {
+    display: none;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .header-actions .status-badge-large {
+    margin-bottom: 8px;
+  }
+
+  .edit-task-btn,
+  .add-subtask-btn,
+  .delete-task-btn {
+    width: auto;            /* icon-only on mobile */
+    min-width: 36px;
+    justify-content: center;
+    padding: 8px 10px;
+  }
+
+  /* Subtask accordion paddings for mobile */
+  .accordion-header {
+    padding: 12px;
+    padding-left: 16px; /* extra left padding for vertical status bar */
+    min-height: auto;
+    display: flex !important;
+    flex-direction: row !important; /* Use row to allow horizontal flow */
+    flex-wrap: wrap !important; /* Allow wrapping */
+    gap: 8px;
+    position: relative;
+    overflow: visible !important;
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  /* Top row: All details take full width - forces wrap to new line */
+  .accordion-header-content {
+    width: 100% !important;
+    flex: 1 1 100% !important; /* Take full width, force wrap */
+    min-width: 100% !important;
+    order: 1;
+    display: flex !important;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* Status indicator - vertical bar on left side */
+  .subtask-status-indicator {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 4px !important;
+    height: 100% !important;
+    bottom: 0 !important;
+    border-radius: 2px 0 0 2px !important;
+    z-index: 1;
+    display: block !important;
+    transform: none !important;
+  }
+
+  /* Content takes full width - Top row */
+  .accordion-header-content {
+    width: 100% !important;
+    min-width: 0;
+    flex: 0 0 auto !important; /* Don't grow, just take space needed */
+    max-width: 100% !important;
+    order: 1 !important;
+    position: relative;
+    z-index: 2;
+    display: flex !important; /* Keep flex to show child elements */
+    flex-direction: column;
+    gap: 6px;
+    overflow: visible !important; /* Prevent hiding content */
+    margin-right: 0 !important;
+  }
+
+  /* Bottom row: Status + buttons in one horizontal line */
+  /* All items with order: 2 will appear after content */
+  .subtask-status-badge,
+  .edit-subtask-btn,
+  .delete-subtask-btn,
+  .accordion-toggle {
+    order: 2 !important;
+    flex: 0 0 auto !important;
+    display: flex !important;
+    align-items: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 10 !important;
+  }
+
+  /* Status badge - first item */
+  .subtask-status-badge {
+    width: auto !important;
+    min-width: 60px !important;
+    padding: 6px 10px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+    margin-right: 8px !important;
+    background: #e5e7eb !important;
+    border-radius: 6px !important;
+    justify-content: center !important;
+  }
+
+  /* Buttons - after status badge */
+  .edit-subtask-btn,
+  .delete-subtask-btn,
+  .accordion-toggle {
+    width: auto !important;
+    min-width: 44px !important;
+    padding: 6px 10px !important;
+    margin: 0 !important;
+    margin-left: 6px !important;
+    justify-content: center !important;
+    font-size: 0.75rem !important;
+    min-height: 32px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+  }
+
+  /* Create horizontal flow - make the bottom row items display in a row */
+  /* Since parent is flex column, items with same order will stack vertically */
+  /* We need to make them appear in a horizontal row */
+  /* Solution: use flex-wrap and make items flow */
+  .accordion-header {
+    flex-wrap: wrap;
+  }
+
+  /* Force items with order 2 to appear in a horizontal row */
+  /* Use a wrapper approach - make them display inline */
+  .accordion-header > .subtask-status-badge,
+  .accordion-header > .edit-subtask-btn,
+  .accordion-header > .delete-subtask-btn,
+  .accordion-header > .accordion-toggle {
+    /* They'll appear in order after content wraps */
+    display: flex !important;
+    flex-shrink: 0;
+  }
+
+  /* Ensure buttons have proper styling */
+  .edit-subtask-btn {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    color: #374151;
+  }
+
+  .delete-subtask-btn {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    color: #991b1b;
+  }
+
+  .accordion-toggle {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    color: #374151;
+    cursor: pointer;
+  }
+
+  /* Ensure child elements are visible */
+  .accordion-header-content .subtask-name {
+    width: 100% !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    margin-bottom: 4px;
+  }
+
+  .accordion-header-content .subtask-preview-info {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    row-gap: 4px;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .subtask-preview-info {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    row-gap: 4px;
+  }
+
+  .preview-item {
+    font-size: 0.75rem;
+    padding: 2px 0;
+  }
+
+
+  /* Make buttons icon-only on very small screens */
+  .edit-subtask-btn svg,
+  .delete-subtask-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Ensure accordion-toggle (View Details) is styled like a button */
+  .accordion-toggle {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #374151;
+    font-weight: 500;
+    min-height: 36px;
+  }
+
+  .accordion-toggle:hover {
+    background: #e5e7eb;
+  }
+
+  .accordion-toggle .toggle-icon {
+    font-size: 0.875rem;
+  }
+
+  .accordion-body {
+    padding: 12px 12px 12px 12px !important; /* Reduced from 64px left padding */
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  .subtask-details-grid {
+    grid-template-columns: 1fr !important; /* Single column on mobile */
+    padding: 12px !important; /* Reduced padding */
+    gap: 12px !important; /* Tighter gaps */
+    overflow-x: hidden;
+    overflow-y: visible;
+    display: grid !important;
+    width: 100%;
+    margin: 0;
+  }
+
+  /* Ensure all detail sections are visible */
+  .detail-section {
+    width: 100% !important;
+    min-width: 0;
+    display: flex !important;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0;
+    margin: 0;
+  }
+
+  .detail-label {
+    font-size: 0.75rem !important;
+    margin-bottom: 4px;
+  }
+
+  .detail-value {
+    font-size: 0.875rem !important;
+    word-break: break-word;
+    line-height: 1.5;
+    width: 100%;
+  }
+
+  /* Collaborators list on mobile */
+  .collaborators-list {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .collaborator-item {
+    padding: 4px 8px;
+    font-size: 0.8125rem;
+  }
+
+  /* Attachments on mobile */
+  .attachments-list {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .attachment-link {
+    padding: 8px 10px;
+    font-size: 0.8125rem;
+  }
+
+  /* Subtasks preview row improvements */
+  .subtask-preview-info {
+    gap: 10px;
+    row-gap: 6px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .preview-item {
+    font-size: 13px;
+  }
+
+  .subtask-status-badge {
+    align-self: flex-start;
+    margin-top: 8px;
+  }
+
+  .accordion-header-content {
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .subtask-name {
+    font-size: 15px;
+    white-space: normal; /* allow wrap */
+    word-break: break-word;
+  }
+
+  /* Remove duplicate - buttons already styled above with order: 3 */
+
+  /* Make the status indicator a top border on mobile */
+  .subtask-status-indicator {
+    width: 100%;
+    height: 4px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    border-radius: 0;
+  }
+
+  .accordion-header {
+    position: relative;
+  }
+
+  /* Hide "View Details" text on mobile, just show icon */
+  .accordion-toggle .view-details-text {
+    display: none;
+  }
+
+  .accordion-toggle {
+    font-size: 0.875rem;
+    min-width: 44px; /* touch target size */
+  }
+
+  /* Collaborators list wraps nicely */
+  .collaborators-list {
+    gap: 8px;
+  }
+
+  /* Ensure subtasks section is visible */
+  .subtasks-section-card,
+  .subtasks-accordion,
+  .accordion-item {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Ensure accordion items are properly laid out */
+  .accordion-item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra small screens - even more compact */
+  .accordion-header {
+    padding: 10px;
+    padding-top: 14px;
+    gap: 6px;
+  }
+
+  .subtask-status-badge {
+    padding: 3px 6px;
+    font-size: 0.6875rem;
+  }
+
+  .subtask-name {
+    font-size: 0.875rem;
+  }
+
+  .preview-item {
+    font-size: 0.6875rem;
+  }
+
+  .edit-subtask-btn,
+  .delete-subtask-btn,
+  .accordion-toggle {
+    padding: 5px 3px;
+    font-size: 0.6875rem;
+    min-width: 50px;
+  }
 }
 
 /* Header Actions */
@@ -2202,6 +2615,9 @@ export default {
   font-size: 14px;
   font-weight: 500;
   transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .edit-task-btn:hover {
@@ -2218,6 +2634,9 @@ export default {
   font-size: 14px;
   font-weight: 500;
   transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .add-subtask-btn:hover {
@@ -2372,6 +2791,19 @@ export default {
   height: 50px;
   border-radius: 2px;
   flex-shrink: 0;
+}
+
+/* Override for mobile - keep it as vertical bar on left side */
+@media (max-width: 768px) {
+  .subtask-status-indicator {
+    width: 4px !important;
+    height: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    border-radius: 2px 0 0 2px !important;
+  }
 }
 
 .subtask-status-indicator.status-unassigned {
@@ -2721,6 +3153,7 @@ export default {
   color: #111827;
   margin: 0;
   line-height: 1.5;
+    word-break: break-word;
 }
 
 /* Fix View Details alignment */

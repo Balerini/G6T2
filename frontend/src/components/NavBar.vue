@@ -5,11 +5,21 @@
         Task Quest
       </router-link>
 
-      <div class="navbar-right">
+      <!-- Mobile Hamburger Menu Button -->
+      <button class="mobile-menu-toggle" @click="toggleMobileMenu" aria-label="Toggle menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path v-if="!showMobileMenu" d="M3 12h18M3 6h18M3 18h18" />
+          <path v-else d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+
+      <div class="navbar-right" :class="{ 'mobile-open': showMobileMenu }">
         <router-link :to="dashboardLink" class="navbar-link" 
-          exact-active-class="router-link-active">Dashboard</router-link>
-        <router-link to="/projects" class="navbar-link" data-testid="nav-projects">Projects</router-link>
-        <a href="/my-schedule" class="navbar-link" @click.prevent="navigateToSchedule">My Schedule</a>
+          exact-active-class="router-link-active"
+          @click="closeMobileMenu">Dashboard</router-link>
+        <router-link to="/projects" class="navbar-link" data-testid="nav-projects"
+          @click="closeMobileMenu">Projects</router-link>
+        <a href="/my-schedule" class="navbar-link" @click.prevent="handleScheduleClick">My Schedule</a>
 
         <!-- Notification Bell -->
         <div class="notification-wrapper" @click="toggleNotifications">
@@ -20,6 +30,7 @@
             </svg>
             <span v-if="unreadCount > 0" class="notification-badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
           </div>
+          <span class="mobile-label">Notifications</span>
         </div>
 
         <!-- User Profile Icon -->
@@ -27,9 +38,10 @@
           <div class="profile-avatar">
             {{ userInitials }}
           </div>
+          <span class="mobile-label">Profile</span>
         </div>
 
-        <button @click="logout" class="logout-btn">Logout</button>
+        <button @click="handleLogout" class="logout-btn">Logout</button>
       </div>
 
       <!-- Profile Dropdown -->
@@ -119,6 +131,7 @@ export default {
     return {
       showNotifications: false,
       showProfileMenu: false,
+      showMobileMenu: false,
       notifications: [],
       loadingNotifications: false
     }
@@ -160,10 +173,33 @@ export default {
   methods: {
     navigateToSchedule() {
       console.log('Navigating to My Schedule');
+      this.closeMobileMenu();
       this.$router.push('/my-schedule').catch(err => {
         console.error('Router navigation to schedule failed:', err);
         window.location.href = '/my-schedule';
       });
+    },
+
+    handleScheduleClick() {
+      this.closeMobileMenu();
+      this.navigateToSchedule();
+    },
+
+    handleLogout() {
+      this.closeMobileMenu();
+      this.logout();
+    },
+
+    toggleMobileMenu() {
+      this.showMobileMenu = !this.showMobileMenu;
+      if (this.showMobileMenu) {
+        this.showProfileMenu = false;
+        this.showNotifications = false;
+      }
+    },
+
+    closeMobileMenu() {
+      this.showMobileMenu = false;
     },
 
     logout() {
@@ -224,6 +260,7 @@ export default {
     toggleNotifications() {
       this.showNotifications = !this.showNotifications
       this.showProfileMenu = false // Close profile menu
+      this.closeMobileMenu() // Close mobile menu
 
       // Load notifications when opening dropdown
       if (this.showNotifications) {
@@ -234,6 +271,7 @@ export default {
     toggleProfileMenu() {
       this.showProfileMenu = !this.showProfileMenu
       this.showNotifications = false // Close notifications
+      this.closeMobileMenu() // Close mobile menu
     },
 
     async markAllAsRead() {
@@ -431,6 +469,10 @@ export default {
 .notification-wrapper {
   position: relative;
   cursor: pointer;
+}
+
+.mobile-label {
+  display: none; /* Hidden on desktop */
 }
 
 .notification-bell {
@@ -768,21 +810,147 @@ export default {
   color: #4f46e5;
 }
 
+/* Mobile Menu Toggle */
+.mobile-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: #111827;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: background 0.2s;
+  z-index: 1001;
+}
+
+.mobile-menu-toggle:hover {
+  background: #f3f4f6;
+}
+
+.mobile-menu-toggle svg {
+  display: block;
+}
+
 @media (max-width: 768px) {
-  .navbar-links {
+  .mobile-menu-toggle {
+    display: block;
+  }
+
+  .navbar-container {
+    position: relative;
+  }
+
+  .navbar-right {
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1rem;
+    gap: 0.5rem;
+    transform: translateY(-100%);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 999;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+
+  .navbar-right.mobile-open {
+    transform: translateY(0);
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .navbar-link {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-size: 0.95rem; /* unify font size */
+  }
+
+  .navbar-link:hover {
+    background: #f3f4f6;
+  }
+
+  .notification-wrapper,
+  .profile-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.95rem; /* unify font size */
+  }
+
+  .notification-wrapper:hover,
+  .profile-wrapper:hover {
+    background: #f3f4f6;
+  }
+
+  /* Hide icons in mobile menu, show labels */
+  .notification-bell {
     display: none;
   }
 
+  .profile-avatar {
+    display: none;
+  }
+
+  .mobile-label {
+    display: block;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.95rem; /* unify font size */
+  }
+
+  /* Show notification badge next to text on mobile */
+  .notification-wrapper .notification-badge {
+    position: static;
+    display: inline-flex;
+    margin-left: 0.5rem;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .logout-btn {
+    width: 100%;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+    font-size: 0.95rem; /* unify font size */
+  }
+
   .notification-dropdown {
-    right: 20px;
-    width: calc(100vw - 40px);
-    max-width: 380px;
+    right: 1rem;
+    left: 1rem;
+    width: auto;
+    max-width: none;
   }
 
   .profile-dropdown {
-    right: 20px;
-    width: calc(100vw - 40px);
-    max-width: 280px;
+    right: 1rem;
+    left: 1rem;
+    width: auto;
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-logo {
+    font-size: 1rem;
+  }
+
+  .notification-dropdown {
+    max-height: 70vh;
   }
 }
 

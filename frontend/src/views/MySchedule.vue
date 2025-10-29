@@ -131,5 +131,15 @@ export default {
     width: 100%;
     justify-content: center;
   }
+
+  .calendar-section {
+    padding: 1rem 0 2rem 0;
+  }
+
+  /* Enable horizontal scroll if calendar overflows */
+  :deep(.fc) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 </style>

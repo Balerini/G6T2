@@ -333,8 +333,51 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .task-item {
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .task-title {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
   .task-meta {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .meta-group {
+    gap: 0.25rem;
+  }
+
+  .view-btn {
+    width: 100%;
+    padding: 0.625rem 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .assignee-list {
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .task-item {
+    padding: 0.875rem;
+  }
+
+  .task-title {
+    font-size: 0.9375rem;
+  }
+
+  .meta-label {
+    font-size: 0.6875rem;
+  }
+
+  .meta-value {
+    font-size: 0.8125rem;
   }
 }
 /* jh changes */
