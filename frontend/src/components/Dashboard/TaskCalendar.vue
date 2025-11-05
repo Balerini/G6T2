@@ -100,6 +100,7 @@ export default {
             allEvents: [],
             myEvents: [],
             currentUserId: null,
+            currentUserRole: null,
             legendOpen: false,
             isMobile: false,
             calendarOptions: {
@@ -162,6 +163,8 @@ export default {
 
             const user = JSON.parse(userStr);
             this.currentUserId = user.id;
+            const parsedRole = typeof user.role_num === 'string' ? parseInt(user.role_num, 10) : user.role_num;
+            this.currentUserRole = Number.isNaN(parsedRole) ? null : parsedRole;
             console.log('TaskCalendar - User ID:', this.currentUserId);
 
             taskEventService.on('tasks-refresh', this.handleTasksRefresh);
@@ -236,6 +239,9 @@ export default {
             const allEvents = [];
             const myEvents = [];
             const allCategories = this.data.pending_tasks_by_age;
+            const currentUserId = this.currentUserId;
+            const isManager = this.isManager;
+            const isStaff = !isManager && this.currentUserRole === 4;
 
             // Handle case where there are no tasks (new user)
             if (!allCategories || Object.keys(allCategories).length === 0) {
@@ -274,10 +280,27 @@ export default {
                     const projectPrefix = task.proj_name ? `[${task.proj_name}] ` : '';
                     const taskTitle = `${projectPrefix}${task.task_name}`;
 
+                    const assignedList = Array.isArray(task.assigned_to) ? task.assigned_to : [];
+                    const rawDate = task.end_date || task.start_date;
+                    let calendarDate = rawDate;
+
+                    if (typeof calendarDate === 'string') {
+                        const parts = calendarDate.split('T');
+                        if (parts.length > 1 && parts[0]) {
+                            calendarDate = parts[0];
+                        }
+                    } else if (calendarDate instanceof Date && !Number.isNaN(calendarDate.getTime())) {
+                        calendarDate = calendarDate.toISOString().split('T')[0];
+                    }
+
+                    if (!calendarDate) {
+                        return;
+                    }
+
                     const event = {
                         id: task.task_id,
                         title: taskTitle,
-                        start: task.end_date,
+                        start: calendarDate,
                         allDay: true,
                         backgroundColor: color,
                         borderColor: color,
@@ -288,14 +311,33 @@ export default {
                             daysUntilDue: task.days_until_due,
                             proj_id: task.proj_id,
                             task_id: task.task_id,
-                            assigned_to_id: task.assigned_to_id
+                            assigned_to_id: task.assigned_to_id,
+                            assignedToList: assignedList
                         }
                     };
 
                     allEvents.push(event);
 
-                    // Check if task is assigned to current user
-                    if (task.assigned_to_id === this.currentUserId) {
+                    let includeInMyEvents = task.assigned_to_id === currentUserId;
+
+                    if (!includeInMyEvents && assignedList.length) {
+                        includeInMyEvents = assignedList.some(assignee => {
+                            if (!assignee) {
+                                return false;
+                            }
+                            if (typeof assignee === 'string') {
+                                return assignee === currentUserId;
+                            }
+                            const assigneeId = assignee.id || assignee.user_id || assignee.userId;
+                            return assigneeId === currentUserId;
+                        });
+                    }
+
+                    if (!includeInMyEvents && isStaff) {
+                        includeInMyEvents = true;
+                    }
+
+                    if (includeInMyEvents) {
                         myEvents.push(event);
                     }
                 });
