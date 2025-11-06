@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
 
 
 @pytest.fixture(scope="module")
@@ -43,14 +44,15 @@ def test_project_excel_export(driver):
     )
     projects_link.click()
 
-    # view details for proj yuuuuu
-    proj_list = WebDriverWait(driver, 5).until(
+    # view details for proj testing project
+    proj_list = WebDriverWait(driver, 20).until(
         EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "[data-testid='proj-list']"))
     )
-    target_name = "yuuuu"
+    target_name = "TESTING PROJECT"
     for proj_card in proj_list:
         name_element = proj_card.find_element(By.CSS_SELECTOR, ".project-title")
         if target_name.lower() in name_element.text.lower():
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", name_element)
             time.sleep(1)
             proj_card.find_element(By.CSS_SELECTOR, "[data-testid='proj-details']").click()
             break
@@ -58,6 +60,7 @@ def test_project_excel_export(driver):
         raise Exception(f"Collaborator '{target_name}' not found in dropdown options.")
 
     # export task dropdown
+    driver.find_element("tag name", "body").send_keys(Keys.CONTROL + Keys.HOME)
     export_task_button = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='export-task-button']"))
     )
@@ -74,8 +77,7 @@ def test_project_excel_export(driver):
     downloaded_files = os.listdir("downloads")
 
     # validate download folder
-    assert any(f.endswith("Project_yuuuu_Tasks_Report.pdf") for f in downloaded_files), "PDF export file not found"
-
+    assert any(f.endswith("Project_TESTING PROJECT_Tasks_Report.pdf") for f in downloaded_files), "PDF export file not found"
 
     # export task dropdown
     export_task_button = WebDriverWait(driver, 10).until(
@@ -94,7 +96,7 @@ def test_project_excel_export(driver):
     downloaded_files = os.listdir("downloads")
 
     # validate download folder
-    assert any(f.endswith("Project_yuuuu_Tasks_Report.xlsx") for f in downloaded_files), "Excel export file not found"
+    assert any(f.endswith("Project_TESTING_PROJECT_Tasks_Report.xlsx") for f in downloaded_files), "Excel export file not found"
 
 
 
@@ -120,7 +122,7 @@ def test_project_excel_export(driver):
     downloaded_files = os.listdir("downloads")
 
     # validate download folder
-    assert any(f.endswith("yuuuu_Team_Calendar.pdf") for f in downloaded_files), "PDF export file not found"
+    assert any(f.endswith("TESTING-PROJECT_Team_Calendar.pdf") for f in downloaded_files), "PDF export file not found"
 
 
     # export calendar dropdown
@@ -140,4 +142,4 @@ def test_project_excel_export(driver):
     downloaded_files = os.listdir("downloads")
 
     # validate download folder
-    assert any(f.endswith("yuuuu_Team_Calendar.xlsx") for f in downloaded_files), "Excel export file not found"
+    assert any(f.endswith("TESTING-PROJECT_Team_Calendar.xlsx") for f in downloaded_files), "Excel export file not found"

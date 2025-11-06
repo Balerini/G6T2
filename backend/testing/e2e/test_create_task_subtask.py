@@ -55,7 +55,7 @@ def test_project_excel_export(driver):
    
     # start & end date
     driver.find_element(By.CSS_SELECTOR, "[data-testid='task-start']").send_keys("28/11/2025")
-    driver.find_element(By.CSS_SELECTOR, "[data-testid='task-end']").send_keys("31/11/2025")
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='task-end']").send_keys("30/11/2025")
 
     # priority
     task_prio_ddl = WebDriverWait(driver, 5).until(
@@ -139,11 +139,12 @@ def test_project_excel_export(driver):
 
     # fields
     # name
+    time.sleep(5) 
     driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-name']").send_keys("Selenium Sub Testing")
    
     # start & end date
-    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-start']").send_keys("29/11/2025")
-    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-end']").send_keys("30/11/2025")
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-start']").send_keys("29")
+    driver.find_element(By.CSS_SELECTOR, "[data-testid='subtask-end']").send_keys("30")
 
     # priority
     subtask_prio_ddl = WebDriverWait(driver, 5).until(
