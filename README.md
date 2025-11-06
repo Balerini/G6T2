@@ -77,6 +77,7 @@ py app.py
 
 ```bash
 # From backend directory
+# Please run all unittests separately to avoid pytest/unittest conflicts
 python -m unittest discover testing/unit -v
 ```
 
