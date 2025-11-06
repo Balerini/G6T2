@@ -43,7 +43,7 @@ py app.py
 - **Framework:** Vue.js  
 - **Language:** JavaScript  
 - **Styling:** CSS3 with **responsive design** for cross-device compatibility  
-
+- **Files Needed:** .env
 ---
 
 ### 🧠 Backend
@@ -54,7 +54,12 @@ py app.py
   - RESTful API endpoints  
   - Authentication and authorization  
   - Data validation  
-  - Firebase integration  
+  - Firebase integration
+ 
+-** Files Needed:** 
+  - .env
+  - requirements.txt
+  - service-account.json
 
 ---
 
