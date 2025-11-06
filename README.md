@@ -33,7 +33,7 @@ py app.py
 
 ### 3️⃣ The application will be available at:
 👉 http://localhost:8080
-
+👉 Backend: http://localhost:8000
 ---
 
 ## ⚙️ Tech Stack
@@ -56,7 +56,7 @@ py app.py
   - Data validation  
   - Firebase integration
  
--** Files Needed:** 
+- **Files Needed:** 
   - .env
   - requirements.txt
   - service-account.json
@@ -69,4 +69,50 @@ py app.py
 - **Services Used:**
   - **Firestore** – NoSQL cloud database  
   - **Firebase Authentication** – Secure user sign-in  
-  - **Real-time Data Synchronization** – Instant updates across clients  
+  - **Real-time Data Synchronization** – Instant updates across clients
+ 
+  
+### 💻 Testing 
+### Run All Unit Tests
+
+```bash
+# From backend directory
+python -m unittest discover testing/unit -v
+```
+
+### Run Unit Tests with Coverage
+
+```bash
+# Run all unit tests with coverage report
+python run_unit_tests_with_coverage.py all
+
+# Run specific feature with coverage
+python run_unit_tests_with_coverage.py password
+python run_unit_tests_with_coverage.py email
+python run_unit_tests_with_coverage.py notification
+
+# Run with coverage threshold (e.g., 80%)
+python run_unit_tests_with_coverage.py threshold 80
+```
+
+### View Coverage Report
+
+After running with coverage:
+```bash
+# View terminal report
+coverage report
+
+# Generate HTML report (opens in browser)
+coverage html
+# Then open: htmlcov/index.html
+```
+
+### Run All Integration Tests
+
+```bash
+# From backend directory
+python -m pytest testing/integration/ -v
+
+# Or using unittest
+python -m unittest discover testing/integration -v
+```
