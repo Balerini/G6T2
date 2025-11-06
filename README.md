@@ -116,3 +116,17 @@ python -m pytest testing/integration/ -v
 # Or using unittest
 python -m unittest discover testing/integration -v
 ```
+
+### Run Selenium Tests
+
+```bash
+# Setting up
+Add pytest.exe from your installed scripts folder into path of your system environment variables
+
+# From backend directory
+python -m pytest testing/e2e/ -v
+
+# Notes
+Test may fail when the laptop hardware is too quick - Selenium tries to execute action before page renders. 
+```
+
