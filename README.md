@@ -121,13 +121,14 @@ python -m unittest discover testing/integration -v
 ### Run Selenium Tests
 
 ```bash
-# Setting up
+# Setting up for Windows
 Add pytest.exe from your installed scripts folder into path of your system environment variables
+Install Chromium driver into this location "C:/WebDrivers/chromedriver.exe"
 
 # From backend directory
 python -m pytest testing/e2e/ -v
 
 # Notes
-Test may fail when the laptop hardware is too quick - Selenium tries to execute action before page renders. 
+Test may fail when the device hardware is too quick - Selenium tries to execute action before page renders. 
 ```
 
